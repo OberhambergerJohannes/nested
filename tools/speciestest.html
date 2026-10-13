@@ -1,0 +1,161 @@
+<!doctype html><html><body><p>Simulates nesting for every species. Open in a browser and check the console, or run tools/speciestest.py.</p>
+<script src="../js/core/util.js"></script>
+<script src="../js/core/const.js"></script>
+<script src="../js/data/items.js"></script>
+<script src="../js/data/flora.js"></script>
+<script src="../js/data/species.js"></script>
+<script src="../js/data/npcs.js"></script>
+<script src="../js/data/quests.js"></script>
+<script src="../js/sim/rules.js"></script>
+<script src="../js/sim/mapgen.js"></script>
+<script src="../js/sim/world.js"></script>
+<script>
+const SEED = +(location.hash.slice(1) || 1);
+Math.random = mulberry32(SEED);
+const R = { results: {}, log: [], seed: SEED };
+const w = World.create('All', 4242);
+const msgs = [];
+w.out = { send(){}, broadcast(){} };
+const p = w.join('L', {token:'t', name:'Tester', look:{}});
+for (const k of MAT_ORDER) w.mats[k] = 500;
+const tp = (tx, ty) => { p.x = tx*TS+8; p.y = ty*TS+14; };
+const objs = () => Array.from(w.objs.values());
+function placeItem(item, tx, ty) {
+  p.inv[0] = {k:item, n:1}; tp(tx, ty+1); p.x = tx*TS+8; p.y = (ty+1)*TS+4;
+  w.handle('L', {t:'act', a:'place', slot:0, x:tx, y:ty});
+  return objAt(w, tx, ty) || objsOnTile(w, tx, ty)[0];
+}
+function freeSpot(rect, test) {
+  for (let k = 0; k < 4000; k++) {
+    const x = rect[0] + Math.floor(Math.random()*(rect[2]-rect[0]+1)), y = rect[1] + Math.floor(Math.random()*(rect[3]-rect[1]+1));
+    if (!inBounds(x,y) || w.occ[tIdx(x,y)] || objsOnTile(w,x,y).length) continue;
+    if (!test || test(x,y,w.tiles[tIdx(x,y)])) return [x,y];
+  }
+  return null;
+}
+function findHost(sp) {
+  const cands = [];
+  for (const o of objs()) if (sitesOf(w, o).includes(sp.site)) cands.push(o);
+  for (const o of cands) { const c = hostCenter(o); if (evalNest(w, sp, c[0], c[1], 0).ok && nestsOfHost(w, o.id).length < hostSlots(o)) return o; }
+  return null;
+}
+function prepare(sp) {
+  // create suitable hosts for structure sites
+  const S = { box_small:'box_small', box_medium:'box_medium', box_large:'box_large', box_open:'box_open', owlbox:'owlbox', platform:'platform', bank:'bank', brushpile:'brushpile' };
+  // flowery spots for insect-hunters
+  const flowersAround = (cx, cy, n) => { let k = 0; for (let i = 0; i < 400 && k < n; i++) { const xy = freeSpot([cx-4, cy-4, cx+4, cy+4], (x,y,t)=>t===T.GRASS); if (!xy) break; const q = placeItem('seed_wildflower', xy[0], xy[1]); if (q) { q.st = 2; k++; } } };
+  if (sp.id === 'shrike') {
+    const sh = objs().find(o=>o.type==='shrub'&&o.st===2&&FLORA[o.kind].thorny&&o.y>=60);
+    if (sh) flowersAround(sh.x, sh.y, 7);
+  }
+  if (sp.id === 'beeeater') flowersAround(70, 62, 10);
+  if (sp.id === 'longeared') {
+    // a small clump of pines right by the hay meadow
+    let k = 0;
+    for (const [dx, dy] of [[0, 0], [2, 0], [1, 2], [3, 2], [0, 3], [2, 4]]) {
+      if (k >= 3) break;
+      const x = 6 + dx, y = 37 + dy;
+      if (w.tiles[tIdx(x, y)] !== T.GRASS || w.occ[tIdx(x, y)] || objsOnTile(w, x, y).length) continue;
+      const q = placeItem('sap_pine', x, y); if (q) { q.st = 2; k++; }
+    }
+  }
+  if (sp.id === 'songthrush') {
+    for (const sh of objs().filter(o=>o.type==='shrub'&&o.st===2&&o.x>34&&o.x<70&&o.y>18&&o.y<40)) {
+      const xy = freeSpot([sh.x-3, sh.y-3, sh.x+3, sh.y+3], (x,y,t)=>t===T.GRASS);
+      if (xy && placeItem('anvil', xy[0], xy[1]) && findHost(sp)) break;
+    }
+  }
+  if (sp.id === 'goldfinch') { const ap = objs().find(o=>o.type==='tree'&&o.kind==='apple'&&o.st===2); for (let i=0;i<4;i++){ const xy=freeSpot([ap.x-4,ap.y-4,ap.x+4,ap.y+4],(x,y,t)=>t===T.GRASS); const q=placeItem('seed_thistle', xy[0], xy[1]); if(q){q.st=2;} } }
+  if (sp.id === 'reedwarbler' || sp.id === 'penduline') {
+    // a compact reed bed: the shallow tile with the most shallow neighbours, filled within 2 tiles
+    let best = null, bn = -1;
+    for (let y = 51; y <= 65; y++) for (let x = 15; x <= 33; x++) {
+      if (w.tiles[tIdx(x, y)] !== T.SHALLOW) continue;
+      let n = 0;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (w.tiles[tIdx(x + dx, y + dy)] === T.SHALLOW && !w.occ[tIdx(x + dx, y + dy)]) n++;
+      if (n > bn) { bn = n; best = [x, y]; }
+    }
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const x = best[0] + dx, y = best[1] + dy;
+      if (w.tiles[tIdx(x, y)] !== T.SHALLOW || w.occ[tIdx(x, y)]) continue;
+      const q = placeItem('rhizome_reed', x, y); if (q) q.st = 2;
+    }
+  }
+  if (S[sp.site]) {
+    const zoneFor = { box_small:[45,36,58,47], box_medium: sp.id === 'flycatcher' ? [10,2,60,14] : [45,36,58,47], box_large:[10,2,60,14], box_open:[34,26,56,37], owlbox: sp.id === 'tawny' ? [10,2,60,14] : [3,39,27,48], platform:[85,26,93,60], brushpile:[10,2,60,14] };
+    let xy = null;
+    const habOk = (x, y) => evalNest(w, sp, x, y, 0).checks.filter((c) => !c.label.startsWith('Nesting season')).every((c) => c.ok);
+    if (sp.site === 'bank' && sp.id === 'beeeater') xy = freeSpot([62,56,78,67], (x,y,t)=>t===T.GRASS && habOk(x, y));
+    else if (sp.site === 'bank') xy = freeSpot([60,44,80,56], (x,y,t)=>TINFO[t].land && DIR_VEC.some(([dx,dy])=>isWaterT(tileAt(w,x+dx,y+dy))) && habOk(x, y));
+    else xy = freeSpot(zoneFor[sp.site], (x,y,t)=>(t===T.GRASS||t===T.FOREST||t===T.MARSH) && habOk(x, y));
+    if (sp.site === 'brushpile') {
+      // wren: two brush piles near a log
+      let a = null, b = null;
+      for (const lg of objs().filter(o=>o.type==='log')) {
+        a = freeSpot([lg.x-5,lg.y-4,lg.x+5,lg.y+4],(x,y,t)=>t===T.FOREST||t===T.GRASS);
+        if (!a) continue;
+        placeItem('brushpile', a[0], a[1]);
+        b = freeSpot([a[0]-6,a[1]-6,a[0]+6,a[1]+6],(x,y,t)=>(t===T.FOREST||t===T.GRASS) && evalNest(w, sp, x, y, 0).checks.filter(c=>!c.label.startsWith('Nesting')).every(c=>c.ok));
+        if (b) { placeItem('brushpile', b[0], b[1]); break; }
+      }
+      return;
+    }
+    placeItem(S[sp.site], xy[0], xy[1]);
+  }
+  if (sp.site === 'snag') {/* natural snags exist */}
+}
+function runSpecies(sp) {
+  const out = { steps: [] };
+  w.time.season = sp.breed[0]; w.time.day = 1;
+  w.journal[sp.id].h = 3;
+  if (sp.id === 'cuckoo') {
+    // needs reed warbler nested + a fresh reed warbler nest
+    const host = findHost(SPECIES_BY_ID.reedwarbler);
+    if (!host) { out.err = 'no reed host for cuckoo'; return out; }
+    tp(host.x, host.y);
+    w.handle('L', {t:'act', a:'nest', host: host.id, sp:'reedwarbler'});
+    for (let d=0; d<14; d++) { w.newDay(); const n = objs().find(o=>o.type==='nest'&&o.kind==='reedwarbler'&&o.host===host.id); out.steps.push(n ? n.st+(n.cu?'*':'') : '-'); if (w.journal.cuckoo.n>0) break; if (n && n.st==='old') { w.removeObj(n); tp(host.x, host.y); w.handle('L', {t:'act', a:'nest', host: host.id, sp:'reedwarbler'}); } }
+    out.nested = w.journal.cuckoo.n; return out;
+  }
+  prepare(sp);
+  const tileSite = ['ground', 'field', 'shingle', 'clearing', 'ledge', 'bridge'].includes(sp.site);
+  let host = tileSite ? null : findHost(sp);
+  let built = [];
+  if (tileSite) {
+    let spot = null;
+    for (let i=0;i<w.tiles.length && !spot;i++){ const x=i%MAP_W,y=Math.floor(i/MAP_W); if (sitesOf(w,{tile:[x,y]}).includes(sp.site) && evalNest(w, sp, x, y, 0).ok) spot=[x,y]; }
+    if (!spot) { out.err = 'no ground spot'; return out; }
+    tp(spot[0], spot[1]); w.handle('L', {t:'act', a:'nest', x: spot[0], y: spot[1], sp: sp.id});
+  } else {
+    if (!host) {
+      // report why
+      const cands = objs().filter(o=>sitesOf(w,o).includes(sp.site));
+      out.err = 'no valid host (' + cands.length + ' sites)';
+      if (cands.length) { const c = hostCenter(cands[0]); out.why = evalNest(w, sp, c[0], c[1], 0).checks.filter(c=>!c.ok).map(c=>c.label+' have '+c.have); }
+      return out;
+    }
+    tp(host.x, host.y);
+    w.handle('L', {t:'act', a:'nest', host: host.id, sp: sp.id});
+    if (sp.id === 'wren') { const others = objs().filter(o=>o.type==='struct'&&o.kind==='brushpile'&&o.id!==host.id); const h2 = others[others.length-1]; tp(h2.x,h2.y); w.handle('L', {t:'act', a:'nest', host: h2.id, sp: 'wren'}); }
+  }
+  for (let d = 0; d < 14; d++) {
+    w.checkArrivals();
+    const ns = objs().filter(o=>o.type==='nest'&&o.kind===sp.id);
+    if (sp.id === 'wren') { const ln = ns.find(n=>n.st==='lining'); if (ln) { tp(ln.x, ln.y); w.handle('L', {t:'act', a:'line', id: ln.id}); } }
+    out.steps.push(ns.map(n=>n.st).join('/'));
+    if (w.journal[sp.id].n > 0) break;
+    w.newDay();
+    w.time.season = sp.breed[0]; // keep the season fixed for the test
+  }
+  out.nested = w.journal[sp.id].n;
+  return out;
+}
+try {
+  for (const sp of SPECIES) {
+    try { R.results[sp.id] = runSpecies(sp); } catch (e) { R.results[sp.id] = { err: String(e.stack||e) }; }
+  }
+  R.ok = true;
+} catch (e) { R.error = String(e.stack||e); }
+window.RESULT = R;
+console.log(JSON.stringify(R, null, 1));
+</script></body></html>

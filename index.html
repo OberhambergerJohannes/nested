@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="Nested — a cozy pixel-art life sim about building nests for 37 real European bird species. Solo or co-op.">
+<title>Nested — a bird-haven life sim</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --night: #1d1a2b; --parchment: #f6ecd2; color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: var(--night); color: var(--parchment); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+  body { position: relative; }
+  canvas { display: block; position: absolute; left: 0; top: 0; image-rendering: pixelated; image-rendering: crisp-edges; outline: none; }
+  noscript { color: var(--parchment); font: 16px sans-serif; position: absolute; top: 40%; width: 100%; text-align: center; }
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0"></canvas>
+<noscript>Nested needs JavaScript to run.</noscript>
+<!-- core & data -->
+<script src="js/core/util.js"></script>
+<script src="js/core/const.js"></script>
+<script src="js/data/items.js"></script>
+<script src="js/data/flora.js"></script>
+<script src="js/data/species.js"></script>
+<script src="js/data/npcs.js"></script>
+<script src="js/data/quests.js"></script>
+<!-- simulation (runs on the solo player / co-op host) -->
+<script src="js/sim/rules.js"></script>
+<script src="js/sim/mapgen.js"></script>
+<script src="js/sim/world.js"></script>
+<!-- generated pixel art -->
+<script src="js/art/raster.js"></script>
+<script src="js/art/font.js"></script>
+<script src="js/art/birds.js"></script>
+<script src="js/art/tiles.js"></script>
+<script src="js/art/flora.js"></script>
+<script src="js/art/props.js"></script>
+<script src="js/art/buildings.js"></script>
+<script src="js/art/people.js"></script>
+<script src="js/art/landmarks.js"></script>
+<script src="js/art/icons.js"></script>
+<script src="js/art/sprites.js"></script>
+<!-- client -->
+<script src="js/client/input.js"></script>
+<script src="js/client/audio.js"></script>
+<script src="js/client/state.js"></script>
+<script src="js/client/fx.js"></script>
+<script src="js/client/birds.js"></script>
+<script src="js/client/render.js"></script>
+<script src="js/client/ui.js"></script>
+<script src="js/client/screens.js"></script>
+<script src="js/client/hud.js"></script>
+<script src="js/client/game.js"></script>
+<script src="js/net/net.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+'use strict';
+// Nest materials live in the shared team pouch (everyone in the valley uses them).
+// Items (seeds, saplings, structures, forage) live in each player's own bag.
+
+const MATS = {
+  twig:        { name: 'Twigs',          where: 'Shake trees & shrubs, or pick them up under trees.',
+                 info: 'Thin, springy twigs form the outer frame of many cup nests.' },
+  stick:       { name: 'Sticks',         where: 'Fallen branches in the forest · driftwood on river shores.',
+                 info: 'Big sturdy sticks — the backbone of huge platform nests like the stork\'s.' },
+  grass:       { name: 'Dry Grass',      where: 'Cut long grass in the meadows (it grows back).',
+                 info: 'Woven into almost every kind of nest. Leave some meadows uncut for voles and insects!' },
+  moss:        { name: 'Moss',           where: 'Mossy rocks, logs and stumps in the shady forest.',
+                 info: 'Soft, insulating and springy. Tits pack the base of their nests with it.' },
+  mud:         { name: 'Mud',            where: 'Muddy pond shores · puddles after rain.',
+                 info: 'Swallows and martins build whole nests from mud pellets — droughts make it scarce.' },
+  feather:     { name: 'Feathers',       where: 'Mabel\'s chicken coop · pond shore · woodland.',
+                 info: 'Warm lining. A Long-tailed Tit nest can contain over a thousand feathers!' },
+  wool:        { name: 'Wool',           where: 'Brush the sheep at Mabel\'s farm (once a day each).',
+                 info: 'Snagged sheep\'s wool is a favourite soft lining for tits and finches.' },
+  hair:        { name: 'Horsehair',      where: 'Brush the horse at Mabel\'s farm (once a day).',
+                 info: 'Long hairs make a fine, strong inner lining.' },
+  silk:        { name: 'Spider Silk',    where: 'Dewy webs on shrubs & fences — mornings only, until 11:00.',
+                 info: 'Sticky and stretchy: birds use it like velcro to bind moss and let nests stretch as chicks grow.' },
+  lichen:      { name: 'Lichen',         where: 'Scrape from boulders in the rocky hills.',
+                 info: 'Grows only a few millimetres a year. Birds use flakes of it to camouflage their nests.' },
+  leaves:      { name: 'Dead Leaves',    where: 'Leaf piles on the forest floor (plenty in autumn).',
+                 info: 'Robins and wrens build their nests from layers of dead leaves.' },
+  rotwood:     { name: 'Rotten Wood',    where: 'Crumble it from old fallen logs.',
+                 info: 'Song Thrushes mix it with mud and saliva into a smooth, hard nest lining.' },
+  bark:        { name: 'Bark Flakes',    where: 'Peel loose flakes from fully grown Scots pines (once a day each).',
+                 info: 'Thin, papery flakes of pine bark — the Nuthatch\'s favourite nest lining.' },
+  thistledown: { name: 'Thistle Down',   where: 'Pick from seeding thistles in summer & autumn.',
+                 info: 'Silky seed fluff — goldfinches line their nests with it.' },
+  fluff:       { name: 'Seed Fluff',     where: 'Shake willows in spring · cattails in autumn & winter.',
+                 info: 'Downy seed hairs of willows and cattails, felted into soft hanging nests.' },
+  herbs:       { name: 'Fragrant Herbs', where: 'Harvest the lavender, mint & yarrow you plant.',
+                 info: 'Blue Tits tuck fresh aromatic herbs into their nests, which may help against parasites.' },
+  reedplume:   { name: 'Reed Plumes',    where: 'Reed beds from summer to winter.',
+                 info: 'The feathery flower heads of reeds — woven into warbler nests.' },
+  wood:        { name: 'Wood',           where: 'Driftwood on river shores · Basil\'s shop.',
+                 info: 'For crafting nest boxes, platforms and more at your workbench.' },
+  stone:       { name: 'Stone',          where: 'Loose stones in the hills and on gravel banks.',
+                 info: 'For crafting anvil stones and bird baths.' },
+  sand:        { name: 'Sand',           where: 'Dig on sandy river beaches.',
+                 info: 'Mixed with clay it makes a steep bank that kingfishers can tunnel into.' },
+  clay:        { name: 'Clay',           where: 'Dig at the reddish clay banks along the river.',
+                 info: 'Waterproof — line a hollow with clay to make a little pond.' },
+};
+const MAT_ORDER = ['twig', 'stick', 'grass', 'moss', 'mud', 'feather', 'wool', 'hair', 'silk', 'lichen',
+  'leaves', 'rotwood', 'bark', 'thistledown', 'fluff', 'herbs', 'reedplume', 'wood', 'stone', 'sand', 'clay'];
+const MAT_MAX = 999;
+
+// cat: seed | tree | shrub | struct | forage
+const ITEMS = {
+  seed_wildflower: { name: 'Wildflower Seeds', cat: 'seed', plant: 'wildflower', price: 15,
+    desc: 'Poppies, cornflowers & daisies. Flowers feed insects — and insects feed birds.' },
+  seed_thistle:    { name: 'Thistle Seeds', cat: 'seed', plant: 'thistle', price: 25,
+    desc: 'Goldfinches feast on thistle seeds and line their nests with the down.' },
+  seed_herbs:      { name: 'Herb Seedlings', cat: 'seed', plant: 'herbs', price: 30,
+    desc: 'Lavender, mint & yarrow. Their scent is loved by bees — and by one clever nest-builder.' },
+  rhizome_reed:    { name: 'Reed Rhizome', cat: 'seed', plant: 'reed', price: 30, wet: true,
+    desc: 'Plant in shallow water, marsh or mud. Dense reed beds hide warbler nests.' },
+  rhizome_cattail: { name: 'Cattail Rhizome', cat: 'seed', plant: 'cattail', price: 30, wet: true,
+    desc: 'Plant in shallow water, marsh or mud. Fluffy seed heads in autumn.' },
+  sap_oak:    { name: 'Oak Sapling', cat: 'tree', plant: 'oak', price: 80,
+    desc: 'Oaks feed more caterpillars than almost any other tree — a feast for tit chicks.' },
+  sap_birch:  { name: 'Birch Sapling', cat: 'tree', plant: 'birch', price: 60,
+    desc: 'Fast-growing, light and airy. Good for woodland edges.' },
+  sap_willow: { name: 'Willow Cutting', cat: 'tree', plant: 'willow', price: 60,
+    desc: 'Loves wet feet — plant it near water. Fluffy seeds in spring.' },
+  sap_pine:   { name: 'Pine Sapling', cat: 'tree', plant: 'pine', price: 70,
+    desc: 'An evergreen conifer. Its cones are full of seeds in winter.' },
+  sap_apple:  { name: 'Apple Sapling', cat: 'tree', plant: 'apple', price: 90,
+    desc: 'Blossom in spring, apples in autumn. Old orchards are bird paradises.' },
+  cut_hawthorn:   { name: 'Hawthorn Whip', cat: 'shrub', plant: 'hawthorn', price: 45,
+    desc: 'A thorny shrub: white May blossom, red haws in autumn. Thorns protect nests.' },
+  cut_blackthorn: { name: 'Blackthorn Whip', cat: 'shrub', plant: 'blackthorn', price: 45,
+    desc: 'Dense and thorny, blossoming before its leaves appear. Sloes in autumn.' },
+  cut_bramble:    { name: 'Bramble Cutting', cat: 'shrub', plant: 'bramble', price: 30,
+    desc: 'A prickly tangle with blackberries in late summer. Great cover for small birds.' },
+  cut_elder:      { name: 'Elder Cutting', cat: 'shrub', plant: 'elder', price: 40,
+    desc: 'Flat white flowers, then dark berries that many birds eat.' },
+  cut_hazel:      { name: 'Hazel Whip', cat: 'shrub', plant: 'hazel', price: 45,
+    desc: 'Catkins in late winter, hazelnuts in autumn.' },
+
+  box_small:  { name: 'Nest Box (25 mm)', cat: 'struct', struct: 'box_small',
+    desc: 'A small round entrance hole — just wide enough for a little tit, too tight for bigger rivals.' },
+  box_medium: { name: 'Nest Box (28 mm)', cat: 'struct', struct: 'box_medium',
+    desc: 'A slightly larger 28 mm hole — right for Great Tits, still too small for sparrows.' },
+  box_large:  { name: 'Nest Box (32 mm)', cat: 'struct', struct: 'box_large',
+    desc: 'A 32 mm hole. Put it among big trees — some birds plaster it smaller with mud!' },
+  box_open:   { name: 'Open-fronted Box', cat: 'struct', struct: 'box_open',
+    desc: 'A nest box with a half-open front, for birds that like a view.' },
+  brushpile:  { name: 'Brush Pile', cat: 'struct', struct: 'brushpile',
+    desc: 'A tangle of sticks and leaves — shelter for insects, spiders and small birds.' },
+  anvil:      { name: 'Anvil Stone', cat: 'struct', struct: 'anvil',
+    desc: 'A flat, heavy stone. Some birds use stones like this as tools…' },
+  birdbath:   { name: 'Bird Bath', cat: 'struct', struct: 'birdbath',
+    desc: 'Fresh water to drink and bathe in. Birds visiting your garden will love it.' },
+  owlbox:     { name: 'Owl Box', cat: 'struct', struct: 'owlbox',
+    desc: 'A big, deep box on a tall pole. In open meadows or in the woods — different owls, different homes.' },
+  platform:   { name: 'Stork Platform', cat: 'struct', struct: 'platform',
+    desc: 'An old cartwheel on a tall pole. Put it up in open country.' },
+  bank:       { name: 'Earth Bank', cat: 'struct', struct: 'bank',
+    desc: 'A steep wall of packed sand and clay for birds that dig nest tunnels. Some want it at the water\'s edge.' },
+  snag:       { name: 'Deadwood Trunk', cat: 'struct', struct: 'snag',
+    desc: 'A standing dead trunk with soft, rotting wood. Dead trees are full of life!' },
+  pondpatch:  { name: 'Pond Liner', cat: 'struct', struct: 'pondpatch',
+    desc: 'Clay to seal a hollow: turns a grass tile into shallow water. Build ponds anywhere!' },
+
+  mushroom:   { name: 'Chanterelle', cat: 'forage', sell: 35, desc: 'A golden forest mushroom. Basil buys them.' },
+  garlic:     { name: 'Wild Garlic', cat: 'forage', sell: 20, desc: 'Fragrant spring greens from the forest floor.' },
+  blackberry: { name: 'Blackberries', cat: 'forage', sell: 18, desc: 'Leave some on the bramble — birds need them too!' },
+  elderberry: { name: 'Elderberries', cat: 'forage', sell: 16, desc: 'Dark berries loved by blackbirds and thrushes.' },
+  apple:      { name: 'Apple', cat: 'forage', sell: 22, desc: 'Windfalls feed thrushes all winter.' },
+  hazelnut:   { name: 'Hazelnuts', cat: 'forage', sell: 20, desc: 'A handful of fresh hazelnuts.' },
+  sloe:       { name: 'Sloes', cat: 'forage', sell: 16, desc: 'Tart blue blackthorn fruit.' },
+};
+
+// Workbench recipes (materials from the shared pouch)
+const RECIPES = [
+  { id: 'box_open',   mats: { wood: 2 } },
+  { id: 'box_medium', mats: { wood: 3 } },
+  { id: 'box_small',  mats: { wood: 3 } },
+  { id: 'box_large',  mats: { wood: 3 } },
+  { id: 'anvil',      mats: { stone: 3 } },
+  { id: 'brushpile',  mats: { stick: 3, twig: 3, leaves: 2 } },
+  { id: 'birdbath',   mats: { stone: 4 } },
+  { id: 'snag',       mats: { wood: 4, rotwood: 3 } },
+  { id: 'pondpatch',  mats: { clay: 3 } },
+  { id: 'bank',       mats: { sand: 6, clay: 4 } },
+  { id: 'owlbox',     mats: { wood: 8 } },
+  { id: 'platform',   mats: { wood: 6, stick: 4 } },
+];
+
+// Basil's shop. 'mat:wood' sells a pouch material.
+const SHOP_STOCK = ['seed_wildflower', 'seed_thistle', 'seed_herbs', 'rhizome_reed', 'rhizome_cattail',
+  'cut_bramble', 'cut_hawthorn', 'cut_blackthorn', 'cut_elder', 'cut_hazel',
+  'sap_birch', 'sap_willow', 'sap_pine', 'sap_oak', 'sap_apple', 'mat:wood'];
+const WOOD_PRICE = 12;
+
+function itemSellPrice(k) {
+  const it = ITEMS[k];
+  if (!it) return 0;
+  if (it.sell) return it.sell;
+  if (it.price) return Math.floor(it.price / 2);
+  return 10;
+}

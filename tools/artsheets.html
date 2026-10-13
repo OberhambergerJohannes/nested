@@ -1,0 +1,120 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Nested — art sheets</title>
+<style>body{background:#2a2838;color:#f6ecd2;font:14px sans-serif;margin:16px} canvas{image-rendering:pixelated;display:block;margin:8px 0 24px;background:#7fae62} h2{margin:4px 0}</style>
+</head><body>
+<p>All of Nested's art is generated in code. This page renders every sprite sheet (open it in a browser; tools/export_art.py saves them as PNGs).</p>
+<div id="out"></div>
+<script src="../js/core/util.js"></script>
+<script src="../js/core/const.js"></script>
+<script src="../js/data/items.js"></script>
+<script src="../js/data/flora.js"></script>
+<script src="../js/data/species.js"></script>
+<script src="../js/data/npcs.js"></script>
+<script src="../js/data/quests.js"></script>
+<script src="../js/sim/rules.js"></script>
+<script src="../js/sim/mapgen.js"></script>
+<script src="../js/art/raster.js"></script>
+<script src="../js/art/font.js"></script>
+<script src="../js/art/birds.js"></script>
+<script src="../js/art/tiles.js"></script>
+<script src="../js/art/flora.js"></script>
+<script src="../js/art/props.js"></script>
+<script src="../js/art/buildings.js"></script>
+<script src="../js/art/people.js"></script>
+<script src="../js/art/landmarks.js"></script>
+<script src="../js/art/icons.js"></script>
+<script src="../js/art/sprites.js"></script>
+<script>
+SPR.init();
+const SHEETS = {};
+function sheet(name, w, h, draw, bg) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); }
+  draw(g);
+  SHEETS[name] = cv.toDataURL('image/png');
+  const hd = document.createElement('h2'); hd.textContent = name + '.png (' + w + 'x' + h + ')';
+  const show = document.createElement('canvas'); show.width = w; show.height = h; show.style.width = (w * 2) + 'px';
+  show.getContext('2d').drawImage(cv, 0, 0);
+  document.getElementById('out').append(hd, show);
+}
+// birds: one row per species: perch, peck, fly1, fly2, hop, egg (cells 34x30)
+sheet('birds', 6 * 34, SPECIES.length * 32, (g) => {
+  SPECIES.forEach((sp, r) => {
+    const b = SPR.bird(sp.id);
+    ['perch', 'peck', 'fly1', 'fly2', 'hop'].forEach((f, c) => { const img = b[f]; g.drawImage(img, c * 34 + Math.floor((34 - img.width) / 2), r * 32 + Math.max(0, 30 - img.height)); });
+    const e = SPR.egg(sp.id); g.drawImage(e.img, 5 * 34 + 12, r * 32 + 18);
+  });
+});
+// trees: rows = kinds, cols = seasons x stages
+const kinds = ['oak', 'birch', 'willow', 'apple', 'pine'];
+sheet('trees', 12 * 48, kinds.length * 60 + 52, (g) => {
+  kinds.forEach((k, r) => { for (let s = 0; s < 4; s++) for (let st = 0; st < 3; st++) { const t = SPR.tree(k, st, s, k === 'apple' && s === 2 && st === 2); g.drawImage(t.img, (s * 3 + st) * 48 + 24 - t.ax, r * 60 + 58 - t.ay); } });
+  const sn = SPR.tree('snag', 2, 0); g.drawImage(sn.img, 24 - sn.ax, kinds.length * 60 + 50 - sn.ay);
+});
+const sk = ['hawthorn', 'blackthorn', 'bramble', 'elder', 'hazel'];
+sheet('shrubs', 4 * 3 * 28 + 4 * 28, sk.length * 28, (g) => {
+  sk.forEach((k, r) => { let c = 0; for (let s = 0; s < 4; s++) { for (let st = 0; st < 3; st++) { const t = SPR.shrub(k, st, s, false); g.drawImage(t.img, c * 28 + 14 - t.ax, r * 28 + 26 - t.ay); c++; } const fr = FLORA[k].fruit && FLORA[k].fruit.seasons.includes(s); const t = SPR.shrub(k, 2, s, fr); g.drawImage(t.img, c * 28 + 14 - t.ax, r * 28 + 26 - t.ay); c++; } });
+});
+const pk = ['wildflower', 'thistle', 'herbs', 'reed', 'cattail'];
+sheet('plants', 4 * 5 * 16, pk.length * 24, (g) => {
+  pk.forEach((k, r) => { let c = 0; for (let s = 0; s < 4; s++) for (let v = 0; v < 5; v++) { const st = v < 3 ? v : 2; const t = SPR.plant(k, st, s, v - 2); g.drawImage(t.img, c * 16, r * 24); c++; } });
+});
+// terrain: rows = seasons, cols = terrain types x variants
+sheet('terrain', TINFO.length * 4 * 16, 4 * 16, (g) => {
+  for (let s = 0; s < 4; s++) { const set = SPR.tiles.set(s); for (let t = 0; t < TINFO.length; t++) for (let v = 0; v < 4; v++) g.drawImage(set.base[t][v].canvas(), (t * 4 + v) * 16, s * 16); }
+});
+sheet('grass_tufts', 4 * 9 * 18, 22, (g) => { for (let s = 0; s < 4; s++) { const t = SPR.tufts(s); t.mid.forEach((c, i) => g.drawImage(c, (s * 9 + i) * 18, 12)); t.long.forEach((c, i) => g.drawImage(c, (s * 9 + 3 + i) * 18, 0)); } });
+sheet('buildings', 8 * 104, 8 * 120, (g) => {
+  const bs = ['cottage', 'house1', 'house2', 'farmhouse', 'shop', 'station', 'barn', 'coop'];
+  for (let s = 0; s < 4; s++) bs.forEach((k, i) => { for (const lit of [0, 1]) { const b = SPR.building(k, s, !!lit); g.drawImage(b.img, i * 104, (s * 2 + lit) * 120 + 118 - b.h); } });
+});
+sheet('props', 640, 200, (g) => {
+  let x = 2;
+  const put = (spr, y) => { g.drawImage(spr.img || spr, x, y); x += (spr.w || spr.width) + 4; };
+  for (const k of ['bench', 'well']) put(SPR.building(k, 0, false), 2);
+  put(SPR.mailbox(false), 2); put(SPR.mailbox(true), 2);
+  for (const k of ['box_small', 'box_medium', 'box_open', 'owlbox', 'platform', 'bank', 'brushpile', 'anvil', 'birdbath']) put(SPR.struct(k, 0), 2);
+  x = 2;
+  for (const l of [0, 1, 2]) put(SPR.rock('boulder', l, 0), 70);
+  for (const l of [0, 1, 2]) put(SPR.rock('mossy', l, 0), 70);
+  put(SPR.log(2, 0), 70); put(SPR.stump(1, 0), 70);
+  const fp = SPR.fence(0); put(fp.post, 70); put(fp.railH, 70); put(fp.railV, 70);
+  for (const k of ['twig', 'stick', 'leaves', 'feather', 'stone', 'driftwood', 'mushroom', 'garlic', 'note']) put(SPR.forage(k, 0), 70);
+  put(SPR.web(), 70); put(SPR.puddle(), 70);
+  x = 2;
+  for (const t of ['cup', 'cupmud', 'cupfine', 'conifer', 'twigs', 'dome', 'domelichen', 'mudcup', 'muddome', 'reedcup', 'pouch', 'scrape', 'sticks', 'hole', 'tunnel']) put(SPR.nest(t), 110);
+  for (const k of ['small', 'big', 'owl', 'duck']) put(SPR.chick(k), 110);
+  x = 2;
+  for (const sp of SPECIES) put(SPR.egg(sp.id), 150);
+});
+sheet('characters', 16 * 13 + 4, 26 * 18 + 76, (g) => {
+  const looks = [
+    { style: 0, hair: 0, skin: 0, top: 0, shirt: 0 },
+    { style: 1, hair: 3, skin: 5, top: 5, shirt: 5, hat: 6, hatc: 9, eyeshape: 2 },
+    { style: 9, hair: 5, skin: 4, top: 3, shirt: 13, pants: 1, acc: 3, eyewear: 1 },
+    { style: 3, hair: 6, skin: 1, top: 6, shirt: 1, pants: 0, hat: 2, hatc: 1, face: 1, eyeshape: 1 },
+    { style: 5, hair: 2, skin: 6, top: 2, shirt: 1, bottom: 2, pants: 6, acc: 2, hatc: 14 },
+    { style: 8, hair: 7, skin: 2, top: 7, shirt: 8, pants: 1, shoes: 1, eyewear: 3, hat: 7, hatc: 1 },
+    { style: 4, hair: 10, skin: 7, top: 1, shirt: 9, bottom: 1, acc: 1, hat: 3, hatc: 13, eyeshape: 3 },
+    { style: 6, hair: 4, skin: 3, top: 4, shirt: 12, pants: 4, face: 3, hat: 4, hatc: 9, acc: 4 },
+    { style: 10, hair: 11, skin: 8, top: 5, shirt: 15, bottom: 0, hat: 5, eyewear: 2, eyeshape: 2 },
+  ];
+  looks.forEach((lk, r) => { let c = 0; for (const d of [0, 1, 2, 3]) for (const f of [0, 1, 2]) { g.drawImage(SPR.player(Object.assign({ v: 2 }, lk), d, f, false).img, c * 16, r * 26); c++; } g.drawImage(SPR.player(Object.assign({ v: 2 }, lk), 0, 3, true).img, c * 16, r * 26); });
+  Object.keys(NPC_LOOKS).forEach((n, r) => { let c = 0; for (const d of [0, 1, 2, 3]) for (const f of [0, 1, 2]) { g.drawImage(SPR.person(n, NPC_LOOKS[n], d, f).img, c * 16, (9 + r) * 26); c++; } });
+  Object.keys(NPC_LOOKS).forEach((n, i) => g.drawImage(SPR.portrait(n).img, (i % 6) * 34, 26 * 18 + 4 + Math.floor(i / 6) * 34));
+});
+sheet('animals', 6 * 36, 30, (g) => { let x = 0; for (const k of ['sheep', 'horse', 'chicken']) for (const f of [0, 1]) { const a = SPR.animal(k, f, false, false); g.drawImage(a.img, x, 28 - a.h); x += a.w + 4; } });
+sheet('icons', 20 * 16, 6 * 16, (g) => {
+  MAT_ORDER.forEach((k, i) => g.drawImage(SPR.matIcon(k).img, (i % 20) * 16, 0));
+  Object.keys(ITEMS).forEach((k, i) => g.drawImage(SPR.itemIcon(k).img, (i % 20) * 16, 16 + Math.floor(i / 20) * 16));
+  Object.keys(UI_ICON).forEach((k, i) => g.drawImage(SPR.ui(k).img, (i % 20) * 16, 64 + Math.floor(i / 20) * 16));
+});
+sheet('ui_panels', 400, 60, (g) => { let x = 0; for (const st of ['paper', 'note', 'wood', 'dark']) { g.drawImage(SPR.panel(st, 64, 40), x, 0); x += 68; } for (const st of ['slot', 'slotsel', 'slothot', 'btn', 'btnh', 'btnd', 'tab', 'tabsel']) { const w = st.startsWith('slot') ? 20 : 40; g.drawImage(SPR.panel(st, w, 16), x, 44 - 16 * 0); x += w + 4; } });
+sheet('font', 520, 40, (g) => {
+  const chars = Object.keys(GLYPHS).join('');
+  SPR.font.draw(g, chars.slice(0, 90), 2, 4, '#1d1a2b');
+  SPR.font.draw(g, chars.slice(90), 2, 18, '#1d1a2b');
+}, '#f6ecd2');
+window.SHEETS = SHEETS;
+</script></body></html>
