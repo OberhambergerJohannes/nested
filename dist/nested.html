@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="description" content="Nested — a cozy pixel-art life sim about building nests for 55 real European bird species. Solo or co-op.">
+<meta name="description" content="Nested — a cozy pixel-art life sim about building nests for 67 real European bird species. Solo or co-op.">
 <title>Nested — a bird-haven life sim</title>
 <link rel="icon" href="data:,">
 <style>
@@ -469,7 +469,7 @@ const SITES = {
 };
 
 // ---- js/data/species.js ----
-// The 55 nesting birds of Featherbrook Valley. Birds with night: true only show themselves
+// The 67 nesting birds of Featherbrook Valley. Birds with night: true only show themselves
 // from dusk until dawn.
 //
 //  site     – where the nest goes (see SITES)
@@ -1844,6 +1844,299 @@ const SPECIES = [
       'In 1971 only one pair nested in Britain. Protecting wetlands has helped it make a strong recovery.',
     ],
   },
+  // ---------------------------------------------------------------- added in the sixth update
+  {
+    id: 'chiffchaff', name: 'Common Chiffchaff', latin: 'Phylloscopus collybita', tier: 1,
+    zone: 'forest', present: [SPRING, SUMMER, AUTUMN], breed: [SPRING, SUMMER],
+    site: 'shrub', mats: { grass: 2, leaves: 1, feather: 1 },
+    hab: [{ k: 'shrubs', n: 3, r: 3, why: 'Low, dense bushes to hide the nest in' },
+          { k: 'trees', n: 3, r: 5, why: 'Trees to sing from and to hunt insects in' }],
+    terr: 4, clutch: [5, 6], incub: 2, nestling: 2, nest: 'dome',
+    body: 'small', song: 'chiffchaff', beak: 'thin',
+    col: { o: '#1e2214', c: '#7a8450', n: '#7a8450', f: '#c8c890', m: '#5a6238', i: '#e8e8c0', b: '#3a3a30', t: '#e0dcb0',
+      r: '#d8d4a8', s: '#d8d4a8', z: '#d8d4a8', y: '#e8e4c8', k: '#7a8450', w: '#6a7244', x: '#7a8450', p: '#4a5030',
+      a: '#5a6238', u: '#8a9458', l: '#3a3430', g: '#5a6238' },
+    egg: { c: '#f6f2ec', s: '#8a4a3a', p: 'fine' },
+    real: { clutch: '5–6 eggs', incub: '13–15 days', fledge: '12–15 days' },
+    hints: [
+      'Among the bare spring branches at the forest edge, a tiny olive-green warbler repeats its own name over and over: "chiff-chaff-chiff-chaff-chiff".',
+      'Chiffchaffs build low down in a dense shrub, with more bushes and some trees around.',
+      'A little domed ball of dry grass and dead leaves with a side entrance, lined with feathers.',
+    ],
+    facts: [
+      'It is named after its song, which says "chiff-chaff" again and again.',
+      'It is one of the first migrants to return in spring — and a few now stay for the whole winter.',
+      'The female builds the domed nest on her own, close to the ground.',
+      'It looks almost exactly like the Willow Warbler; the two are easiest to tell apart by their songs.',
+    ],
+  },
+  {
+    id: 'moorhen', name: 'Common Moorhen', latin: 'Gallinula chloropus', tier: 2,
+    zone: 'pond', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'reeds', mats: { grass: 2, leaves: 2 },
+    hab: [{ k: 'water', n: 3, r: 3, why: 'Water close by — even a small pond will do' }],
+    terr: 5, clutch: [5, 7], incub: 3, nestling: 1, nest: 'reedcup', precocial: true,
+    body: 'duck', song: 'moorhen',
+    col: { o: '#121216', c: '#2a2a34', n: '#2a2a34', f: '#2a2a34', m: '#2a2a34', E: '#c82a2a', i: '#2a2a34', b: '#e0302a', t: '#3a3a48',
+      r: '#3a3a48', s: '#3a3a48', z: '#3a3a48', y: '#34343e', k: '#4a4030', w: '#4a4030', x: '#f4f4f0', p: '#3a3428',
+      a: '#2a2a30', u: '#f4f4f0', l: '#c8d040', g: '#2a2a34' },
+    egg: { c: '#e8dcc0', s: '#8a4a2a', p: 'spots' },
+    real: { clutch: '5–9 eggs', incub: '19–22 days', fledge: 'chicks leave the nest within days; they fly at 40–50 days' },
+    hints: [
+      'A dark, hen-like bird with a red-and-yellow bill paddles along the pond edge, jerking its head and flicking a tail with white edges.',
+      'Moorhens hide their nest in a dense reed bed at the water\'s edge — even a small pond will do.',
+      'A cup of dry grass and dead leaves, low among the reed stems.',
+    ],
+    facts: [
+      'Young moorhens from the first brood often help their parents feed the next one.',
+      'It swims with a jerky, nodding action — it has long toes, but no webbed feet.',
+      'Its name means "marsh hen": "moor" once meant marshy ground.',
+      'It flicks its tail to flash the white feathers underneath — a signal to others when it\'s nervous.',
+    ],
+  },
+  {
+    id: 'stockdove', name: 'Stock Dove', latin: 'Columba oenas', tier: 2,
+    zone: 'forest', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'owlbox', mats: { twig: 1 },
+    hab: [{ k: 'trees', n: 6, r: 5, why: 'Old woodland with holes in the trees' }],
+    terr: 6, clutch: [2, 2], incub: 2, nestling: 3, nest: 'box',
+    body: 'pigeon', song: 'stockdove',
+    col: { o: '#1e2028', c: '#7a8494', n: '#4a8a6a', f: '#7a8494', m: '#7a8494', i: '#7a8494', E: '#2a2a2a', b: '#e8c8a0', t: '#8a8ca0',
+      r: '#a88a9a', s: '#a88a9a', z: '#a88a9a', y: '#8a92a0', k: '#7a8494', w: '#8a94a4', x: '#2a2a30', p: '#3a3e48',
+      a: '#5a6270', u: '#8a94a4', l: '#d86a6a', g: '#7a8494' },
+    egg: { c: '#f8f6f2', s: '#f8f6f2', p: 'none' },
+    real: { clutch: '2 eggs', incub: '16–18 days', fledge: '20–30 days' },
+    hints: [
+      'A neat blue-grey pigeon — without the Wood Pigeon\'s white neck patch — coos a deep, hollow "ooo-ue" from the old trees.',
+      'Stock Doves nest in holes. An Owl Box in the woods, with plenty of old trees around, suits them perfectly.',
+      'Barely any nest: a twig or two on the floor of the hole.',
+    ],
+    facts: [
+      'It is one of the few European pigeons that nests in holes — in trees, cliffs and buildings.',
+      'It often moves into nest boxes put up for owls.',
+      'Like all pigeons, it feeds its chicks on "crop milk", a rich food made in its throat.',
+      'The glossy green patch on its neck shimmers in the sunlight.',
+    ],
+  },
+  {
+    id: 'blackredstart', name: 'Black Redstart', latin: 'Phoenicurus ochruros', tier: 2,
+    zone: 'village', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'eaves', mats: { grass: 2, moss: 1, hair: 1, feather: 1 },
+    hab: [{ k: 'lawn', n: 3, r: 6, why: 'Bare ground and short grass to hunt insects on' }],
+    terr: 6, clutch: [4, 5], incub: 2, nestling: 2, nest: 'cup',
+    body: 'small', song: 'blackredstart', beak: 'thin',
+    col: { o: '#121216', c: '#3a3a42', n: '#3a3a42', f: '#141418', m: '#141418', i: '#141418', b: '#141418', t: '#141418',
+      r: '#26262c', s: '#26262c', z: '#26262c', y: '#5a5a62', k: '#3a3a42', w: '#2a2a30', x: '#e8e8e4', p: '#1e1e22',
+      a: '#c8502a', u: '#c8502a', l: '#1e1e22', g: '#141418' },
+    egg: { c: '#f8f6f2', s: '#f8f6f2', p: 'none' },
+    real: { clutch: '4–6 eggs', incub: '12–14 days', fledge: '15–17 days' },
+    hints: [
+      'On a village rooftop, a sooty-grey bird with a quivering red tail sings a scratchy little song that sounds like crunching gravel.',
+      'Black Redstarts nest on ledges and in nooks of buildings — under the eaves of a village house is ideal.',
+      'A loose cup of grass and moss, lined with hair and feathers.',
+    ],
+    facts: [
+      'Originally a bird of mountain cliffs, it now also nests on houses, factories and railway stations.',
+      'Its song ends with a strange scratchy sound, like gravel being crunched or paper crumpled.',
+      'After the Second World War, Black Redstarts famously nested on the bomb sites of London.',
+      'Like its cousin the Common Redstart, it shivers its rusty-red tail all the time.',
+    ],
+  },
+  {
+    id: 'turtledove', name: 'European Turtle Dove', latin: 'Streptopelia turtur', tier: 3,
+    zone: 'southmeadow', present: [SPRING, SUMMER], breed: [SPRING, SUMMER],
+    site: 'thorny', mats: { twig: 3 },
+    hab: [{ k: 'shrubs', n: 4, r: 3, why: 'Tall, thick hedges and thorny scrub' },
+          { k: 'flowers', n: 4, r: 6, why: 'Wildflowers whose seeds it eats' }],
+    terr: 5, clutch: [2, 2], incub: 2, nestling: 2, nest: 'twigs',
+    body: 'pigeon', song: 'turtledove',
+    col: { o: '#1e1a1a', c: '#8a94a4', n: '#2a2a30', f: '#a8a4ac', m: '#a8a4ac', i: '#d86a5a', E: '#e8a020', b: '#2a2a2a', t: '#c8a8a8',
+      r: '#d0a8a8', s: '#d0a8a8', z: '#d0a8a8', y: '#e8d8d8', k: '#8a7a6a', w: '#b8743a', x: '#2a2a30', p: '#3a3e48',
+      a: '#3a3e48', u: '#8a94a4', l: '#d86a6a', g: '#f4f4f0' },
+    egg: { c: '#f8f6f2', s: '#f8f6f2', p: 'none' },
+    real: { clutch: '2 eggs', incub: '13–14 days', fledge: '18–20 days' },
+    hints: [
+      'From a thorny hedge in the southern meadow comes a soft, purring "turrr-turrr" — the sound of summer. The singer is a slim dove with chestnut-and-black scaled wings.',
+      'Turtle Doves nest in thick, thorny scrub, with plenty of wildflowers nearby whose seeds they eat.',
+      'A flimsy, see-through platform of fine twigs.',
+    ],
+    facts: [
+      'Its name comes from the Latin turtur, which copies its purring song.',
+      'It spends the winter in Africa, south of the Sahara.',
+      'It has declined steeply across Europe and is now a threatened species — it needs weedy, flowery field edges for seeds.',
+      'Its nest is so thin that you can sometimes see the eggs through it from below.',
+    ],
+  },
+  {
+    id: 'spottedfly', name: 'Spotted Flycatcher', latin: 'Muscicapa striata', tier: 3,
+    zone: 'garden', present: [SPRING, SUMMER], breed: [SPRING, SUMMER],
+    site: 'box_open', mats: { grass: 2, moss: 1, hair: 1, silk: 1 },
+    hab: [{ k: 'trees', n: 3, r: 4, why: 'Trees with bare twigs to watch from' },
+          { k: 'flowers', n: 3, r: 5, why: 'Flowers buzzing with flying insects' }],
+    terr: 5, clutch: [4, 5], incub: 2, nestling: 2, nest: 'box',
+    body: 'small', song: 'spottedfly', beak: 'thin',
+    col: { o: '#1e1a16', c: '#7a6e60', n: '#8a7e6e', f: '#a89c8a', m: '#6a5e50', i: '#c8bca8', b: '#2a2420', t: '#f0ece4',
+      r: '#e8e0d4', s: '#e8e0d4', z: '#9a8e7a', y: '#f4f0e8', k: '#8a7e6e', w: '#7a6e60', x: '#a89c8a', p: '#5a5044',
+      a: '#6a5e50', u: '#8a7e6e', l: '#2a2420', g: '#6a5e50' },
+    egg: { c: '#c8d8d0', s: '#a85a3a', p: 'blotch' },
+    real: { clutch: '4–5 eggs', incub: '12–14 days', fledge: '12–16 days' },
+    hints: [
+      'A slim grey-brown bird with a streaky forehead sits upright on a bare twig, darts out to snatch a fly with a snap of its bill — and lands back on the very same perch.',
+      'Spotted Flycatchers nest in an open-fronted nest box, among trees and flowers full of flying insects.',
+      'A loose cup of grass, moss and hair, bound with spider silk.',
+    ],
+    facts: [
+      'It catches flies in mid-air and often returns to the same perch after every sally.',
+      'It is one of the last migrants to arrive from Africa, often not until May.',
+      'Despite its name, the adult is streaked, not spotted — only the young birds are spotty.',
+      'It nests on ledges, in creepers on walls and in open-fronted boxes.',
+    ],
+  },
+  {
+    id: 'wheatear', name: 'Northern Wheatear', latin: 'Oenanthe oenanthe', tier: 3,
+    zone: 'hills', present: [SPRING, SUMMER], breed: [SPRING, SUMMER],
+    site: 'ledge', mats: { grass: 2, moss: 1, feather: 1 },
+    hab: [{ k: 'rock', n: 8, r: 3, why: 'Rocks and stones with crevices to nest in' }],
+    terr: 6, clutch: [5, 6], incub: 2, nestling: 2, nest: 'cup',
+    body: 'small', song: 'wheatear', beak: 'thin',
+    col: { o: '#1e1a18', c: '#9aa0a8', n: '#9aa0a8', f: '#141418', m: '#141418', i: '#f4f4f0', b: '#141418', t: '#e8c8a0',
+      r: '#e8c094', s: '#e8c094', z: '#e8c094', y: '#f4ece0', k: '#9aa0a8', w: '#1e1e22', x: '#1e1e22', p: '#141418',
+      a: '#141418', u: '#f8f8f6', l: '#141418', g: '#141418' },
+    egg: { c: '#a8d0e0', s: '#a8d0e0', p: 'none' },
+    real: { clutch: '5–6 eggs', incub: '13–14 days', fledge: '15–17 days' },
+    hints: [
+      'Up in the rocky hills, a dapper grey bird with a black mask and a buff breast bobs on a boulder, then flies off flashing a bright white rump.',
+      'Wheatears nest in crevices among the rocks — on a ledge at the foot of the crags.',
+      'A loose cup of grass and moss, lined with feathers, deep in a crack between stones.',
+    ],
+    facts: [
+      'Its name has nothing to do with wheat: it comes from old words meaning "white rump".',
+      'Some wheatears fly all the way from Alaska to Africa — one of the longest migrations of any songbird.',
+      'It nests in holes in rocks, stone walls and even old rabbit burrows.',
+      'It keeps bobbing and flicking its tail while it perches.',
+    ],
+  },
+  {
+    id: 'greywagtail', name: 'Grey Wagtail', latin: 'Motacilla cinerea', tier: 3,
+    zone: 'river', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'bridge', mats: { grass: 2, moss: 2, hair: 1 },
+    hab: [{ k: 'water', n: 3, r: 2, why: 'Fast, clean running water' }],
+    terr: 6, clutch: [4, 5], incub: 2, nestling: 2, nest: 'cup',
+    body: 'longtail', song: 'greywagtail', beak: 'thin',
+    col: { o: '#1a1a14', c: '#7a828c', n: '#7a828c', f: '#f4f4ec', m: '#4a4e54', i: '#f4f4ec', b: '#1e1e22', t: '#141418',
+      r: '#f2d43a', s: '#f2d43a', z: '#f2d43a', y: '#f6e05a', k: '#7a828c', w: '#2a2a2e', x: '#f4f4ec', p: '#1e1e22',
+      a: '#1e1e22', u: '#d8d040', l: '#c8a8a0', g: '#4a4e54' },
+    egg: { c: '#e8dcc8', s: '#a8906a', p: 'fine' },
+    real: { clutch: '4–6 eggs', incub: '11–14 days', fledge: '11–17 days' },
+    hints: [
+      'By the fast-flowing river, a grey-backed bird with a lemon-yellow belly wags its very long tail as it hops from stone to stone.',
+      'Grey Wagtails nest in a nook beside fast water — right next to a bridge over the river is perfect.',
+      'A cup of grass, moss and fine roots, lined with hair.',
+    ],
+    facts: [
+      'It has the longest tail of any European wagtail.',
+      'Despite its name, its most striking colour is the bright yellow under its tail.',
+      'It lives along fast-flowing streams and rivers, often near weirs, mills and bridges.',
+      'It snaps up insects over the water in short, fluttering flights.',
+    ],
+  },
+  {
+    id: 'siskin', name: 'Eurasian Siskin', latin: 'Spinus spinus', tier: 3,
+    zone: 'pines', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'pine', mats: { twig: 1, moss: 2, lichen: 1, feather: 1 },
+    hab: [{ k: 'pines', n: 4, r: 5, why: 'Conifers full of seed cones' }],
+    terr: 4, clutch: [3, 5], incub: 2, nestling: 2, nest: 'cupfine',
+    body: 'small', song: 'siskin', beak: 'finch',
+    col: { o: '#1a1e10', c: '#141418', n: '#9ab83a', f: '#c8d84a', m: '#7a9a2a', i: '#d8e05a', b: '#c8b890', t: '#141418',
+      r: '#d8e05a', s: '#d8e05a', z: '#5a6a2a', y: '#eef0c8', k: '#8aa83a', w: '#2a2e1e', x: '#e8d83a', p: '#1e2216',
+      a: '#2a2e1e', u: '#e8e050', l: '#6a5a50', g: '#7a9a2a' },
+    egg: { c: '#d8e4f0', s: '#8a4a3a', p: 'spots' },
+    real: { clutch: '3–5 eggs', incub: '11–14 days', fledge: '13–15 days' },
+    hints: [
+      'High in the pines, a flock of tiny yellow-green finches twitters and wheezes. The males have a black cap and bib, and they hang upside down from the cones like little tits.',
+      'Siskins build high in a pine tree, out near the end of a branch, in a grove with plenty of conifers.',
+      'A small, neat cup of twigs, moss and lichen, lined with feathers.',
+    ],
+    facts: [
+      'Siskins often hang upside down to pick seeds from cones and alder catkins.',
+      'In winter they visit gardens and love feeders.',
+      'Their nests are so well hidden high in conifers that an old German legend says they contain a stone that makes them invisible.',
+      'Flocks wander widely, following good crops of seeds from year to year.',
+    ],
+  },
+  {
+    id: 'swan', name: 'Mute Swan', latin: 'Cygnus olor', tier: 4,
+    zone: 'pond', present: [0, 1, 2, 3], breed: [SPRING],
+    site: 'reeds', mats: { grass: 4, leaves: 3, stick: 2 },
+    hab: [{ k: 'waterbody', n: 40, r: 6, why: 'A big stretch of open water' }],
+    terr: 12, clutch: [5, 6], incub: 3, nestling: 1, nest: 'sticks', precocial: true, big: true,
+    body: 'swan', song: 'swan',
+    col: { o: '#6a6a72', c: '#f8f8f6', n: '#f8f8f6', f: '#f8f8f6', m: '#f8f8f6', i: '#f8f8f6', E: '#141414', b: '#e8782a', t: '#f8f8f6',
+      r: '#f4f4f2', s: '#f4f4f2', z: '#f4f4f2', y: '#f0f0ee', k: '#f4f4f2', w: '#fafaf8', x: '#e8e8e4', p: '#eeeeea',
+      a: '#f4f4f2', u: '#f4f4f2', l: '#2a2a2e', g: '#141414' },
+    egg: { c: '#d8dcc8', s: '#d8dcc8', p: 'none' },
+    real: { clutch: '4–7 eggs', incub: '35–41 days', fledge: 'cygnets leave the nest within a day or two and fly at 4–5 months' },
+    hints: [
+      'A huge white bird with an orange bill and a black knob glides across the big pond, its wings arched over its back like sails.',
+      'Mute Swans build an enormous nest mound among the reeds at the edge of a big pond.',
+      'A huge heap of grass, leaves and sticks — it can be more than a metre across.',
+    ],
+    facts: [
+      'Despite its name, the Mute Swan hisses, snorts and grunts — and its wings make a loud throbbing hum in flight.',
+      'A big male can weigh over 10 kg, making it one of the heaviest flying birds.',
+      'Pairs usually stay together for life.',
+      'Young swans, called cygnets, are grey-brown in their first year.',
+    ],
+  },
+  {
+    id: 'buzzard', name: 'Common Buzzard', latin: 'Buteo buteo', tier: 4,
+    zone: 'forest', present: [0, 1, 2, 3], breed: [SPRING],
+    site: 'tree', mats: { stick: 4, twig: 2, leaves: 1 },
+    hab: [{ k: 'trees', n: 6, r: 5, why: 'Woodland to nest in' },
+          { k: 'longgrass', n: 10, r: 9, why: 'Rough meadows nearby, full of voles' }],
+    terr: 16, clutch: [2, 3], incub: 3, nestling: 3, nest: 'twigs', big: true,
+    body: 'cuckoo', song: 'buzzard',
+    col: { o: '#1a120c', c: '#6a4a30', n: '#6a4a30', f: '#7a5a3a', m: '#4a3020', i: '#e8c830', b: '#2a2420', t: '#e8d8c0',
+      r: '#e8d8c0', s: '#6a4a30', z: '#5a3a24', y: '#7a5a3a', k: '#5a3a24', w: '#6a4a30', x: '#e8d8c0', p: '#2a1e14',
+      a: '#7a5a3a', u: '#6a4a30', l: '#e8c830', g: '#5a3a24' },
+    egg: { c: '#f0ece4', s: '#8a5a3a', p: 'blotch' },
+    real: { clutch: '2–4 eggs', incub: '33–38 days', fledge: '50–60 days' },
+    hints: [
+      'High above the forest a broad-winged bird of prey circles on the warm air, mewing like a cat: "pee-yaa!"',
+      'Common Buzzards build a big stick nest in a broadleaf tree in the woods, with rough meadows nearby to hunt voles.',
+      'A bulky platform of sticks and twigs, lined with fresh green leaves.',
+    ],
+    facts: [
+      'Its mewing "pee-yaa" call is one of the most familiar sounds of the European countryside.',
+      'Buzzards keep adding fresh green leaves to their nest all through the breeding season.',
+      'It is now the most common bird of prey in much of Europe, eating voles, rabbits, earthworms and even beetles.',
+      'In winter it often sits for hours on a fence post, waiting for prey.',
+    ],
+  },
+  {
+    id: 'tengmalm', name: 'Tengmalm\'s Owl', latin: 'Aegolius funereus', tier: 4, night: true,
+    zone: 'pines', present: [0, 1, 2, 3], breed: [SPRING],
+    site: 'owlbox', mats: {},
+    hab: [{ k: 'pines', n: 6, r: 6, why: 'Old conifer forest to hunt in' }],
+    terr: 10, clutch: [3, 5], incub: 3, nestling: 3, nest: 'box',
+    body: 'owl', song: 'tengmalm',
+    col: { o: '#2a1e14', c: '#6a4e34', n: '#6a4e34', f: '#f4f0e6', m: '#2a2018', i: '#2a2018', E: '#f2d23a', b: '#e8dcb0', t: '#e8e0d0',
+      r: '#d8ccb8', s: '#d8ccb8', z: '#6a4e34', y: '#e8e0d0', k: '#6a4e34', w: '#7a5a3e', x: '#f4f0e6', p: '#5a4028',
+      a: '#6a4e34', u: '#7a5a3e', l: '#f4f0e6' },
+    egg: { c: '#f8f6f2', s: '#f8f6f2', p: 'none' },
+    real: { clutch: '3–6 eggs', incub: '26–29 days', fledge: '29–34 days' },
+    hints: [
+      'Deep in the pine grove at night, a soft, quick "po-po-po-po-po" carries far. It comes from a small owl with a big square head and a permanently surprised face.',
+      'Tengmalm\'s Owls nest in old woodpecker holes in conifer forest — or in an Owl Box among plenty of pines.',
+      'No nest material: the eggs are laid on the bare floor of the hole.',
+    ],
+    facts: [
+      'It is also called the Boreal Owl: it lives in cold conifer forests in the far north and high in the mountains.',
+      'Its ear openings sit at different heights on its head, which helps it pinpoint mice by sound in the dark.',
+      'It often nests in the old holes of Black Woodpeckers.',
+      'Its pale face with raised "eyebrows" makes it look permanently surprised.',
+    ],
+  },
 ];
 
 // Common birds that live in the valley all year. They make it feel alive but are not part of
@@ -1927,6 +2220,28 @@ AMBIENT.push({
     'Gulls can drink salt water: special glands above their eyes get rid of the extra salt.'],
 });
 
+// Doves of the village gardens and a sociable crow of the farmland
+AMBIENT.push({
+  id: 'collareddove', name: 'Eurasian Collared Dove', latin: 'Streptopelia decaocto', ambient: true, flock: 2,
+  zones: ['village', 'garden'], body: 'pigeon', song: 'collareddove', present: [0, 1, 2, 3], breed: [],
+  col: { o: '#2a2420', c: '#c8b8a8', n: '#141418', f: '#d0c4b4', m: '#d0c4b4', i: '#d0c4b4', E: '#c82a2a', b: '#2a2a2a', t: '#d8ccbc',
+    r: '#d8c8c0', s: '#d8c8c0', z: '#d8c8c0', y: '#e0d8d0', k: '#bca88e', w: '#b8a48a', x: '#a8a8b0', p: '#5a5a62', a: '#a89c8c', u: '#c8b8a8', l: '#c87a7a' },
+  egg: { c: '#f8f6f2', s: '#f8f6f2', p: 'none' },
+  facts: ['Collared Doves spread right across Europe from the Balkans during the 20th century, reaching Britain only in the 1950s.',
+    'They can breed in almost any month and raise several broods a year.',
+    'Its song is a three-note "coo-COO-coo", repeated over and over.'],
+});
+AMBIENT.push({
+  id: 'rook', name: 'Rook', latin: 'Corvus frugilegus', ambient: true, flock: 4,
+  zones: ['farm', 'meadow'], body: 'crow', song: 'rook', present: [0, 1, 2, 3], breed: [],
+  col: { o: '#06060a', c: '#1c1c26', n: '#1c1c26', f: '#b8b0a8', m: '#1c1c26', i: '#b8b0a8', E: '#3a3a3a', b: '#4a4a50', t: '#1c1c26',
+    r: '#20202c', s: '#20202c', z: '#20202c', y: '#1c1c24', k: '#262634', w: '#2e2e44', x: '#3e3e5e', p: '#18181e', a: '#18181e', u: '#22222c', l: '#2a2a2e' },
+  egg: { c: '#9ab8a8', s: '#4a5a4a', p: 'blotch' },
+  facts: ['Rooks nest together in noisy treetop colonies called rookeries.',
+    'Adults have bare, greyish skin around the base of the bill — the easiest way to tell them from crows.',
+    'They probe fields for worms and insect grubs with their strong, pointed bills.'],
+});
+
 // Rare visitors: they nest elsewhere, but now and then one turns up for a day. Spotting one is a treat.
 const RARE = [
   { id: 'hoopoe', name: 'Eurasian Hoopoe', latin: 'Upupa epops', rare: true, present: [SPRING, SUMMER], zone: 'orchard', body: 'small', beak: 'thin', crest: 'fan', song: 'hoopoe',
@@ -1965,6 +2280,18 @@ const RARE = [
     col: { o: '#1e1e22', c: '#8a8e94', n: '#8a8e94', f: '#9a9ea4', m: '#6a6e74', i: '#9a9ea4', b: '#141414', t: '#d8dcdc', r: '#6a6e74', s: '#6a6e74', z: '#6a6e74', y: '#5a5e64', k: '#9a9ea4', w: '#d8283a', x: '#f4f4f0', p: '#141418', a: '#2a2a2e', u: '#7a7e84', l: '#2a2a2e', g: '#6a6e74' },
     egg: { c: '#f4f4f0', s: '#6a4a3a', p: 'fine' },
     facts: ['It flicks its wings open as it climbs rock faces, flashing crimson patches like a butterfly.', 'It lives on high mountain cliffs and comes down lower in winter.', 'Its fluttering, floppy flight has earned it the nickname "butterfly bird".'] },
+  { id: 'spoonbill', name: 'Eurasian Spoonbill', latin: 'Platalea leucorodia', rare: true, present: [SPRING, SUMMER], zone: 'pond', body: 'stork', song: 'spoonbill',
+    col: { o: '#5a5a62', c: '#f6f6f2', n: '#f6f6f2', f: '#f6f6f2', m: '#f6f6f2', i: '#141414', b: '#2a2a2a', t: '#f6f6f2', r: '#f0e0a8', s: '#f0e0a8', z: '#f6f6f2', y: '#ecece8', k: '#f6f6f2', w: '#f0f0ec', x: '#f0f0ec', p: '#e8e8e4', a: '#f6f6f2', u: '#f6f6f2', l: '#2a2a2a' },
+    egg: { c: '#f4f0e6', s: '#a8704a', p: 'spots' },
+    facts: ['It sweeps its spoon-shaped bill from side to side through shallow water to catch small fish and shrimps.', 'In the breeding season it grows a shaggy crest and a yellow patch on its breast.', 'Spoonbills nest in colonies, in reed beds and low trees.'] },
+  { id: 'seaeagle', name: 'White-tailed Eagle', latin: 'Haliaeetus albicilla', rare: true, present: [WINTER], zone: 'river', body: 'cuckoo', song: 'seaeagle',
+    col: { o: '#1a120c', c: '#c8b898', n: '#b8a888', f: '#c8b898', m: '#8a7a5a', i: '#f2d23a', b: '#f2d23a', t: '#c8b898', r: '#5a4028', s: '#5a4028', z: '#4a3020', y: '#5a4028', k: '#4a3420', w: '#5a4028', x: '#7a5a3a', p: '#2a1a10', a: '#f8f8f4', u: '#5a4028', l: '#f2d23a', g: '#4a3420' },
+    egg: { c: '#f4f4f0', s: '#f4f4f0', p: 'none' },
+    facts: ['With wings up to about 2.4 metres across, it is the largest eagle in Europe.', 'It snatches fish from the water surface with its talons — and steals food from other birds.', 'Once wiped out in much of Europe, it has made a comeback thanks to protection.'] },
+  { id: 'rosystarling', name: 'Rosy Starling', latin: 'Pastor roseus', rare: true, present: [SUMMER], zone: 'southmeadow', body: 'thrush', crest: 'swept', song: 'rosystarling',
+    col: { o: '#121216', c: '#141418', n: '#141418', f: '#141418', m: '#141418', i: '#141418', b: '#e8a8a0', t: '#141418', r: '#f0a8b0', s: '#f0a8b0', z: '#f0a8b0', y: '#f0b0b8', k: '#f0a8b0', w: '#1e1e2a', x: '#2a2a3e', p: '#141418', a: '#141418', u: '#f0a8b0', l: '#d89a8a' },
+    egg: { c: '#d8e8f0', s: '#d8e8f0', p: 'none' },
+    facts: ['Huge flocks follow swarms of locusts and grasshoppers across Asia and south-eastern Europe.', 'In some summers, a few wander far to the west of their usual range.', 'Adults are pink and glossy black, with a shaggy crest on the back of the head.'] },
 ];
 
 // Journal order: by tier, so new arrivals sit next to the birds you meet at the same time
@@ -2169,13 +2496,13 @@ const LETTERS = {
   neighbours: { from: 'Prof. Ada Finch', title: 'Meet the neighbours',
     body: 'Dear neighbour,\n\nWord travels fast in a small valley! Now that the blackbirds have moved in, the villagers would love your help too.\n\n• A yellow "!" over someone\'s head means they have a request. Help them out and they\'ll reward you — and become your friends.\n• The Notice Board by the well has two small requests every morning.\n• Everyone likes a little gift. Hold something in your hands, walk up to a villager and press F (or right-click). They all have favourites!\n• Watching birds, finding clues and building nests all count towards your Birder Rank. New ranks bring rewards and new workbench recipes.\n• Now and then a rare visitor turns up for a single day. Watch for sparkles!\n\nAnd the valley doesn\'t sleep at sunset: some of our birds only come out at night.\n\n— Ada' },
   tier1: { from: 'Prof. Ada Finch', title: 'New leads!',
-    body: 'Your first chicks have fledged — wonderful! Word is spreading.\n\nI\'ve had reports of a tiny blue bird in the orchard, a speckled singer in the gardens, soft cooing from the trees, and a pink-breasted finch rattling out its song in the garden trees. Keep your eyes open and look for Field Notes!\n\n— Ada' },
+    body: 'Your first chicks have fledged — wonderful! Word is spreading.\n\nI\'ve had reports of a tiny blue bird in the orchard, a speckled singer in the gardens, soft cooing from the trees, a pink-breasted finch rattling out its song in the garden trees, and a little olive warbler in the forest that keeps singing its own name. Keep your eyes open and look for Field Notes!\n\n— Ada' },
   tier2: { from: 'Prof. Ada Finch', title: 'More birds arriving',
-    body: 'Three species nesting already! Now I\'m hearing a tiny, very loud singer in the forest, glossy blue birds around the farm and the village roofs, and ducks on the pond. Something in the forest is walking head-first DOWN the tree trunks, and smart black-and-white flycatchers are back in the oaks.\n\nThere\'s more: a speck of gold flitting through the pines, a mouse-like bird creeping up the tree trunks, a rosy-breasted finch in the orchard hedge, a grey warbler with a black cap singing at the forest edge, and a black-and-white bird wagging its tail around the farmyard.\n\nTip: mud is precious for some birds. After rain, look for puddles!\n\n— Ada' },
+    body: 'Three species nesting already! Now I\'m hearing a tiny, very loud singer in the forest, glossy blue birds around the farm and the village roofs, and ducks on the pond. Something in the forest is walking head-first DOWN the tree trunks, and smart black-and-white flycatchers are back in the oaks.\n\nThere\'s more: a speck of gold flitting through the pines, a mouse-like bird creeping up the tree trunks, a rosy-breasted finch in the orchard hedge, a grey warbler with a black cap singing at the forest edge, a black-and-white bird wagging its tail around the farmyard, a red-billed "marsh hen" on the pond, a blue-grey dove cooing from the old trees and a sooty bird with a red tail singing on the village rooftops.\n\nTip: mud is precious for some birds. After rain, look for puddles!\n\n— Ada' },
   tier3: { from: 'Prof. Ada Finch', title: 'The valley is waking up',
-    body: 'Seven species! New reports: a charm of red-faced finches in the south meadow, a fluffy long-tailed bird by the forest edge, drumming in the woods, chattering in the reeds and red birds in the pine grove.\n\nA song pours down from high above the hay meadow, a little plover runs over the river gravel, a dark bird walks right into the river, sand martins twitter along the banks and jackdaws chatter on the chimneys. A yellow bird sings about bread and cheese on the farm hedges, and a little falcon hangs in the wind above the hills. Something laughs out loud in the orchard, where an orange-tailed bird flickers between the old trees; a jay screeches in the oaks; and on the big pond, crested birds are dancing. And on spring nights — listen for the nightingale, and for something squealing like a piglet in the reeds!\n\n— Ada' },
+    body: 'Seven species! New reports: a charm of red-faced finches in the south meadow, a fluffy long-tailed bird by the forest edge, drumming in the woods, chattering in the reeds and red birds in the pine grove.\n\nA song pours down from high above the hay meadow, a little plover runs over the river gravel, a dark bird walks right into the river, sand martins twitter along the banks and jackdaws chatter on the chimneys. A yellow bird sings about bread and cheese on the farm hedges, and a little falcon hangs in the wind above the hills. Something laughs out loud in the orchard, where an orange-tailed bird flickers between the old trees; a jay screeches in the oaks; and on the big pond, crested birds are dancing. Listen too for a purring dove in the southern hedges, a little grey bird snapping up flies in the gardens, a white-rumped bird bobbing on the rocks in the hills, a lemon-yellow wagtail by the river bridge and tiny finches hanging from the pine cones. And on spring nights — listen for the nightingale, and for something squealing like a piglet in the reeds!\n\n— Ada' },
   tier4: { from: 'Prof. Ada Finch', title: 'Rare visitors!',
-    body: 'Thirteen species — the valley is becoming famous! Someone saw a flash of blue on the river, a ghostly white owl over the hay meadow at dusk, a masked little bird in the pond willows… and a certain bird calling its own name.\n\nScreaming swifts race around the rooftops and a tall grey heron stalks the river. And the nights are full of voices: hooting in the forest, a churring nightjar in the clearings, a long-eared owl in the pines and a corncrake rasping all night in the hay meadow. On summer nights a tiny owl whistles "tyuu" in the orchard. And over the wet meadow, a crested black-and-white bird tumbles through the air crying "pee-wit!" Elegant "sea swallows" dive for fish in the river — and on the gravel banks, after dark, something big-eyed wails "cur-lee"\n\n— Ada' },
+    body: 'Thirteen species — the valley is becoming famous! Someone saw a flash of blue on the river, a ghostly white owl over the hay meadow at dusk, a masked little bird in the pond willows… and a certain bird calling its own name.\n\nScreaming swifts race around the rooftops and a tall grey heron stalks the river. And the nights are full of voices: hooting in the forest, a churring nightjar in the clearings, a long-eared owl in the pines and a corncrake rasping all night in the hay meadow. On summer nights a tiny owl whistles "tyuu" in the orchard. And over the wet meadow, a crested black-and-white bird tumbles through the air crying "pee-wit!" Elegant "sea swallows" dive for fish in the river — and on the gravel banks, after dark, something big-eyed wails "cur-lee". A great white swan has been seen on the pond, a buzzard mews over the woods, and from the pine grove at night comes a soft, quick "po-po-po-po"\n\n— Ada' },
   tier5: { from: 'Prof. Ada Finch', title: 'A very big visitor',
     body: 'Twenty species! And the biggest news of all: a pair of White Storks has been seen in the wet meadow east of the river. Storks need open, wet meadows and a high place to build. Could you make them a home?\n\nThere are rumours of a rainbow-coloured bird hunting bees over the south meadow — and of a "butcher bird" in the thorn hedges! And after dark, from the rocky hills, comes the deep hoot of an Eagle-Owl… while by day, a big brown bird of prey glides low over the reed beds.\n\n— Ada' },
   spring: { from: 'Prof. Ada Finch', title: 'Spring is here!',
@@ -2187,7 +2514,7 @@ const LETTERS = {
   winter: { from: 'Prof. Ada Finch', title: 'Winter',
     body: 'A quiet season… mostly! Crossbills breed in winter when the pine cones are full of seeds, and Grey Herons start building their nests in late winter. A good time to prepare structures, plant and plan for spring.\n\n— Ada' },
   allDone: { from: 'Prof. Ada Finch', title: 'You did it!',
-    body: 'All fifty-five species are nesting in Featherbrook Valley! I can hardly believe it. The valley rings with birdsong from dawn to dusk again.\n\nThank you, from me and from every bird in the valley.\n\n— Ada' },
+    body: 'All sixty-seven species are nesting in Featherbrook Valley! I can hardly believe it. The valley rings with birdsong from dawn to dusk again.\n\nThank you, from me and from every bird in the valley.\n\n— Ada' },
 };
 
 function nestedLetter(sp, grant) {
@@ -2341,9 +2668,9 @@ QUESTS.push(
     hint: 'Search the rocky hills in the north-east for the sheep bell.',
     thanks: ['That\'s it — dented, but it still rings!', 'Have some wool for your nests. A long-tailed tit lines its nest with up to two thousand feathers, you know.'],
     reward: { coins: 70, mats: { wool: 5 } } },
-  { id: 'swallows', npc: 'mabel', after: 'bell', title: 'Life in the barn', kind: 'nest', sp: ['swallow', 'martin', 'swift', 'barnowl', 'jackdaw', 'wagtail'], n: 1,
+  { id: 'swallows', npc: 'mabel', after: 'bell', title: 'Life in the barn', kind: 'nest', sp: ['swallow', 'martin', 'swift', 'barnowl', 'jackdaw', 'wagtail', 'blackredstart'], n: 1,
     ask: ['When I was a girl, swallows swooped in and out of this barn all summer long.', 'Could you help some birds make a home on the farm or in the village again?'],
-    hint: 'Help a Barn Swallow, House Martin, Swift, Jackdaw, White Wagtail or Barn Owl move into a nest.',
+    hint: 'Help a bird of the farm and village move in: Barn Swallow, House Martin, Swift, Jackdaw, White Wagtail, Black Redstart or Barn Owl.',
     thanks: ['Listen to that! Swallows come back to the same barn year after year — all the way from Africa.', 'Thank you, dear. Here\'s a bit of wool and some coins.'],
     reward: { coins: 120, mats: { wool: 4, hair: 3 } } },
 
@@ -2352,9 +2679,9 @@ QUESTS.push(
     hint: 'Bring Tom\'s wooden kingfisher to Rosie in the village.',
     thanks: ['A kingfisher! It\'s even got an orange tummy!', 'Tell Tom it\'s the BEST. He said to give you this for helping.'],
     reward: { coins: 60, mats: { feather: 2 } } },
-  { id: 'riverbirds', npc: 'tom', after: 'carving', title: 'River life', kind: 'nest', sp: ['mallard', 'dipper', 'kingfisher', 'sandmartin', 'plover', 'heron', 'tern', 'grebe'], n: 1,
+  { id: 'riverbirds', npc: 'tom', after: 'carving', title: 'River life', kind: 'nest', sp: ['mallard', 'dipper', 'kingfisher', 'sandmartin', 'plover', 'heron', 'tern', 'grebe', 'moorhen', 'swan', 'greywagtail'], n: 1,
     ask: ['The river\'s clean again, but it\'s still too quiet.', 'Help a river bird nest — a dipper, a kingfisher, sand martins, anything!'],
-    hint: 'Help a water bird move in (Mallard, Dipper, Kingfisher, Sand Martin, Little Ringed Plover, Grey Heron, Common Tern or Great Crested Grebe).',
+    hint: 'Help a water bird move in: a duck, swan, moorhen, grebe, tern, plover, heron, kingfisher, dipper, sand martin or Grey Wagtail.',
     thanks: ['I saw them at first light! The river\'s alive again.', 'Here — my best driftwood, and a bit of money for your boxes.'],
     reward: { coins: 150, mats: { wood: 6 } } },
 
@@ -2396,9 +2723,9 @@ QUESTS.push(
     hint: 'Craft 2 Deadwood Trunks at the workbench and stand them anywhere.',
     thanks: ['Beetles will move in first, then the woodpeckers that eat them.', 'Here\'s a little something from the forestry budget.'],
     reward: { coins: 120, items: { box_large: 1 } } },
-  { id: 'forestbirds', npc: 'juniper', after: 'deadwood', title: 'Forest homes', kind: 'nest', sp: ['woodpecker', 'nuthatch', 'flycatcher', 'crossbill', 'tawny', 'longeared', 'wren', 'longtailed', 'jay', 'blackcap', 'treecreeper', 'goldcrest'], n: 1,
+  { id: 'forestbirds', npc: 'juniper', after: 'deadwood', title: 'Forest homes', kind: 'nest', sp: ['woodpecker', 'nuthatch', 'flycatcher', 'crossbill', 'tawny', 'longeared', 'wren', 'longtailed', 'jay', 'blackcap', 'treecreeper', 'goldcrest', 'chiffchaff', 'stockdove', 'siskin', 'buzzard', 'tengmalm'], n: 1,
     ask: ['The old forest has lost a lot of its birds over the years.', 'Help a forest bird nest — a woodpecker, nuthatch, flycatcher, wren, owl…'],
-    hint: 'Help a forest bird move in (woodpecker, nuthatch, flycatcher, crossbill, wren, long-tailed tit, jay, blackcap, treecreeper, goldcrest or a forest owl).',
+    hint: 'Help any bird of the forest or pine grove move in — a woodpecker, nuthatch, jay, warbler, finch, dove, owl or buzzard.',
     thanks: ['I heard them from the path this morning. The forest\'s getting its voice back.', 'Take this — you\'ve earned it, ranger.'],
     reward: { coins: 150, mats: { wood: 6, moss: 4 } } },
 
@@ -6079,6 +6406,98 @@ const BIRD_T = {
       '.p................',
       '..................',
       '..................',
+    ],
+  },
+  swan: {
+    w: 28, h: 20, ax: 14, ay: 17,
+    // swimming: long S-curved neck, wings arched over the back
+    perch: [
+      '............................',
+      '............................',
+      '...................cc.......',
+      '..................cccc......',
+      '..................cEgbbb....',
+      '..................ccc.bb....',
+      '..................nn........',
+      '.................nn.........',
+      '................nn..........',
+      '................nn..........',
+      '................nnn.........',
+      '.........wwwwwwwrnnn........',
+      '......wwwwwwwwwwrrrr........',
+      '....kkwwwxwwwwwwrrrr........',
+      '..aakkkwwwwwwwyyyyy.........',
+      '.aaakkkkkyyyyyyyyy..........',
+      '...yyyyyyyyyyyyyyy..........',
+      '.....yyyyyyyyyyyy...........',
+      '............................',
+      '............................',
+    ],
+    peck: [
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '.........wwwwwwwrr..........',
+      '......wwwwwwwwwwrrr.........',
+      '....kkwwwxwwwwwwrrnn........',
+      '..aakkkwwwwwwwyyyynn........',
+      '.aaakkkkkyyyyyyyyy.nn.......',
+      '...yyyyyyyyyyyyyyy..ncc.....',
+      '.....yyyyyyyyyyyy...cEgbb...',
+      '............................',
+      '............................',
+    ],
+    fly1: [
+      '............................',
+      '.......pp...................',
+      '......pwwp..................',
+      '.....pwwwwp.................',
+      '.....xwwwww.................',
+      '......wwwwww................',
+      '.......wwwwkk.........cc....',
+      '..aaakkkkkkkkrrnnnnnncEgbb..',
+      '.aaayyyyyyyyyyyrrrr...c.....',
+      '...ll.yyyyyyyyy.............',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+    ],
+    fly2: [
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '......................cc....',
+      '..aaakkkkkkkkrrnnnnnncEgbb..',
+      '.aaayyywwwwwwyyrrrr...c.....',
+      '...ll..wwwwwwww.............',
+      '.......pwwwwwp..............',
+      '........pwwwp...............',
+      '.........ppp................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
+      '............................',
     ],
   },
   pigeon: {
@@ -11024,6 +11443,24 @@ const Audio2 = {
       case 'wallcreeper': for (let i = 0; i < 4; i++) T(i * 0.3, 3800 + i * 300, 4600 + i * 300, 0.2, 0.04); break;
       case 'crow': for (let i = 0; i < 3; i++) { this.tone(d, t + i * 0.42, 620, 520, 0.28, 0.08, 'sawtooth'); this.noise(d, t + i * 0.42, 0.26, 0.12, 'bandpass', 1100, 800, 2); } break;
       case 'gull': for (let i = 0; i < 3; i++) { this.tone(d, t + i * 0.3, 1900, 1100, 0.24, 0.07, 'sawtooth'); this.noise(d, t + i * 0.3, 0.22, 0.04, 'bandpass', 1800, 1200, 3); } break;
+      // ---- sixth update
+      case 'chiffchaff': for (let i = 0; i < 8; i++) T(i * 0.28, i % 2 ? 4300 : 5200, i % 2 ? 4100 : 5000, 0.09, 0.06); break;
+      case 'moorhen': { this.tone(d, t, 1300, 900, 0.12, 0.08, 'square'); this.noise(d, t, 0.12, 0.06, 'bandpass', 1500, 1000, 3); T(0.5, 2200, 1700, 0.06, 0.05, 'square'); break; }
+      case 'stockdove': for (let i = 0; i < 4; i++) { T(i * 0.62, 330, 360, 0.18, 0.12, 'sine'); T(i * 0.62 + 0.2, 380, 300, 0.26, 0.1, 'sine'); } break;
+      case 'turtledove': for (let i = 0; i < 3; i++) for (let j = 0; j < 12; j++) T(i * 0.75 + j * 0.035, 560 + (j % 2) * 40, 540, 0.03, 0.08, 'sine'); break;
+      case 'spottedfly': T(0, 7600, 7200, 0.08, 0.04); T(0.5, 7400, 7000, 0.06, 0.04); this.noise(d, t + 0.62, 0.03, 0.06, 'bandpass', 3000, 0, 4); break;
+      case 'blackredstart': { for (let i = 0; i < 4; i++) T(i * 0.1, 3800 - i * 200, 3600 - i * 200, 0.07, 0.05); for (let i = 0; i < 10; i++) this.noise(d, t + 0.6 + i * 0.03, 0.025, 0.06, 'bandpass', 4500, 0, 6); T(1.0, 3000, 2600, 0.15, 0.05); break; }
+      case 'wheatear': { this.noise(d, t, 0.05, 0.1, 'bandpass', 4000, 0, 5); this.noise(d, t + 0.15, 0.05, 0.1, 'bandpass', 4000, 0, 5); let k = 0.5; for (let i = 0; i < 6; i++) { const f = 2500 + R() * 2500; T(k, f, f * 0.9, 0.06, 0.04); k += 0.08; } break; }
+      case 'greywagtail': for (let i = 0; i < 2; i++) T(i * 0.12, 6200, 5600, 0.05, 0.06); break;
+      case 'siskin': { let k = 0; for (let i = 0; i < 12; i++) { const f = 4000 + R() * 3000; T(k, f, f * (0.8 + R() * 0.4), 0.05, 0.04); k += 0.06; } T(k + 0.05, 3000, 5200, 0.35, 0.04); break; }
+      case 'swan': { this.noise(d, t, 0.5, 0.1, 'bandpass', 2500, 1800, 1.5); for (let i = 0; i < 6; i++) this.noise(d, t + 0.8 + i * 0.12, 0.08, 0.08, 'bandpass', 500, 0, 2); break; }
+      case 'buzzard': T(0, 2400, 1700, 0.7, 0.07); T(1.1, 2300, 1650, 0.6, 0.05); break;
+      case 'tengmalm': for (let i = 0; i < 7; i++) T(i * 0.14, 720 + i * 8, 700 + i * 8, 0.09, 0.1, 'sine'); break;
+      case 'spoonbill': this.noise(d, t, 0.2, 0.08, 'bandpass', 600, 400, 2); break;
+      case 'seaeagle': for (let i = 0; i < 6; i++) T(i * 0.13, 2600 - i * 80, 2300 - i * 80, 0.09, 0.07); break;
+      case 'rosystarling': { let k = 0; for (let i = 0; i < 10; i++) { if (R() < 0.4) this.noise(d, t + k, 0.05, 0.06, 'bandpass', 3500, 0, 5); else T(k, 2000 + R() * 3000, 2000 + R() * 3000, 0.07, 0.05); k += 0.1; } break; }
+      case 'collareddove': { T(0, 520, 500, 0.2, 0.1, 'sine'); T(0.28, 620, 600, 0.38, 0.12, 'sine'); T(0.75, 480, 460, 0.28, 0.1, 'sine'); break; }
+      case 'rook': for (let i = 0; i < 2; i++) { this.tone(d, t + i * 0.5, 540, 480, 0.3, 0.08, 'sawtooth'); this.noise(d, t + i * 0.5, 0.28, 0.12, 'bandpass', 900, 700, 2); } break;
       case 'sparrow': for (let i = 0; i < 5; i++) { const f = 3200 + R() * 600; T(i * 0.22, f, f * 0.85, 0.08, 0.06, 'triangle'); } break;
       case 'starling': { let k = 0; for (let i = 0; i < 10; i++) { const r = R(); if (r < 0.3) this.noise(d, t + k, 0.05, 0.06, 'bandpass', 3000 + R() * 2000, 0, 6); else T(k, 1500 + R() * 4000, 1500 + R() * 4000, 0.1 + R() * 0.15, 0.05); k += 0.14 + R() * 0.1; } break; }
       case 'magpie': for (let i = 0; i < 6; i++) { this.noise(d, t + i * 0.11, 0.07, 0.16, 'bandpass', 1900, 1500, 2.5); this.tone(d, t + i * 0.11, 900, 700, 0.06, 0.04, 'sawtooth'); } break;
@@ -11461,6 +11898,23 @@ const BIRD_PREFS = {
   wallcreeper: { ground: 6, post: 1 },
   crow: { ground: 7, tree: 2, post: 1 },
   gull: { air: 5, water: 3, shore: 2 },
+  chiffchaff: { tree: 5, shrub: 5 },
+  moorhen: { water: 6, shore: 3, reed: 1 },
+  stockdove: { tree: 5, ground: 5 },
+  blackredstart: { roof: 6, ground: 2, post: 2 },
+  turtledove: { shrub: 5, tree: 3, ground: 2 },
+  spottedfly: { tree: 6, post: 4 },
+  wheatear: { ground: 8, post: 2 },
+  greywagtail: { shore: 7, waterperch: 3 },
+  siskin: { pine: 8, tree: 2, feeder: 2 },
+  swan: { water: 10 },
+  buzzard: { air: 7, tree: 2, post: 1 },
+  tengmalm: { pine: 9, tree: 1 },
+  spoonbill: { shore: 7, water: 3 },
+  seaeagle: { air: 7, tree: 3 },
+  rosystarling: { ground: 7, tree: 3 },
+  collareddove: { roof: 4, ground: 4, tree: 2 },
+  rook: { ground: 8, tree: 2 },
   woodcock: { air: 6, ground: 4 },
   littleowl: { roof: 5, post: 5 },
   sparrow: { ground: 6, roof: 2, shrub: 2, post: 1, feeder: 14, bath: 3 },
@@ -13582,8 +14036,10 @@ class JournalScreen {
 
   drawBirds(ui, x, y, w, h) {
     const S = G.state;
-    const cell = 24, rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1)));
-    const cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit));
+    // as many columns as needed to fit every bird; smaller cells once there are lots of them
+    let cell = 24, rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1)));
+    let cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit));
+    if (cols > 7) { cell = 20; rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1))); cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit)); }
     if (!this.sel) this.sel = SPECIES[0].id;
     SPECIES_BY_TIER.forEach((sp, i) => {
       const cx = x + (i % cols) * (cell + 1), cy = y + Math.floor(i / cols) * (cell + 1);

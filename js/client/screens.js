@@ -490,8 +490,10 @@ class JournalScreen {
 
   drawBirds(ui, x, y, w, h) {
     const S = G.state;
-    const cell = 24, rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1)));
-    const cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit));
+    // as many columns as needed to fit every bird; smaller cells once there are lots of them
+    let cell = 24, rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1)));
+    let cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit));
+    if (cols > 7) { cell = 20; rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1))); cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit)); }
     if (!this.sel) this.sel = SPECIES[0].id;
     SPECIES_BY_TIER.forEach((sp, i) => {
       const cx = x + (i % cols) * (cell + 1), cy = y + Math.floor(i / cols) * (cell + 1);

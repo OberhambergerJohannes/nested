@@ -1,7 +1,7 @@
 # Nested 🪺
 
 **A cozy pixel-art life sim about bringing birds back to a valley.**
-Find clues about 55 real European birds, gather the exact materials each one uses for its nest,
+Find clues about 67 real European birds, gather the exact materials each one uses for its nest,
 create the habitat it needs — and watch eggs hatch and chicks fledge. Play alone or build habitats together in co-op.
 
 ![Gameplay](assets/screenshot-garden.png)
@@ -65,7 +65,7 @@ Prompts above things always tell you what **E** and **F** will do.
 4. **Build the nest** at the right site (press **F** there). The panel shows every habitat need with ✓/✗.
    If the habitat is right and it's the breeding season, a pair moves in, lays eggs, and raises chicks.
 5. When the chicks fledge, the species counts as **nested**, you get a conservation grant, and new birds start visiting.
-   Nest all **55 species** to restore the valley.
+   Nest all **67 species** to restore the valley.
 
 Sleep in your cottage to end the day: plants grow, eggs hatch and chicks fledge overnight. Seasons last 7 days.
 Most birds nest in spring and summer — but Barn Owls and Wood Pigeons still breed in autumn, Crossbills breed in **winter**,
@@ -79,9 +79,9 @@ at your cottage door or on a garden bench.
 ![A moonlit evening in the village](assets/screenshot-night.png)
 
 **Rare visitors:** about one day in five, a villager reports an unusual bird passing through — a Hoopoe, a Golden Oriole,
-Waxwings, an Osprey, a Bluethroat, a Hawfinch, a Red Kite, a Common Crane or a Wallcreeper, each in its own season. It stays for that day only; look for the sparkle.
+Waxwings, an Osprey, a Bluethroat, a Hawfinch, a Red Kite, a Common Crane, a Wallcreeper, a Spoonbill, a White-tailed Eagle or a Rosy Starling, each in its own season. It stays for that day only; look for the sparkle.
 
-**Everyday birds:** House Sparrows, Starlings, Magpies, Carrion Crows and Black-headed Gulls live in the valley all year,
+**Everyday birds:** House Sparrows, Starlings, Magpies, Carrion Crows, Rooks, Collared Doves and Black-headed Gulls live in the valley all year,
 and Woodcocks and Little Owls come out at dusk. They don't need your help, but watching them always teaches you something.
 
 **Villagers:** Prof. Ada, Basil, Mabel, Old Tom the fisherman, Edith and her granddaughter Rosie, Finn the
@@ -108,7 +108,7 @@ accessories like binoculars, a camera, a scarf, a backpack or a satchel. Hit **S
 ### The birds (spoilers!)
 
 <details>
-<summary>All 55 species with their nests</summary>
+<summary>All 67 species with their nests</summary>
 
 | Bird | Nest site | Materials | Special needs |
 |---|---|---|---|
@@ -167,6 +167,18 @@ accessories like binoculars, a camera, a scarf, a backpack or a satchel. Hit **S
 | Common Tern | bare gravel by water | a pebble or two | open water, no trees nearby |
 | Eurasian Stone-curlew 🌙 | bare gravel by water | none (a scrape) | wide open ground |
 | Western Marsh Harrier | dense reed bed | sticks, twigs, grass | a large reed bed, water and rough meadows |
+| Common Chiffchaff | shrub (a domed nest) | grass, dead leaves, feather | bushes and trees |
+| Common Moorhen | dense reed bed | dry grass, dead leaves | water close by — even a small pond |
+| Stock Dove | owl box in the woods | a twig | old woodland |
+| Black Redstart | under house eaves | grass, moss, horsehair, feather | bare ground and short grass |
+| European Turtle Dove | thorny shrub | twigs (a see-through platform) | thick scrub and flowers for seeds |
+| Spotted Flycatcher | open-fronted nest box | grass, moss, horsehair, spider silk | trees and flowers full of insects |
+| Northern Wheatear | rock ledge in the hills | grass, moss, feather | rocks with crevices |
+| Grey Wagtail | beside a bridge | grass, moss, horsehair | fast, clean water |
+| Eurasian Siskin | pine | twig, moss, lichen, feather | pines full of cones |
+| Mute Swan | dense reed bed (a huge mound) | grass, dead leaves, sticks | a big stretch of open water |
+| Common Buzzard | broadleaf tree | sticks, twigs, fresh leaves | woodland and rough meadows for voles |
+| Tengmalm's Owl 🌙 | owl box among the pines | none | old conifer forest |
 
 🌙 = only seen from dusk until dawn.
 

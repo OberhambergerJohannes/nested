@@ -50,6 +50,8 @@ function prepare(sp) {
     if (sh) flowersAround(sh.x, sh.y, 7);
   }
   if (sp.id === 'beeeater') flowersAround(70, 62, 10);
+  if (sp.id === 'spottedfly') { const tr = objs().filter(o=>o.type==='tree'&&o.kind==='apple'&&o.st===2)[2]; if (tr) flowersAround(tr.x, tr.y, 6); }
+  if (sp.id === 'turtledove') { const sh = objs().filter(o=>o.type==='shrub'&&o.st===2&&FLORA[o.kind].thorny&&!nestsOfHost(w,o.id).length).sort((a,b)=>b.y-a.y)[0]; if (sh) flowersAround(sh.x, sh.y, 8); }
   if (sp.id === 'scopsowl') { const ap = objs().filter(o=>o.type==='tree'&&o.kind==='apple'&&o.st===2&&!nestsOfHost(w,o.id).length)[1]; if (ap) flowersAround(ap.x, ap.y, 6); }
   if (sp.id === 'longeared') {
     // a small clump of pines right by the hay meadow
@@ -68,7 +70,7 @@ function prepare(sp) {
     }
   }
   if (sp.id === 'goldfinch') { const ap = objs().find(o=>o.type==='tree'&&o.kind==='apple'&&o.st===2&&!nestsOfHost(w,o.id).length); for (let i=0;i<4;i++){ const xy=freeSpot([ap.x-4,ap.y-4,ap.x+4,ap.y+4],(x,y,t)=>t===T.GRASS); const q=placeItem('seed_thistle', xy[0], xy[1]); if(q){q.st=2;} } }
-  if (['reedwarbler', 'penduline', 'waterrail', 'grebe', 'marshharrier'].includes(sp.id)) {
+  if (['reedwarbler', 'penduline', 'waterrail', 'grebe', 'marshharrier', 'moorhen', 'swan'].includes(sp.id)) {
     // a compact reed bed: the shallow tile with the most shallow neighbours, filled within 2 tiles
     let best = null, bn = -1;
     for (let y = 51; y <= 65; y++) for (let x = 15; x <= 33; x++) {
@@ -84,7 +86,7 @@ function prepare(sp) {
     }
   }
   if (S[sp.site]) {
-    const zoneFor = { box_small:[45,36,58,47], box_medium: sp.id === 'flycatcher' ? [10,2,60,14] : [45,36,58,47], box_large:[10,2,60,14], box_open:[34,26,56,37], owlbox: sp.id === 'tawny' ? [10,2,60,14] : [3,39,27,48], platform:[85,26,93,60], brushpile:[10,2,60,14] };
+    const zoneFor = { box_small:[45,36,58,47], box_medium: sp.id === 'flycatcher' ? [10,2,60,14] : [45,36,58,47], box_large:[10,2,60,14], box_open: sp.id === 'spottedfly' ? [45,36,58,47] : [34,26,56,37], owlbox: sp.id === 'tawny' || sp.id === 'stockdove' ? [10,2,60,14] : sp.id === 'tengmalm' ? [1,1,18,14] : [3,39,27,48], platform:[85,26,93,60], brushpile:[10,2,60,14] };
     let xy = null;
     const habOk = (x, y) => evalNest(w, sp, x, y, 0).checks.filter((c) => !c.label.startsWith('Nesting season')).every((c) => c.ok);
     if (sp.site === 'bank' && sp.id === 'beeeater') xy = freeSpot([62,56,78,67], (x,y,t)=>t===T.GRASS && habOk(x, y));
