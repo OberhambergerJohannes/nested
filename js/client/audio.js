@@ -231,6 +231,27 @@ const Audio2 = {
       case 'osprey': for (let i = 0; i < 6; i++) T(i * 0.16, 2600 + i * 60, 2300 + i * 60, 0.1, 0.06); break;
       case 'bluethroat': { let k = 0; for (let i = 0; i < 4; i++) { T(k, 4200, 4200, 0.06, 0.05); k += 0.09; } for (let i = 0; i < 8; i++) { const f = 2500 + R() * 4000; T(k, f, f * (0.8 + R() * 0.4), 0.07, 0.05); k += 0.09; } this.noise(d, t + k, 0.05, 0.08, 'bandpass', 3000, 0, 4); break; }
       case 'hawfinch': T(0, 7200, 6400, 0.05, 0.07, 'square'); T(0.5, 7200, 6400, 0.05, 0.06, 'square'); break;
+      // ---- fifth update
+      case 'chaffinch': { // a rattling run that speeds up and ends in a flourish
+        let k = 0, f = 5200;
+        for (let i = 0; i < 11; i++) { T(k, f, f * 0.92, 0.05, 0.05); k += Math.max(0.045, 0.11 - i * 0.007); f -= 180; }
+        T(k + 0.03, 3600, 4800, 0.07, 0.06); T(k + 0.12, 4800, 2800, 0.12, 0.06);
+        break;
+      }
+      case 'blackcap': { let k = 0; for (let i = 0; i < 4; i++) { const f = 3000 + R() * 1200; T(k, f, f * 1.05, 0.07, 0.03 + i * 0.008); k += 0.09; } for (let i = 0; i < 6; i++) { const f = 2000 + R() * 1800; T(k, f, f * (0.85 + R() * 0.35), 0.13, 0.07, 'sine'); k += 0.15; } break; }
+      case 'wagtail': for (let i = 0; i < 2; i++) { T(i * 0.14, 5200, 4400, 0.05, 0.06); this.noise(d, t + i * 0.14, 0.05, 0.05, 'bandpass', 4800, 0, 5); } break;
+      case 'greenwoodpecker': for (let i = 0; i < 10; i++) T(i * 0.1, 1700 - i * 25, 1500 - i * 25, 0.08, 0.09, 'triangle'); break;
+      case 'jay': for (let i = 0; i < 2; i++) { this.noise(d, t + i * 0.45, 0.28, 0.16, 'bandpass', 2100, 1600, 2); this.tone(d, t + i * 0.45, 900, 750, 0.26, 0.04, 'sawtooth'); } break;
+      case 'redstart': { T(0, 4200, 4100, 0.18, 0.06); T(0.24, 3600, 3300, 0.1, 0.05); T(0.36, 3300, 3000, 0.1, 0.05); for (let i = 0; i < 5; i++) { const f = 3000 + R() * 2500; T(0.5 + i * 0.06, f, f * 0.9, 0.05, 0.04); } break; }
+      case 'grebe': for (let i = 0; i < 4; i++) { this.tone(d, t + i * 0.13, 420, 360, 0.1, 0.09, 'sawtooth'); this.noise(d, t + i * 0.13, 0.09, 0.06, 'bandpass', 900, 700, 3); } break;
+      case 'tern': for (let i = 0; i < 2; i++) { this.tone(d, t + i * 0.6, 3400, 2300, 0.35, 0.06, 'sawtooth'); this.noise(d, t + i * 0.6, 0.3, 0.05, 'bandpass', 3000, 2400, 4); } break;
+      case 'stonecurlew': T(0, 1300, 2100, 0.28, 0.09, 'sine'); T(0.3, 2100, 1650, 0.32, 0.09, 'sine'); T(1.0, 1350, 2150, 0.26, 0.07, 'sine'); T(1.28, 2150, 1700, 0.3, 0.07, 'sine'); break;
+      case 'marshharrier': for (let i = 0; i < 3; i++) T(i * 0.32, 2700, 1900, 0.22, 0.06); break;
+      case 'redkite': T(0, 2300, 2600, 0.25, 0.07); T(0.27, 2600, 1700, 0.4, 0.07); T(0.75, 1800, 2400, 0.15, 0.05); T(0.92, 2400, 1700, 0.3, 0.05); break;
+      case 'crane': for (let i = 0; i < 3; i++) { this.tone(d, t + i * 0.38, 760, 700, 0.3, 0.1, 'triangle'); this.tone(d, t + i * 0.38, 1520, 1400, 0.3, 0.03, 'sawtooth'); } break;
+      case 'wallcreeper': for (let i = 0; i < 4; i++) T(i * 0.3, 3800 + i * 300, 4600 + i * 300, 0.2, 0.04); break;
+      case 'crow': for (let i = 0; i < 3; i++) { this.tone(d, t + i * 0.42, 620, 520, 0.28, 0.08, 'sawtooth'); this.noise(d, t + i * 0.42, 0.26, 0.12, 'bandpass', 1100, 800, 2); } break;
+      case 'gull': for (let i = 0; i < 3; i++) { this.tone(d, t + i * 0.3, 1900, 1100, 0.24, 0.07, 'sawtooth'); this.noise(d, t + i * 0.3, 0.22, 0.04, 'bandpass', 1800, 1200, 3); } break;
       case 'sparrow': for (let i = 0; i < 5; i++) { const f = 3200 + R() * 600; T(i * 0.22, f, f * 0.85, 0.08, 0.06, 'triangle'); } break;
       case 'starling': { let k = 0; for (let i = 0; i < 10; i++) { const r = R(); if (r < 0.3) this.noise(d, t + k, 0.05, 0.06, 'bandpass', 3000 + R() * 2000, 0, 6); else T(k, 1500 + R() * 4000, 1500 + R() * 4000, 0.1 + R() * 0.15, 0.05); k += 0.14 + R() * 0.1; } break; }
       case 'magpie': for (let i = 0; i < 6; i++) { this.noise(d, t + i * 0.11, 0.07, 0.16, 'bandpass', 1900, 1500, 2.5); this.tone(d, t + i * 0.11, 900, 700, 0.06, 0.04, 'sawtooth'); } break;

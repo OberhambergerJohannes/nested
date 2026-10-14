@@ -1,7 +1,7 @@
 # Nested 🪺
 
 **A cozy pixel-art life sim about bringing birds back to a valley.**
-Find clues about 45 real European birds, gather the exact materials each one uses for its nest,
+Find clues about 55 real European birds, gather the exact materials each one uses for its nest,
 create the habitat it needs — and watch eggs hatch and chicks fledge. Play alone or build habitats together in co-op.
 
 ![Gameplay](assets/screenshot-garden.png)
@@ -65,13 +65,13 @@ Prompts above things always tell you what **E** and **F** will do.
 4. **Build the nest** at the right site (press **F** there). The panel shows every habitat need with ✓/✗.
    If the habitat is right and it's the breeding season, a pair moves in, lays eggs, and raises chicks.
 5. When the chicks fledge, the species counts as **nested**, you get a conservation grant, and new birds start visiting.
-   Nest all **45 species** to restore the valley.
+   Nest all **55 species** to restore the valley.
 
 Sleep in your cottage to end the day: plants grow, eggs hatch and chicks fledge overnight. Seasons last 7 days.
 Most birds nest in spring and summer — but Barn Owls and Wood Pigeons still breed in autumn, Crossbills breed in **winter**,
 and Grey Herons start building in late winter.
 
-**Birds of the night:** owls, the nightjar, the nightingale, the corncrake and the water rail only show themselves from
+**Birds of the night:** owls, the nightjar, the nightingale, the corncrake, the water rail and the stone-curlew only show themselves from
 dusk until dawn. Nights are moonlit, not black: the valley turns blue and silver, windows, lanterns and lamp posts glow
 warm, and fireflies dance on summer nights. Stay up late and listen — or, when you play alone, **rest until evening**
 at your cottage door or on a garden bench.
@@ -79,7 +79,10 @@ at your cottage door or on a garden bench.
 ![A moonlit evening in the village](assets/screenshot-night.png)
 
 **Rare visitors:** about one day in five, a villager reports an unusual bird passing through — a Hoopoe, a Golden Oriole,
-Waxwings, an Osprey, a Bluethroat or a Hawfinch, each in its own season. It stays for that day only; look for the sparkle.
+Waxwings, an Osprey, a Bluethroat, a Hawfinch, a Red Kite, a Common Crane or a Wallcreeper, each in its own season. It stays for that day only; look for the sparkle.
+
+**Everyday birds:** House Sparrows, Starlings, Magpies, Carrion Crows and Black-headed Gulls live in the valley all year,
+and Woodcocks and Little Owls come out at dusk. They don't need your help, but watching them always teaches you something.
 
 **Villagers:** Prof. Ada, Basil, Mabel, Old Tom the fisherman, Edith and her granddaughter Rosie, Finn the
 photographer, Juniper the forest ranger and — after dark — Luna the night birder all go about their day on their own
@@ -105,7 +108,7 @@ accessories like binoculars, a camera, a scarf, a backpack or a satchel. Hit **S
 ### The birds (spoilers!)
 
 <details>
-<summary>All 45 species with their nests</summary>
+<summary>All 55 species with their nests</summary>
 
 | Bird | Nest site | Materials | Special needs |
 |---|---|---|---|
@@ -154,6 +157,16 @@ accessories like binoculars, a camera, a scarf, a backpack or a satchel. Hit **S
 | Northern Lapwing | long grass or marsh by water | a little grass | open wet meadow, no trees |
 | Water Rail 🌙 | dense reed bed | dead leaves, dry grass | a big reed bed |
 | Eurasian Scops Owl 🌙 | broadleaf tree (a hollow) | none | orchard trees and flowers full of moths |
+| Common Chaffinch | broadleaf tree | moss, lichen, spider silk, feather | trees around |
+| Eurasian Blackcap | thorny shrub | dry grass, horsehair | thick undergrowth and tall trees |
+| White Wagtail | inside the barn | grass, moss, horsehair, feather | short grass to chase insects on |
+| European Green Woodpecker | broadleaf tree (it carves a hole) | none | short lawns full of ants |
+| Eurasian Jay | broadleaf tree in the forest | sticks, twigs, horsehair | oaks (acorns!) and thick woodland |
+| Common Redstart | nest box, 32 mm hole | grass, moss, feather, horsehair | old trees |
+| Great Crested Grebe | dense reed bed (a floating nest) | dead leaves, dry grass | a big stretch of open water |
+| Common Tern | bare gravel by water | a pebble or two | open water, no trees nearby |
+| Eurasian Stone-curlew 🌙 | bare gravel by water | none (a scrape) | wide open ground |
+| Western Marsh Harrier | dense reed bed | sticks, twigs, grass | a large reed bed, water and rough meadows |
 
 🌙 = only seen from dusk until dawn.
 

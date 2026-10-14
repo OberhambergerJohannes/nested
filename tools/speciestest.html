@@ -68,7 +68,7 @@ function prepare(sp) {
     }
   }
   if (sp.id === 'goldfinch') { const ap = objs().find(o=>o.type==='tree'&&o.kind==='apple'&&o.st===2&&!nestsOfHost(w,o.id).length); for (let i=0;i<4;i++){ const xy=freeSpot([ap.x-4,ap.y-4,ap.x+4,ap.y+4],(x,y,t)=>t===T.GRASS); const q=placeItem('seed_thistle', xy[0], xy[1]); if(q){q.st=2;} } }
-  if (sp.id === 'reedwarbler' || sp.id === 'penduline' || sp.id === 'waterrail') {
+  if (['reedwarbler', 'penduline', 'waterrail', 'grebe', 'marshharrier'].includes(sp.id)) {
     // a compact reed bed: the shallow tile with the most shallow neighbours, filled within 2 tiles
     let best = null, bn = -1;
     for (let y = 51; y <= 65; y++) for (let x = 15; x <= 33; x++) {
