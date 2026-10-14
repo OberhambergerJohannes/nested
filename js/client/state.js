@@ -20,8 +20,8 @@ class ClientState {
 
   loadSnap(s) {
     // remember the old terrain, so a new morning only repaints what actually changed
-    const prev = this.tiles ? { tiles: this.tiles, grass: this.grass, occ: this.occ, season: this.time && this.time.season, key: this.seed + '|' + this.name } : null;
-    this.name = s.name; this.seed = s.seed; this.me = s.you;
+    const prev = this.tiles ? { tiles: this.tiles, grass: this.grass, occ: this.occ, season: this.time && this.time.season, key: this.seed + '|' + this.name, shadow: this._shadowSig() } : null;
+    this.name = s.name; this.seed = s.seed; this.me = s.you; this.mpm = s.mpm || MS_PER_MIN;
     this.tiles = b64decode(s.tiles);
     this.grass = b64decode(s.grass);
     this.objs = new Map();
@@ -53,9 +53,11 @@ class ClientState {
     this.sleepN = 0; this.sleepTotal = this.players.size;
     const same = prev && !this.allDirty && prev.key === this.seed + '|' + this.name && prev.season === this.time.season && prev.tiles.length === this.tiles.length;
     if (same) {
+      const shadow = this._shadowSig();
       for (let i = 0; i < this.tiles.length; i++) {
         if (prev.tiles[i] !== this.tiles[i]) this.markTile(i);
         else if (prev.grass[i] !== this.grass[i] || !prev.occ[i] !== !this.occ[i]) this.markDecal(i);
+        if (prev.shadow[i] !== shadow[i]) { this.markDecal(i); if (i % MAP_W) this.markDecal(i - 1); if ((i + 1) % MAP_W) this.markDecal(i + 1); }
       }
     } else this.allDirty = true;
     this.clockMs = 0;
@@ -83,9 +85,15 @@ class ClientState {
 
   markTile(i) { this.dirtyTiles.add(i); this.markDecal(i); }
   markDecal(i) { this.grassDirty.add(i); }
+  // tiles whose ground look depends on this object (its footprint, plus the tiles its shadow reaches)
   _markObj(o) {
     const [w, h] = footprint(o);
-    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (inBounds(o.x + dx, o.y + dy)) this.markDecal(tIdx(o.x + dx, o.y + dy));
+    for (let dy = 0; dy < h; dy++) for (let dx = -1; dx <= w; dx++) if (inBounds(o.x + dx, o.y + dy)) this.markDecal(tIdx(o.x + dx, o.y + dy));
+  }
+  _shadowSig() {
+    const sig = new Uint8Array(MAP_W * MAP_H);
+    for (const o of this.objs.values()) { const r = staticShadow(o); if (r && inBounds(o.x, o.y)) sig[tIdx(o.x, o.y)] = r; }
+    return sig;
   }
   // Nests that aren't old yet (cached until objects or nests change)
   activeNests() {
@@ -113,6 +121,7 @@ class ClientState {
 
   // Returns a list of "notes" the game layer reacts to (sounds, popups, ...)
   apply(evs, game) {
+    this.evVer = (this.evVer || 0) + 1; // anything the HUD shows may have changed
     for (const e of evs) {
       switch (e[0]) {
         case 'oa': {
@@ -131,6 +140,7 @@ class ClientState {
           const prevSt = o.st;
           Object.assign(o, e[2]);
           if (o.type === 'nest') this.nestVer++;
+          if (e[2].st !== undefined && e[2].st !== prevSt && staticShadow(o)) this._markObj(o); // grown: bigger shadow
           game.onObjUpdated(o, e[2], prevSt);
           break;
         }
@@ -179,6 +189,7 @@ class ClientState {
         case 'tp': game.onTeleport(e[1], e[2]); break;
         case 'side': this.side = e[1]; break;
         case 'prog': this.prog = e[1]; break;
+        case 'mpm': this.clockMs = this.clockMs * e[1] / (this.mpm || MS_PER_MIN); this.mpm = e[1]; break;
         case 'xp': game.onXP(e[1], e[2]); break;
         case 'lvl': game.onLevel(e[1], e[2]); break;
         case 'badges': this.badges = e[1]; break;
@@ -192,5 +203,5 @@ class ClientState {
   }
 
   // Interpolated game clock (minutes) between authoritative updates
-  clock() { return this.time.min + this.clockMs / MS_PER_MIN; }
+  clock() { return this.time.min + this.clockMs / (this.mpm || MS_PER_MIN); }
 }

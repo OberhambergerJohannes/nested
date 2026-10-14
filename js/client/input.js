@@ -9,7 +9,7 @@ const KEYMAP = {
   prev: ['KeyQ'], next: ['KeyR'], run: ['ShiftLeft', 'ShiftRight'],
   hot1: ['Digit1'], hot2: ['Digit2'], hot3: ['Digit3'], hot4: ['Digit4'], hot5: ['Digit5'], hot6: ['Digit6'], hot7: ['Digit7'], hot8: ['Digit8'],
 };
-const PAD_BTN = { 0: 'act', 1: 'cancel', 2: 'alt', 3: 'journal', 4: 'prev', 5: 'next', 8: 'map', 9: 'menu', 12: 'up', 13: 'down', 14: 'left', 15: 'right' };
+const PAD_BTN = { 0: 'act', 1: 'cancel', 2: 'alt', 3: 'journal', 4: 'prev', 5: 'next', 6: 'run', 7: 'run', 8: 'map', 9: 'menu', 10: 'run', 12: 'up', 13: 'down', 14: 'left', 15: 'right' };
 
 const Input = {
   down: new Set(),        // physical key codes held

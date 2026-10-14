@@ -312,6 +312,57 @@ function nestCenter(S, n) {
 
 function speciesForSite(site) { return SPECIES.filter((s) => s.site === site); }
 
+// Where a quest sends you (for the guide arrow), or null when it isn't about one place
+function questTarget(S, q) {
+  const npcAt = (id, label) => { const n = npcPos(id, S.clock()); return n.away ? null : { x: n.x * TS, y: n.y * TS, label, kind: 'quest' }; };
+  if (questReady(S, q)) return npcAt(q.npc, NPCS[q.npc].name);
+  if (q.kind === 'deliver') return npcAt(q.to, NPCS[q.to].name);
+  if (q.kind === 'trip') {
+    for (const o of S.objs.values()) if (o.type === 'landmark' && o.kind === q.lm) return { x: o.x * TS + 8, y: o.y * TS + 8, label: LANDMARKS[q.lm].name, kind: 'quest' };
+  }
+  if (q.kind === 'find' && q.area) return { x: (q.area[0] + q.area[2]) / 2 * TS, y: (q.area[1] + q.area[3]) / 2 * TS, label: 'Search here', kind: 'quest' };
+  return null;
+}
+
+// Radius of the shadow under something that never moves (painted into the terrain), or 0
+function staticShadow(o) {
+  if (o.type === 'tree') return o.st >= 2 ? 9 : 4;
+  if (o.type === 'shrub') return o.st >= 2 ? 9 : 5;
+  if (o.type === 'struct') return o.kind === 'platform' ? 10 : 5;
+  return 0;
+}
+
+// ---------- travel ----------
+// Places the map can take you to: home, the Field Station, the farm and every landmark found so far.
+// (x, y) is a spot in front of each, in pixels.
+function travelPoints(S) {
+  const out = [];
+  const find = (type, kind) => { for (const o of S.objs.values()) if (o.type === type && o.kind === kind) return o; return null; };
+  for (const [kind, label] of [['cottage', 'Home'], ['station', 'Field Station'], ['farmhouse', 'Mabel\'s farm']]) {
+    const o = find('building', kind);
+    if (!o) continue;
+    const b = BUILDINGS[o.kind], dx = b.door ? b.door[0] : Math.floor(b.w / 2);
+    out.push({ key: kind, label, x: (o.x + dx) * TS + 8, y: (o.y + b.h) * TS + 10 });
+  }
+  for (const o of S.objs.values()) {
+    if (o.type !== 'landmark' || !S.found || S.found[o.kind] == null) continue;
+    const [fw, fh] = footprint(o);
+    out.push({ key: 'lm:' + o.kind, label: LANDMARKS[o.kind].name, x: o.x * TS + fw * 8, y: (o.y + fh) * TS + 10 });
+  }
+  return out;
+}
+// The nearest spot around (x, y) where a player can stand
+function standSpot(S, x, y) {
+  if (!feetBlocked(S, x, y)) return [x, y];
+  for (let r = 4; r <= 64; r += 4) {
+    for (let a = 0; a < 16; a++) {
+      const t = a / 16 * Math.PI * 2, px = x + Math.cos(t) * r, py = y + Math.sin(t) * r;
+      if (!feetBlocked(S, px, py)) return [px, py];
+    }
+  }
+  return [x, y];
+}
+
 function knownSpecies(S, id) { const j = S.journal[id]; return j && j.h >= 3; }
 
 function isPlantable(item, t, S, x, y) {

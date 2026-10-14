@@ -39,10 +39,12 @@ Up to 6 players. Use `python3 server.py --port 9000` if port 8080 is busy.
 | Action | Keyboard / mouse | Gamepad | Touch |
 |---|---|---|---|
 | Move | WASD / arrow keys | Left stick / d-pad | Drag on the left side |
+| Run | hold Shift (or turn on *Always run*) | LT / RT / press the stick | *Always run* setting |
 | Interact (gather, talk, plant, place, observe) | **E** / Space / left-click | A | **A** button |
 | Nest site / details · give the item in your hand to a villager | **F** / right-click | X | **B** button |
 | Hotbar | 1–8, mouse wheel, Q / R | LB / RB | tap a slot |
 | Journal · Bag · Map | Tab (J) · I (B) · M | Y · – · Back | top-right buttons |
+| Map: set a pin · quick travel | click the map · click a blue point | select a blue point | tap |
 | Menu / close | Esc | B / Start | ✕ |
 | Chat (co-op) | T or Enter | – | – |
 
@@ -100,6 +102,22 @@ fledge, helping neighbours, exploring — earns experience. Fifteen ranks (from 
 coins, saplings, better binoculars, quieter steps and new workbench recipes: a **bird feeder** (birds really visit it), a
 **lamp post** and a **garden bench**. Seventeen badges celebrate milestones; the journal's **Progress** page shows how
 close you are to each.
+
+**Comfort features:**
+- **Guide arrow** — an arrow at the edge of the screen points to whatever you're working on: the next tutorial step, a
+  request you chose with **Guide** in the journal, a pin you dropped on the map, or a nest spot.
+- **"Where can it nest?"** — in the journal, for any bird whose blueprint you know. It finds every spot in the valley
+  where that bird would move in right now (marked with green arrows and on the map). If there's none yet, it shows the
+  closest spot and exactly what it's still missing.
+- **Map** — click anywhere to drop a pin; click a blue point (home, the Field Station, the farm or a landmark you've
+  found) to travel there straight away.
+- **Journal** — filter the birds (need clues · ready to build · nested · here today), and read back every message and
+  morning summary in the **Diary**.
+- **Settings** — *Always run*, *View* (wide / normal / close), *Day length* (10, 15 or 20 real minutes) and *Effects*:
+  **Auto** uses the full look and switches to **Light** by itself if the game runs slowly for a while
+  (Light skips the daytime weather dimming and the extra night colour pass, and uses fewer raindrops).
+- **Little helpers** — *Sort* in the bag, *Sell all forage* at Basil's, and the journal remembers which gifts each
+  villager loves.
 
 **Make it yours:** the character creator (and the **Wardrobe** in the pause menu) has 12 hairstyles, 14 hair colours,
 9 skin tones, eye colours and four eye shapes, 10 kinds of top, trousers/shorts/skirts, shoes, 8 hats, glasses and

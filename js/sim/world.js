@@ -26,6 +26,7 @@ class World {
     this.saved = {};          // token -> persistent player record
     this.pauseSet = new Set();
     this.msAcc = 0;
+    this.msPerMin = MS_PER_MIN;   // real ms per game minute (the host's "day length" setting)
     this.posTimer = 0;
     this.saveTimer = 0;
     this.bulk = false;
@@ -230,7 +231,7 @@ class World {
       d: 0, m: 0, a: '',
       inv: rec && rec.inv ? rec.inv : starterInventory(),
       sleep: false,
-      xp: (rec && rec.xp) || 0, lvl: (rec && rec.lvl) || 1, fr: (rec && rec.fr) || {}, hev: (rec && rec.hev) || {},
+      xp: (rec && rec.xp) || 0, lvl: (rec && rec.lvl) || 1, fr: (rec && rec.fr) || {}, hev: (rec && rec.hev) || {}, gk: (rec && rec.gk) || {},
       talkD: (rec && rec.talkD) || {}, giftD: (rec && rec.giftD) || {}, obsD: {}, lvlUps: [],
     };
     if (feetBlocked(this, p.x, p.y)) { p.x = HOME_SPAWN[0]; p.y = HOME_SPAWN[1]; }
@@ -259,11 +260,11 @@ class World {
   }
 
   _storePlayer(p) {
-    this.saved[p.token] = { name: p.name, look: p.look, inv: p.inv, x: p.x, y: p.y, xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, talkD: p.talkD, giftD: p.giftD };
+    this.saved[p.token] = { name: p.name, look: p.look, inv: p.inv, x: p.x, y: p.y, xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, talkD: p.talkD, giftD: p.giftD, gk: p.gk };
   }
   // A player's own progress (rank, friendships). lvlUps lists rank-ups that happened overnight.
   _meData(p, flush) {
-    const d = { xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, gift: p.giftD, lvlUps: p.lvlUps || [] };
+    const d = { xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, gift: p.giftD, gk: p.gk || {}, lvlUps: p.lvlUps || [] };
     if (flush) p.lvlUps = [];
     return d;
   }
@@ -272,7 +273,7 @@ class World {
   snapshotFor(pid) {
     const p = this.players.get(pid);
     return {
-      name: this.name, seed: this.seed, you: pid,
+      name: this.name, seed: this.seed, you: pid, mpm: this.msPerMin,
       tiles: b64encode(this.tiles), grass: b64encode(this.grass), objs: Array.from(this.objs.values()),
       time: this.time, weather: this.weather, coins: this.coins, mats: this.mats, journal: this.journal,
       log: this.log, mail: this.mail, quest: this.quest, visitors: this.visitors, featured: this.featured,
@@ -294,8 +295,8 @@ class World {
     if (!this.isPaused() && this.players.size > 0) {
       this.msAcc += dt;
       let guard = 0;
-      while (this.msAcc >= MS_PER_MIN && guard++ < 50) {
-        this.msAcc -= MS_PER_MIN;
+      while (this.msAcc >= this.msPerMin && guard++ < 50) {
+        this.msAcc -= this.msPerMin;
         this.time.min++;
         this._onMinute();
       }
@@ -465,6 +466,9 @@ class World {
       case 'gift': return this.actGift(p, m);
       case 'board': return this.actBoard(p, m);
       case 'rest': return this.actRest(p, m);
+      case 'travel': return this.actTravel(p, m);
+      case 'sort': return this.actSort(p, m);
+      case 'sellforage': return this.actSellForage(p, m);
     }
   }
 
@@ -748,7 +752,15 @@ class World {
     if (TUTORIAL[this.quest] && TUTORIAL[this.quest].id === 'craft') this._advanceQuest();
   }
 
-  clockMin() { return this.time.min + this.msAcc / MS_PER_MIN; }
+  clockMin() { return this.time.min + this.msAcc / this.msPerMin; }
+  setDaySpeed(ms) {
+    ms = clamp(ms | 0, 250, 2000);
+    if (ms === this.msPerMin) return;
+    this.msAcc = this.msAcc * ms / this.msPerMin;
+    this.msPerMin = ms;
+    this.ev('mpm', ms);
+    this.flush();
+  }
   _nearNpc(p, id) {
     if (!NPCS[id]) return false;
     const n = npcPos(id, this.clockMin());
@@ -939,6 +951,9 @@ class World {
     p.giftD[id] = today;
     const taste = NPC_GIFTS[id] || { love: [], like: [] };
     const kind = taste.love.includes(s.k) ? 'love' : taste.like.includes(s.k) ? 'like' : 'ok';
+    // remember what each villager thought of it (shown with their hearts in the journal)
+    p.gk = p.gk || {};
+    (p.gk[id] = p.gk[id] || {})[s.k] = kind;
     this.takeSlot(p, slot, 1);
     this.dlg(p, id, [pick(GIFT_LINES[kind])], [{ id: 'bye', label: 'You\'re welcome!' }]);
     this.ev('fx', 'hearts', 0, p.x, p.y - 26);
@@ -999,6 +1014,16 @@ class World {
       this.bumpStat('rare');
     }
     this.evTo(p.pid, 'fact', sp.id, pick(sp.facts));
+  }
+
+  // Quick travel from the map to a known place
+  actTravel(p, m) {
+    if (p.sleep) return;
+    const pt = travelPoints(this).find((t) => t.key === String(m.k));
+    if (!pt) return;
+    const [x, y] = standSpot(this, pt.x, pt.y);
+    p.x = x; p.y = y;
+    this.evTo(p.pid, 'tp', x, y);
   }
 
   // Rest until the evening (solo only): a gentle way to meet the birds of the night
@@ -1211,6 +1236,39 @@ class World {
       if (a.n <= 0) p.inv[i] = null;
     } else { p.inv[i] = b; p.inv[j] = a; }
     this.evTo(p.pid, 'inv', p.inv);
+  }
+
+  // Tidy the backpack (the hotbar row stays as it is): merge stacks, then sort by kind and name
+  actSort(p) {
+    const CAT = { seed: 0, tree: 1, shrub: 2, struct: 3, forage: 4 };
+    const items = [];
+    for (let i = HOTBAR; i < BAG_SIZE; i++) {
+      const s = p.inv[i];
+      if (!s) continue;
+      const same = items.find((t) => t.k === s.k && t.n < STACK_MAX);
+      if (same) { const mv = Math.min(s.n, STACK_MAX - same.n); same.n += mv; if (s.n - mv > 0) items.push({ k: s.k, n: s.n - mv }); }
+      else items.push({ k: s.k, n: s.n });
+    }
+    items.sort((a, b) => ((CAT[ITEMS[a.k].cat] ?? 9) - (CAT[ITEMS[b.k].cat] ?? 9)) || ITEMS[a.k].name.localeCompare(ITEMS[b.k].name) || b.n - a.n);
+    for (let i = HOTBAR; i < BAG_SIZE; i++) p.inv[i] = items[i - HOTBAR] || null;
+    this.evTo(p.pid, 'inv', p.inv);
+  }
+
+  // Sell every mushroom, berry and nut in the bag at once
+  actSellForage(p) {
+    if (!this._nearNpc(p, 'basil')) return;
+    let coins = 0, n = 0;
+    for (let i = 0; i < BAG_SIZE; i++) {
+      const s = p.inv[i];
+      if (!s || ITEMS[s.k].cat !== 'forage') continue;
+      coins += itemSellPrice(s.k) * s.n; n += s.n;
+      p.inv[i] = null;
+    }
+    if (!n) return;
+    this.evTo(p.pid, 'inv', p.inv);
+    this.coins += coins; this.ev('coins', this.coins);
+    this.evTo(p.pid, 'snd', 'coin');
+    this.toast(p, 'Sold ' + plural(n, 'thing') + ' to Basil for ' + coins + ' coins.', 'coin');
   }
 
   actTrash(p, m) {

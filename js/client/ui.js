@@ -3,6 +3,15 @@
 // every interactive widget registers its rectangle; arrow keys / d-pad move focus spatially
 // between widgets, E / Enter / A activates the focused one.
 
+// Stands in for the canvas when a cached group's drawing should be skipped (its input logic still runs).
+const NULL_CTX = (() => {
+  const noop = () => {};
+  const o = { globalAlpha: 1, fillStyle: '', strokeStyle: '', lineWidth: 1, globalCompositeOperation: 'source-over', imageSmoothingEnabled: false };
+  for (const k of ['drawImage', 'fillRect', 'strokeRect', 'clearRect', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fill', 'stroke', 'save', 'restore', 'setTransform', 'rect', 'clip', 'arc', 'fillText', 'strokeText']) o[k] = noop;
+  o.measureText = () => ({ width: 0 });
+  return o;
+})();
+
 class UI {
   constructor() {
     this.g = null;
@@ -13,6 +22,37 @@ class UI {
     this.tip = null;
     this.view = { w: 480, h: 270 };
     this.layer = 0;
+    this.groups = new Map();
+    this.hoverRec = null;
+  }
+
+  // A cached group: what fn() draws is kept as one picture and reused until `sig` changes (or the
+  // hover/focus state of its widgets does). fn() still runs every frame so clicks, focus and tooltips
+  // keep working — on unchanged frames its drawing just goes to a 1x1 scratch canvas instead.
+  // rect [x, y, w, h] is the screen area the group draws into (keep it tight: the picture is blended
+  // onto the screen every frame).
+  group(key, sig, rect, fn) {
+    const real = this.g;
+    const [x, y, w, h] = rect.map(Math.round);
+    let c = this.groups.get(key);
+    if (!c) { c = { cv: document.createElement('canvas'), drawn: null, hover: '' }; c.g = c.cv.getContext('2d'); this.groups.set(key, c); }
+    if (c.cv.width !== w || c.cv.height !== h) { c.cv.width = Math.max(1, w); c.cv.height = Math.max(1, h); c.drawn = null; }
+    if (!this.scratch) this.scratch = NULL_CTX;
+    const full = sig + '#' + c.hover + '#' + (this.lock ? 1 : 0) + '#' + x + ',' + y;
+    const redraw = c.drawn !== full;
+    this.hoverRec = '';
+    if (redraw) {
+      c.g.setTransform(1, 0, 0, 1, 0, 0);
+      c.g.clearRect(0, 0, c.cv.width, c.cv.height);
+      c.g.imageSmoothingEnabled = false;
+      c.g.setTransform(1, 0, 0, 1, -x, -y);
+      this.g = c.g;
+    } else this.g = this.scratch;
+    try { fn(); } finally { this.g = real; }
+    if (redraw) { c.hover = this.hoverRec; c.drawn = sig + '#' + c.hover + '#' + (this.lock ? 1 : 0) + '#' + x + ',' + y; }
+    else if (this.hoverRec !== c.hover) { c.hover = this.hoverRec; c.drawn = null; } // hover changed: repaint next frame
+    this.hoverRec = null;
+    real.drawImage(c.cv, x, y);
   }
   get font() { return SPR.font; }
 
@@ -75,7 +115,9 @@ class UI {
     let clicked = false;
     if (over && m.clicked) { clicked = true; m.clicked = false; this.focus = id; }
     if (this.activate === id) { clicked = true; this.activate = null; }
-    return { over: over && !Input.touchMode, clicked, focused: this.focus === id && this.showFocus() };
+    const focused = this.focus === id && this.showFocus();
+    if (this.hoverRec != null && ((over && !Input.touchMode) || focused)) this.hoverRec += id + (focused ? '!' : '') + ';';
+    return { over: over && !Input.touchMode, clicked, focused };
   }
 
   // ---------------------------------------------------------------- drawing helpers

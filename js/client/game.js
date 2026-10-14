@@ -1,4 +1,17 @@
 'use strict';
+// Player preferences kept in this browser (not in the save): running, zoom and day length.
+const Prefs = {
+  KEY: 'nested.prefs',
+  load() {
+    let p = {};
+    try { p = JSON.parse(localStorage.getItem(this.KEY) || '{}') || {}; } catch (e) { /* ignore */ }
+    return Object.assign({ run: false, zoom: 0, day: 0, fx: 'auto' }, p);
+  },
+  save(p) { try { localStorage.setItem(this.KEY, JSON.stringify(p)); } catch (e) { /* ignore */ } },
+};
+const DAY_SPEEDS = [{ ms: 500, label: '10 min' }, { ms: 750, label: '15 min' }, { ms: 1000, label: '20 min' }];
+const ZOOMS = [{ v: -1, label: 'Wide' }, { v: 0, label: 'Normal' }, { v: 1, label: 'Close' }];
+const RUN_SPEED = 1.6;
 // The game client: main loop, player control, interaction targeting and reacting to host events.
 
 class Game {
@@ -28,17 +41,26 @@ class Game {
     this.actT = 0;
     this.stepT = 0;
     this.tracked = null;
+    this.diary = [];
+    this.pin = null;          // map pin {x, y} in world pixels
+    this.finder = null;       // nest-spot finder result {sp, spots: [[x, y]...], best, day}
+    this.guideQuest = null;   // quest id the guide arrow points to
+    this.fadeT = 0;           // fade-in after quick travel
+    this.travelling = false;
     this.server = false;
     this.isHost = false;
     this.roomCode = null;
     this.nightLevel = 0;
     this.dt = 16;
     this.view = { w: 480, h: 270, scale: 3 };
+    this.prefs = Prefs.load();
     this.touchPref = 'auto';
     try { this.touchPref = localStorage.getItem('nested.touch') || 'auto'; } catch (e) { /* ignore */ }
   }
 
   get modal() { return this.modals[this.modals.length - 1] || null; }
+  // light effects: chosen in Settings, or switched on automatically when the game runs slowly
+  get lightFx() { return this.prefs.fx === 'light' || (this.prefs.fx === 'auto' && !!this.autoLight); }
   get me() { return this.state ? this.state.players.get(this.state.me) : null; }
 
   // ---------------------------------------------------------------- boot
@@ -74,7 +96,14 @@ class Game {
       if (this.focusLost) { this.focusLost = false; this._pauseSync(); }
     });
     this.last = performance.now();
-    const loop = (t) => { this.frame(t); requestAnimationFrame(loop); };
+    // a bug in one frame must never freeze the game: report it once and keep going
+    const loop = (t) => {
+      requestAnimationFrame(loop);
+      try { this.frame(t); } catch (e) {
+        if (!this.frameErr) { this.frameErr = true; console.error(e); this.toast('Something went wrong — the game will try to carry on.', 'no'); }
+        try { this.ui.end(); Input.endFrame(); } catch (e2) { /* ignore */ }
+      }
+    };
     requestAnimationFrame(loop);
   }
 
@@ -83,7 +112,9 @@ class Game {
     const host = document.body;
     const cw = host.clientWidth || window.innerWidth, ch = host.clientHeight || window.innerHeight;
     const W = Math.floor(cw * dpr), H = Math.floor(ch * dpr);
-    const scale = Math.max(1, Math.floor(Math.min(W / 400, H / 225)));
+    // pixel scale from the window size, nudged by the zoom setting (never so close the view gets cramped)
+    const base = Math.max(1, Math.floor(Math.min(W / 400, H / 225)));
+    const scale = clamp(base + (this.prefs ? this.prefs.zoom | 0 : 0), 1, Math.max(1, Math.floor(Math.min(W / 260, H / 150))));
     const vw = Math.ceil(W / scale), vh = Math.ceil(H / scale);
     this.canvas.width = vw; this.canvas.height = vh;
     this.canvas.style.width = (vw * scale / dpr) + 'px';
@@ -126,6 +157,16 @@ class Game {
   toast(text, icon) {
     this.toasts.push({ text, icon, t: 0, life: 2600 + text.length * 35 });
     if (this.toasts.length > 4) this.toasts.shift();
+    this.note(text, icon);
+  }
+  // The diary keeps every message (toasts disappear after a few seconds)
+  note(text, icon) {
+    const S = this.state;
+    if (!S || !S.time) return;
+    const last = this.diary[this.diary.length - 1];
+    if (last && last.text === text) return;
+    this.diary.push({ when: SEASON_NAMES[S.time.season].slice(0, 3) + ' ' + S.time.day + ' · ' + fmtClock(S.clock()), text, icon: icon || '' });
+    if (this.diary.length > 150) this.diary.splice(0, this.diary.length - 150);
   }
 
   send(msg) { if (this.link) this.link.send(msg); }
@@ -144,6 +185,13 @@ class Game {
       return;
     }
     world.onSave = () => { if (!Saves.save(slot, world.serialize())) this.toast('Saving failed (browser storage full?)', 'no'); };
+    world.msPerMin = (DAY_SPEEDS[this.prefs.day] || DAY_SPEEDS[0]).ms;
+    // the diary is kept with the save slot
+    const dkey = 'nested.diary.' + slot;
+    this.diary = [];
+    if (!newName) { try { this.diary = JSON.parse(localStorage.getItem(dkey) || '[]') || []; } catch (e) { this.diary = []; } }
+    const save = world.onSave;
+    world.onSave = () => { save(); try { localStorage.setItem(dkey, JSON.stringify(this.diary.slice(-150))); } catch (e) { /* ignore */ } };
     this.isHost = true;
     this.slot = slot;
     this.closeAll();
@@ -208,6 +256,7 @@ class Game {
     this.birds.reset();
     if (this.mode !== 'play') {
       this.mode = 'play';
+      this.loading = { t: 0 }; // paint the first view a slice at a time behind a loading screen
       this.closeAll();
       const p = this.me;
       if (p) { this.cam.x = p.x - this.view.w / 2; this.cam.y = p.y - this.view.h / 2; }
@@ -228,6 +277,7 @@ class Game {
 
   // ---------------------------------------------------------------- event hooks (called by ClientState)
   onObjAdded(o) {
+    if (this.finder && o.type === 'nest' && o.kind === this.finder.sp) this.finder = null; // you built it — no more pointing
     if (o.type === 'nest') this.birds.syncNests();
     if (o.type !== 'forage' && o.type !== 'web' && o.type !== 'puddle') this.state.mapDirty = true;
   }
@@ -341,7 +391,79 @@ class Game {
   }
   onMail(l) { this.toast('New letter: ' + l.title, 'letter'); Audio2.sfx('mail'); }
   onVisitors() { this.birds.rebuildVisitors(); }
-  onTeleport(x, y) { const me = this.me; if (me) { me.x = x; me.y = y; } }
+  onTeleport(x, y) {
+    const me = this.me;
+    if (!me) return;
+    me.x = x; me.y = y;
+    const v = this.view;
+    this.cam.x = Math.round(clamp(x - v.w / 2, 0, MAP_W * TS - v.w));
+    this.cam.y = Math.round(clamp(y - 12 - v.h / 2, 0, MAP_H * TS - v.h));
+    if (this.travelling) { this.travelling = false; this.fadeT = 450; Audio2.sfx('page'); }
+  }
+  travelTo(pt) {
+    this.travelling = true;
+    this.send({ t: 'act', a: 'travel', k: pt.key });
+  }
+
+  // Where the guide arrow points: a map pin, then a nest spot from the finder, then a chosen quest,
+  // then the next tutorial step. {x, y, label, kind} in world pixels, or null.
+  guideTarget() {
+    const S = this.state, me = this.me;
+    if (!S || !me) return null;
+    if (this.pin) return { x: this.pin.x, y: this.pin.y, label: 'Pin', kind: 'pin' };
+    const f = this.finder;
+    if (f && f.spots.length) {
+      let best = null, bd = 1e12;
+      for (const [x, y] of f.spots) { const d = dist2(x * TS + 8, y * TS + 8, me.x, me.y); if (d < bd) { bd = d; best = [x, y]; } }
+      return { x: best[0] * TS + 8, y: best[1] * TS + 8, label: SPECIES_BY_ID[f.sp].name + ' nest spot', kind: 'spot' };
+    }
+    if (f && f.best) return { x: f.best.x * TS + 8, y: f.best.y * TS + 8, label: 'Nearly right for the ' + SPECIES_BY_ID[f.sp].name, kind: 'spot' };
+    const q = this.guideQuest && QUESTS_BY_ID[this.guideQuest];
+    if (q) {
+      const st = S.side && S.side[q.id];
+      if (!st || st.st !== 'on') this.guideQuest = null;
+      else { const t = questTarget(S, q); if (t) return t; }
+    }
+    const step = TUTORIAL[S.quest] ? TUTORIAL[S.quest].id : '';
+    const b = (kind) => S.first('building', kind);
+    if (step === 'mail') { const o = b('mailbox'); if (o) return { x: o.x * TS + 8, y: o.y * TS + 8, label: 'Mailbox', kind: 'tut' }; }
+    if (step === 'ada') { const n = npcPos('ada', S.clock()); if (!n.away) return { x: n.x * TS, y: n.y * TS, label: 'Prof. Ada', kind: 'tut' }; }
+    if (step === 'craft') { const o = b('bench'); if (o) return { x: o.x * TS + 16, y: o.y * TS + 8, label: 'Workbench', kind: 'tut' }; }
+    if (step === 'sleep') { const o = b('cottage'); if (o) return { x: (o.x + 2) * TS + 8, y: (o.y + 3) * TS, label: 'Your bed', kind: 'tut' }; }
+    return null;
+  }
+
+  // Nest-spot finder: every place where this species would settle right now (season aside), or
+  // the closest candidate and what it is still missing.
+  findNestSpots(spId) {
+    const S = this.state, me = this.me, sp = SPECIES_BY_ID[spId];
+    const spots = [];
+    let best = null;
+    const consider = (cx, cy, x, y) => {
+      const ev = evalNest(S, sp, cx, cy, 0);
+      const missing = ev.checks.filter((c) => !c.ok && !c.label.startsWith('Nesting season'));
+      if (!missing.length) spots.push([x, y]);
+      else {
+        const d = dist2(x * TS, y * TS, me.x, me.y);
+        if (!best || missing.length < best.missing.length || (missing.length === best.missing.length && d < best.d)) best = { x, y, d, missing: missing.map((c) => c.label + (c.have != null ? ' (now ' + c.have + ')' : '')) };
+      }
+    };
+    const tileSite = ['ground', 'field', 'shingle', 'clearing', 'ledge', 'bridge'].includes(sp.site);
+    if (tileSite) {
+      for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (sitesOf(S, { tile: [x, y] }).includes(sp.site)) consider(x, y, x, y);
+    } else {
+      for (const o of S.objs.values()) {
+        if (!sitesOf(S, o).includes(sp.site) || nestsOfHost(S, o.id).length >= hostSlots(o)) continue;
+        const [cx, cy] = hostCenter(o);
+        consider(cx, cy, cx, cy);
+      }
+    }
+    spots.sort((a, b) => dist2(a[0] * TS, a[1] * TS, me.x, me.y) - dist2(b[0] * TS, b[1] * TS, me.x, me.y));
+    this.finder = { sp: spId, spots: spots.slice(0, 12), count: spots.length, best: spots.length ? null : best, day: dayIdx(S.time) };
+    this.pin = null;
+    return this.finder;
+  }
+
   beg(nestId) { this.begT.set(nestId, 1600); }
   // A standing villager turns to face you when you come close
   npcFace(k, n) {
@@ -387,12 +509,20 @@ class Game {
     const dt = clamp(t - this.last, 0, 50);
     this.last = t;
     this.dt = dt;
+    this._watchSpeed(dt);
     Input.poll();
     if (this.link) this.link.update(dt);
     this.processInbox();
     const g = this.g, v = this.view;
     this.ui.begin(g, v, this.mode !== 'play' || !!this.modal);
-    if (this.mode === 'play' && this.state && this.me) {
+    if (this.mode === 'play' && this.state && this.me && this.loading) {
+      this.loading.t += dt;
+      const done = this.renderer.loadStep(this.state, this.cam, v, 22) || this.loading.t > 5000;
+      g.fillStyle = '#1d1a2b'; g.fillRect(0, 0, v.w, v.h);
+      this.ui.text('Painting the valley…', v.w / 2, v.h / 2 - 12, '#f6ecd2', { align: 'center' });
+      this.ui.bar(Math.floor(v.w / 2) - 60, Math.floor(v.h / 2) + 2, 120, 6, this.renderer.loadProgress || 0, '#7ac05a');
+      if (done) this.loading = null;
+    } else if (this.mode === 'play' && this.state && this.me) {
       this.updatePlay(dt);
       this.renderer.draw(g, v, this.cam, t);
       if (dt < 25 && this.renderer.budget >= 5) this.renderer.prewarm(this.state, this.cam, v, 4);
@@ -433,13 +563,36 @@ class Game {
         ty += 15;
       }
     }
+    // fade back in after quick travel
+    if (this.fadeT > 0) {
+      this.fadeT -= dt;
+      g.globalAlpha = clamp(this.fadeT / 450, 0, 1);
+      g.fillStyle = '#1d1a2b'; g.fillRect(0, 0, v.w, v.h);
+      g.globalAlpha = 1;
+    }
     this.ui.end();
     Input.endFrame();
   }
 
+  // "Auto" effects: if play stays below about 38 fps for ten seconds, switch to light effects (once)
+  _watchSpeed(dt) {
+    if (this.mode !== 'play' || this.modal || this.focusLost || this.prefs.fx !== 'auto' || this.autoLight) { this.perfT = 0; this.perfN = 0; return; }
+    this.playT = (this.playT || 0) + dt;
+    if (this.playT < 15000) return; // loading and the first painting of the valley don't count
+    this.perfT = (this.perfT || 0) + dt; this.perfN = (this.perfN || 0) + 1;
+    if (this.perfT < 5000) return;
+    const avg = this.perfT / this.perfN;
+    this.slowWins = avg > 26 ? (this.slowWins || 0) + 1 : 0;
+    this.perfT = 0; this.perfN = 0;
+    if (this.slowWins >= 2) {
+      this.autoLight = true;
+      this.toast('Switched to light effects for smoother play. You can change this under Settings → Effects.', 'gear');
+    }
+  }
+
   updatePlay(dt) {
     const S = this.state, me = this.me;
-    if (!this.isPausedLocal()) S.clockMs = Math.min(S.clockMs + dt, MS_PER_MIN * 12);
+    if (!this.isPausedLocal()) S.clockMs = Math.min(S.clockMs + dt, (S.mpm || MS_PER_MIN) * 12);
     Audio2.listener.x = me.x; Audio2.listener.y = me.y;
     Audio2.updateMusic(S.time.season, S.clock(), true);
     Audio2.setRain(S.weather === 'rain');
@@ -479,16 +632,18 @@ class Game {
     let [mx, my] = canMove ? Input.move() : [0, 0];
     if (this.observe && (mx || my)) this.cancelObserve();
     if (mx || my) {
-      const speed = PLAYER_SPEED * speedAt(S, me.x, me.y);
+      // hold Shift (or a trigger) to run; with "always run" on, holding it walks instead
+      const running = Input.held('run') !== !!this.prefs.run;
+      const speed = PLAYER_SPEED * speedAt(S, me.x, me.y) * (running ? RUN_SPEED : 1);
       const dist = speed * dt / 1000;
       const steps = Math.max(1, Math.ceil(dist / 1.5));
       for (let i = 0; i < steps; i++) [me.x, me.y] = moveActor(S, me.x, me.y, mx * dist / steps, my * dist / steps);
       me.d = Math.abs(mx) > Math.abs(my) ? (mx < 0 ? 1 : 2) : (my < 0 ? 3 : 0);
       me.m = 1;
-      me.walkT = (me.walkT || 0) + dt;
+      me.walkT = (me.walkT || 0) + dt * (running ? 1.4 : 1);
       this.stepT -= dt;
       if (this.stepT <= 0) {
-        this.stepT = 300;
+        this.stepT = running ? 210 : 300;
         const tx = Math.floor(me.x / TS), ty = Math.floor(me.y / TS);
         const t = tileAt(S, tx, ty);
         const tall = inBounds(tx, ty) && S.grass[tIdx(tx, ty)] === 2;
@@ -521,6 +676,7 @@ class Game {
     }
     this.birds.update(dt);
     this.fx.update(dt);
+    if (this.pin && dist2(this.pin.x, this.pin.y, me.x, me.y) < 20 * 20) { this.pin = null; Audio2.sfx('tick'); } // arrived
     // ---- camera
     const v = this.view;
     // The camera glides smoothly (cf keeps the exact position) but is drawn at whole pixels that move

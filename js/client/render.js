@@ -69,7 +69,7 @@ class Renderer {
         const d = (cx - ccx) ** 2 + (cy - ccy) ** 2;
         if (d < bd) { bd = d; best = [cx, cy]; }
       }
-      if (!best) { this.stale.clear(); return; }
+      if (!best) { this.stale.clear(); this._prewarmArt(S, t0, budget || 5); return; }
       const key = best[0] + ',' + best[1];
       let job = this.jobs.get(key);
       if (!job) { job = SPR.tiles.chunkJob(S.tiles, best[0], best[1], CHUNK, season); this.jobs.set(key, job); }
@@ -80,9 +80,69 @@ class Renderer {
     }
   }
 
+  // Loading: paint the chunks of the first view, then the sprites, a few milliseconds per call.
+  // Returns true when everything is ready (loadProgress goes from 0 to 1 meanwhile).
+  loadStep(S, cam, view, budget) {
+    this._processDirty(S);
+    const t0 = performance.now(), season = S.time.season;
+    const cx0 = clamp(cam.x, 0, MAP_W * TS - view.w), cy0 = clamp(cam.y, 0, MAP_H * TS - view.h);
+    const keys = [];
+    for (let cy = Math.floor(cy0 / (CHUNK * TS)); cy <= Math.floor((cy0 + view.h) / (CHUNK * TS)); cy++)
+      for (let cx = Math.floor(cx0 / (CHUNK * TS)); cx <= Math.floor((cx0 + view.w) / (CHUNK * TS)); cx++)
+        if (cx >= 0 && cy >= 0 && cx * CHUNK < MAP_W && cy * CHUNK < MAP_H) keys.push([cx, cy]);
+    let missing = 0;
+    for (const [cx, cy] of keys) {
+      const key = cx + ',' + cy;
+      if (this.chunks.has(key)) continue;
+      missing++;
+      if (performance.now() - t0 > budget) continue;
+      let job = this.jobs.get(key);
+      if (!job) { job = SPR.tiles.chunkJob(S.tiles, cx, cy, CHUNK, season); this.jobs.set(key, job); }
+      let r;
+      while (!(r = job.next()).done) if (performance.now() - t0 > budget) break;
+      if (r.done) { this.jobs.delete(key); this.chunks.set(key, this._finish(S, cx, cy, r.value, season)); missing--; }
+    }
+    this.loadProgress = 0.6 * (keys.length - missing) / Math.max(1, keys.length);
+    if (missing) return false;
+    if (!this.quickReady) { SPR.tiles.quickSet(season); this.quickReady = true; return false; }
+    this._prewarmArt(S, t0, budget);
+    this.loadProgress = 0.6 + 0.4 * (1 - this.artQ.length / Math.max(1, this.artTotal));
+    return this.artQ.length === 0;
+  }
+
   // A visible chunk. Missing ones are painted within a small time budget per frame (all at once only
   // when nothing at all is on screen yet); until they're done, last season's chunk or a rough
   // stand-in is shown, so walking or a new season never freezes the game.
+  // Once the terrain is painted, spare frame time draws the sprites the game will soon need — every
+  // bird and egg (the journal shows them all), this season's trees, shrubs and plants, lit windows for
+  // the night and the villagers — so none of them causes a stall the first time it appears. On the last
+  // day of a season, next season's look is prepared too.
+  _prewarmArt(S, t0, budget) {
+    const season = S.time.season, last = S.time.day >= 7;
+    const key = season + (last ? '+' : '');
+    if (this.artKey !== key) {
+      const q = [], seasons = last ? [season, (season + 1) % 4] : [season];
+      for (const sp of SPECIES) q.push(() => { SPR.bird(sp.id); SPR.egg(sp.id); });
+      for (const sp of AMBIENT.concat(RARE)) q.push(() => SPR.bird(sp.id));
+      for (const k in NPCS) for (let d = 0; d < 4; d++) q.push(() => { for (let f = 0; f < 3; f++) SPR.person(k, NPC_LOOKS[k], d, f); });
+      for (const se of seasons) {
+        q.push(() => SPR.tufts(se));
+        for (const kind in FLORA) {
+          const t = FLORA[kind].type;
+          if (t === 'tree') for (let st = 0; st < 3; st++) q.push(() => SPR.tree(kind, st, se, false));
+          else if (t === 'shrub') for (let st = 0; st < 3; st++) q.push(() => { SPR.shrub(kind, st, se, false); SPR.shrub(kind, st, se, true); });
+        }
+        for (const kind in BUILDINGS) if (kind !== 'mailbox') q.push(() => { SPR.building(kind, se, false); SPR.building(kind, se, true); });
+        for (const kind in LANDMARKS) q.push(() => SPR.landmark(kind, se));
+        for (const kind in STRUCTS) q.push(() => SPR.struct(kind, se));
+      }
+      this.artKey = key; this.artQ = q; this.artTotal = q.length;
+    }
+    while (this.artQ.length && performance.now() - t0 < budget) {
+      try { this.artQ.shift()(); } catch (e) { /* an odd sprite is drawn on demand later */ }
+    }
+  }
+
   _chunk(S, cx, cy, season) {
     const key = cx + ',' + cy;
     const c = this.chunks.get(key);
@@ -108,7 +168,8 @@ class Renderer {
     return q;
   }
 
-  // A freshly painted chunk, with the short grass tufts (which never move) painted straight onto it
+  // A freshly painted chunk, with the short grass tufts and the shadows of things that never move
+  // (trees, shrubs, nest boxes…) painted straight onto it
   _finish(S, cx, cy, pix, season) {
     const cv = pix.canvas();
     const tufts = SPR.tufts(season), cg = cv.getContext('2d');
@@ -118,7 +179,19 @@ class Renderer {
       const i = ty * MAP_W + tx;
       if (S.grass[i] === 1 && !S.occ[i]) cg.drawImage(tufts.mid[(tx * 3 + ty) % 3], lx * TS, ly * TS + 6);
     }
+    this._bakeShadows(S, cg, cx * CHUNK - 1, cy * CHUNK, cx * CHUNK + CHUNK, cy * CHUNK + CHUNK - 1, cx * CHUNK * TS, cy * CHUNK * TS);
     return cv;
+  }
+  _bakeShadows(S, g, tx0, ty0, tx1, ty1, ox, oy) {
+    for (let ty = Math.max(0, ty0); ty <= Math.min(MAP_H - 1, ty1); ty++) for (let tx = Math.max(0, tx0); tx <= Math.min(MAP_W - 1, tx1); tx++) {
+      const arr = S.byTile.get(ty * MAP_W + tx);
+      if (!arr) continue;
+      for (let k = 0; k < arr.length; k++) {
+        const o = S.objs.get(arr[k]);
+        const r = o && o.x === tx && o.y === ty ? staticShadow(o) : 0;
+        if (r) g.drawImage(this._shadowImg(r), o.x * TS + 8 - r - ox, o.y * TS + 12 - oy);
+      }
+    }
   }
   // Repaint one tile of a finished chunk (terrain, then its tuft)
   _patch(S, i) {
@@ -126,8 +199,13 @@ class Renderer {
     const c = this.chunks.get(Math.floor(x / CHUNK) + ',' + Math.floor(y / CHUNK));
     if (!c) return;
     const g = c.getContext('2d');
-    g.drawImage(SPR.tiles.renderTile(S.tiles, x, y, this.season).canvas(), (x % CHUNK) * TS, (y % CHUNK) * TS);
-    if (S.grass[i] === 1 && !S.occ[i]) g.drawImage(SPR.tufts(this.season).mid[(x * 3 + y) % 3], (x % CHUNK) * TS, (y % CHUNK) * TS + 6);
+    const lx = (x % CHUNK) * TS, ly = (y % CHUNK) * TS;
+    g.drawImage(SPR.tiles.renderTile(S.tiles, x, y, this.season).canvas(), lx, ly);
+    if (S.grass[i] === 1 && !S.occ[i]) g.drawImage(SPR.tufts(this.season).mid[(x * 3 + y) % 3], lx, ly + 6);
+    // shadows reaching into this tile (its own, and the edges of its neighbours')
+    g.save(); g.beginPath(); g.rect(lx, ly, TS, TS); g.clip();
+    this._bakeShadows(S, g, x - 1, y, x + 1, y, Math.floor(x / CHUNK) * CHUNK * TS, Math.floor(y / CHUNK) * CHUNK * TS);
+    g.restore();
   }
 
   _processDirty(S) {
@@ -218,17 +296,18 @@ class Renderer {
     let L = this.wl;
     if (!L || L.cv.width !== W || L.cv.height !== H) {
       const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-      L = this.wl = { cv, g: cv.getContext('2d'), ox: 0, oy: 0, t: -1e9, any: false, key: '' };
+      L = this.wl = { cv, g: cv.getContext('2d'), ox: 0, oy: 0, t: -1e9, any: false, key: '', bx: 0, by: 0, bw: W, bh: H };
     }
     const sunny = S.weather === 'sun' || S.weather === 'cloud';
     const key = season + (sunny ? 's' : 'n') + this.tileVer;
     const outside = cx0 < L.ox || cy0 < L.oy || cx0 + view.w > L.ox + W || cy0 + view.h > L.oy + H;
-    if (outside || now - L.t >= 48 || now < L.t || key !== L.key) {
+    if (outside || now - L.t >= (this.game.lightFx ? 100 : 48) || now < L.t || key !== L.key) {
       L.t = now; L.key = key; L.ox = cx0 - M; L.oy = cy0 - M; L.any = false;
       const lg = L.g, h = this._tileHash();
-      lg.clearRect(0, 0, W, H);
+      lg.clearRect(L.bx, L.by, L.bw, L.bh);
       const tx0 = Math.max(0, Math.floor(L.ox / TS)), tx1 = Math.min(MAP_W - 1, Math.floor((L.ox + W) / TS));
       const ty0 = Math.max(0, Math.floor(L.oy / TS)), ty1 = Math.min(MAP_H - 1, Math.floor((L.oy + H) / TS));
+      let wx0 = 1e9, wy0 = 1e9, wx1 = -1e9, wy1 = -1e9;  // the box around the water tiles: only that part is drawn
       const hi = season === WINTER ? '#ffffff' : '#d6f4ff', hiA = season === WINTER ? 0.6 : 0.55;
       for (let pass = 0; pass < 2; pass++) {
         lg.fillStyle = pass ? '#285078' : hi;
@@ -236,6 +315,7 @@ class Renderer {
           const i = ty * MAP_W + tx, t = S.tiles[i];
           if (t !== T.WATER && t !== T.SHALLOW) continue;
           L.any = true;
+          if (!pass) { if (tx < wx0) wx0 = tx; if (tx > wx1) wx1 = tx; if (ty < wy0) wy0 = ty; if (ty > wy1) wy1 = ty; }
           for (let k = 0; k < 2; k++) {
             const hh = k ? h.w1[i] : h.w0[i];
             if (hh % 5 === 0) continue;
@@ -253,6 +333,11 @@ class Renderer {
         }
       }
       lg.globalAlpha = 1;
+      if (L.any) {
+        // highlights wander up to 2 px sideways and glints reach a pixel past their tile
+        L.bx = Math.max(0, wx0 * TS - L.ox - 3); L.by = Math.max(0, wy0 * TS - L.oy - 1);
+        L.bw = Math.min(W, (wx1 + 1) * TS - L.ox + 3) - L.bx; L.bh = Math.min(H, (wy1 + 1) * TS - L.oy + 1) - L.by;
+      } else { L.bx = 0; L.by = 0; L.bw = W; L.bh = H; }
       if (sunny && L.any) {
         lg.fillStyle = '#ffffff';
         for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
@@ -267,7 +352,7 @@ class Renderer {
         }
       }
     }
-    if (L.any) g.drawImage(L.cv, L.ox - cx0, L.oy - cy0);
+    if (L.any) g.drawImage(L.cv, L.ox - cx0, L.oy - cy0); // whole-image draws are the browser's fast path
   }
 
   // Long grass is drawn in strips: one image per tile row of a chunk, depth-sorted as a whole and
@@ -286,10 +371,19 @@ class Renderer {
     if (!any) return null;
     let st = this.strips.get(key);
     if (st && st.mask === mask) return st;
-    if (!st) {
+    // the canvas is only as wide as the grass in this row, so it can always be drawn whole
+    let lo = 1e9, hi = 0;
+    for (let tx = x0; tx < x1; tx++) {
+      const i = ty * MAP_W + tx;
+      if (S.grass[i] !== 2 || S.occ[i]) continue;
+      const px = (tx - x0) * TS - 1 + (((h[i] >>> 4) % 7) - 3) + 4;
+      if (px < lo) lo = px;
+      if (px + 18 > hi) hi = px + 18;
+    }
+    if (!st || st.lo !== lo || st.cv.width !== hi - lo) {
       const cv = document.createElement('canvas');
-      cv.width = CHUNK * TS + 24; cv.height = 26;
-      st = { cv, g: cv.getContext('2d'), mask: -1 };
+      cv.width = hi - lo; cv.height = 26;
+      st = { cv, g: cv.getContext("2d"), mask: -1, lo };
       if (this.strips.size > 400) this.strips.clear();
       this.strips.set(key, st);
     }
@@ -301,13 +395,14 @@ class Renderer {
       if (S.grass[i] !== 2 || S.occ[i]) continue;
       const hh = h[i];
       const jx = ((hh >>> 4) % 7) - 3, jy = ((hh >>> 7) % 5) - 2;
-      sg.drawImage(tufts.long[((hh >>> 10) % 3) * 2 + ((mask >> (tx - x0)) & 1)], (tx - x0) * TS - 1 + jx + 4, jy + 2);
+      sg.drawImage(tufts.long[((hh >>> 10) % 3) * 2 + ((mask >> (tx - x0)) & 1)], (tx - x0) * TS - 1 + jx + 4 - lo, jy + 2);
     }
     return st;
   }
 
   // Long grass sways only when a slow gust of wind rolls across the meadow (and where you walk).
   _gust(tx, ty, hh, now) {
+    if (this.game.lightFx) return false;
     const ph = (now / 7000 - tx * 0.035 - ty * 0.013 - ((hh >>> 12) & 7) * 0.004) % 1;
     return (ph < 0 ? ph + 1 : ph) < 0.08;
   }
@@ -324,8 +419,8 @@ class Renderer {
     const cx0 = Math.floor(cam.x), cy0 = Math.floor(cam.y);
     this.budget = 5;
     this.syncBuild = !this.chunks.size && !this.stale.size;
-    g.fillStyle = '#2a4a2a';
-    g.fillRect(0, 0, view.w, view.h);
+    // the terrain covers the whole view, so the background only needs painting past the map's edge
+    if (cx0 < 0 || cy0 < 0 || cx0 + view.w > MAP_W * TS || cy0 + view.h > MAP_H * TS) { g.fillStyle = '#2a4a2a'; g.fillRect(0, 0, view.w, view.h); }
     // terrain
     const ch0x = Math.floor(cx0 / (CHUNK * TS)), ch1x = Math.floor((cx0 + view.w) / (CHUNK * TS));
     const ch0y = Math.floor(cy0 / (CHUNK * TS)), ch1y = Math.floor((cy0 + view.h) / (CHUNK * TS));
@@ -344,7 +439,7 @@ class Renderer {
     const tyG = Math.min(MAP_H - 1, Math.floor((cy0 + view.h) / TS) + 1);
     for (let ty = ty0; ty <= tyG; ty++) for (let cx = Math.max(0, ch0x); cx <= ch1x && cx * CHUNK < MAP_W; cx++) {
       const st = this._grassStrip(S, cx, ty, season, now, meTx, meTy);
-      if (st) this._e(ty * TS + 15, st.cv, cx * CHUNK * TS - 4, ty * TS - 6);
+      if (st) this._e(ty * TS + 15, st.cv, cx * CHUNK * TS - 4 + st.lo, ty * TS - 6);
     }
     const stamp = ++this.stamp;
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
@@ -477,7 +572,6 @@ class Renderer {
         const shake = this.game.shakeT.get(o.id) || 0;
         const off = shake > 0 ? Math.round(Math.sin(now / 30) * 1.5) : 0;
         const e = this._e(by, spr.img, bx - spr.ax + off, by - spr.ay);
-        e.sh = o.st >= 2 ? 9 : 4; e.sx = bx; e.sy = by - 1;
         if (o.st >= 2) { e.fade = 1; e.fx = bx; e.fh = spr.h - 14; e.fw = spr.w / 2; }
         break;
       }
@@ -485,8 +579,7 @@ class Renderer {
         const spr = SPR.shrub(o.kind, o.st, season, o.fr > 0);
         const shake = this.game.shakeT.get(o.id) || 0;
         const off = shake > 0 ? Math.round(Math.sin(now / 30)) : 0;
-        const e = this._e(by, spr.img, bx - spr.ax + off, by - spr.ay + 1);
-        e.sh = o.st >= 2 ? 9 : 5; e.sx = bx; e.sy = by - 1;
+        this._e(by, spr.img, bx - spr.ax + off, by - spr.ay + 1);
         break;
       }
       case 'plant': {
@@ -505,8 +598,7 @@ class Renderer {
       case 'stump': { const spr = SPR.stump(o.moss, season); this._e(by, spr.img, bx - spr.ax, by - spr.ay); break; }
       case 'struct': {
         const spr = SPR.struct(o.kind, season);
-        const e = this._e(by, spr.img, bx - spr.ax, by - spr.ay + 1);
-        e.sh = o.kind === 'platform' ? 10 : 5; e.sx = bx; e.sy = by - 1;
+        this._e(by, spr.img, bx - spr.ax, by - spr.ay + 1);
         break;
       }
       case 'building': {
@@ -667,7 +759,8 @@ class Renderer {
     const w = S.weather;
     const dt = this.game.dt / 1000;
     if (w === 'rain' || w === 'snow') {
-      const n = w === 'rain' ? 110 : 80;
+      const n = (w === 'rain' ? 110 : 80) >> (this.game.lightFx ? 1 : 0);
+      if (this.rain.length > n) this.rain.length = n;
       while (this.rain.length < n) this.rain.push({ x: Math.random() * view.w, y: Math.random() * view.h, s: 0.6 + Math.random() * 0.6 });
       g.fillStyle = w === 'rain' ? 'rgba(180,210,240,0.55)' : 'rgba(255,255,255,0.9)';
       for (const r of this.rain) {
@@ -716,7 +809,8 @@ class Renderer {
       const [m0, c0] = stops[i], [m1, c1] = stops[i + 1];
       if (m >= m0 && m < m1) { const k = (m - m0) / (m1 - m0); col = [0, 1, 2].map((j) => Math.round(lerp(c0[j], c1[j], k))); break; }
     }
-    if (S.weather === 'rain' || S.weather === 'cloud' || S.weather === 'snow') {
+    const light = game.lightFx;  // light effects: no weather dimming by day, no extra night desaturation
+    if (!light && (S.weather === 'rain' || S.weather === 'cloud' || S.weather === 'snow')) {
       const k = S.weather === 'cloud' ? 0.92 : 0.86;
       col = [col[0] * k, col[1] * k, col[2] * (k + 0.06)].map((v) => Math.round(Math.min(255, v)));
     }
@@ -727,7 +821,7 @@ class Renderer {
     if (dim < 0.02 && nightF <= 0) return;
     const W = view.w, H = view.h;
     // moonlight carries little colour
-    if (nightF > 0) {
+    if (nightF > 0 && !light) {
       g.globalCompositeOperation = 'saturation';
       g.globalAlpha = 0.3 * nightF;
       g.fillStyle = '#808080';

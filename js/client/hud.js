@@ -7,69 +7,83 @@ const HUD = {
   draw(ui, game, dt) {
     const S = game.state, v = ui.view, me = game.me;
     if (!S || !me) return;
-    // ---------------- clock
-    const t = S.clock();
-    ui.panel('wood', 3, 3, 96, 30);
-    const seasonIcon = SPR.ui(SEASONS[S.time.season]);
-    ui.icon(seasonIcon, 6, 5);
-    ui.text(SEASON_NAMES[S.time.season].slice(0, 3) + ' ' + S.time.day + ', Y' + S.time.year, 24, 7, '#fff4d8');
-    const wIcon = { sun: 'sun', rain: 'rain', cloud: 'cloud', snow: 'snow' }[S.weather] || 'sun';
-    ui.icon(SPR.ui(t >= 20 * 60 || t < 6 * 60 ? 'moon' : wIcon), 6, 17);
-    ui.text(fmtClock(t), 24, 21, t >= 23 * 60 ? '#ffb0a0' : '#fff4d8');
-    ui.panel('wood', 3, 34, 60, 16);
-    ui.icon(SPR.ui('coin'), 4, 34);
-    ui.text(String(S.coins), 21, 38, '#fff4d8');
-    // ---------------- birder rank: always-visible progress toward the next rank
-    const mine = S.prog || { xp: 0, lvl: 1 };
-    const need = xpForLevel(mine.lvl), frac = mine.lvl >= MAX_LEVEL ? 1 : mine.xp / need;
-    const rw = ui.widget('hud:rank', 3, 51, 96, 18);
-    ui.panel('wood', 3, 51, 96, 18);
-    ui.text('★' + mine.lvl, 7, 54, '#f6d860');
-    ui.text(RANKS[mine.lvl - 1], 22, 54, '#fff4d8');
-    ui.rect(7, 63, 88, 3, '#3a2614');
-    ui.rect(7, 63, Math.round(88 * clamp(frac, 0, 1)), 3, '#9ae07a');
-    if (rw.over || rw.focused) ui.tip = mine.lvl >= MAX_LEVEL ? 'Top birder rank!' : 'Birder rank ' + mine.lvl + ': ' + mine.xp + '/' + need + ' XP to the next rank. Earn XP by watching birds, building nests, finding clues and helping villagers.';
-    if (rw.clicked) game.openModal(new JournalScreen(4));
-    // ---------------- buttons (journal, bag, map, mail, menu)
-    let bx = v.w - 23;
-    const by = 3;
-    if (ui.iconButton('hud:menu', SPR.ui('gear'), bx, by, { tip: 'Menu (Esc)' })) game.openModal(new PauseScreen());
-    bx -= 22;
-    if (ui.iconButton('hud:map', SPR.ui('map'), bx, by, { tip: 'Map (M)' })) game.openModal(new MapScreen());
-    bx -= 22;
-    if (ui.iconButton('hud:bag', SPR.ui('bag'), bx, by, { tip: 'Bag (I)' })) game.openModal(new BagScreen());
-    bx -= 22;
-    if (ui.iconButton('hud:jr', SPR.ui('journal'), bx, by, { tip: 'Journal (Tab)' })) game.openModal(new JournalScreen());
-    bx -= 22;
-    const unread = S.mail.filter((m) => !m.read).length;
-    if (unread) {
-      const blink = Math.floor(performance.now() / 500) % 2;
-      if (ui.iconButton('hud:mail', SPR.ui('letter'), bx, by + (blink ? 1 : 0), { tip: 'New letter! (also in the mailbox)', badge: unread })) game.openModal(new MailScreen());
-    }
-    // ---------------- tracker
-    this.tracker(ui, game, v);
-    // ---------------- hotbar
-    const hw = HOTBAR * 21 + 5, hx = Math.floor((v.w - hw) / 2), hy = v.h - 26;
-    ui.panel('wood', hx, hy, hw, 24);
-    for (let i = 0; i < HOTBAR; i++) {
-      const it = S.inv[i];
-      const sx = hx + 3 + i * 21, sy = hy + 2;
-      if (ui.slot('hb:' + i, sx, sy, it ? SPR.itemIcon(it.k) : null, it ? it.n : '', { selected: game.selSlot === i })) {
-        game.selSlot = game.selSlot === i ? -1 : i; Audio2.sfx('tick');
+    // The panels below change rarely (a new game minute, coins, the bag, a quest update…), so they're
+    // drawn once into a cached picture and only repainted when something they show has changed.
+    const unreadN = S.mail.reduce((n, m) => n + (m.read ? 0 : 1), 0);
+    const sig = v.w + ',' + v.h + ',' + (S.evVer | 0) + ',' + fmtClock(S.clock()) + ',' + S.time.day + ',' + S.weather + ',' + game.selSlot + ',' +
+      (Input.touchMode ? 't' : '') + Input.lastDevice + ',' + (unreadN ? Math.floor(performance.now() / 500) % 2 : 0) + ',' + game.tracked + ',' + (game.modal ? 1 : 0);
+    ui.group('hud:tl', sig, [0, 0, 102, 72], () => {
+      // ---------------- clock
+      const t = S.clock();
+      ui.panel('wood', 3, 3, 96, 30);
+      const seasonIcon = SPR.ui(SEASONS[S.time.season]);
+      ui.icon(seasonIcon, 6, 5);
+      ui.text(SEASON_NAMES[S.time.season].slice(0, 3) + ' ' + S.time.day + ', Y' + S.time.year, 24, 7, '#fff4d8');
+      const wIcon = { sun: 'sun', rain: 'rain', cloud: 'cloud', snow: 'snow' }[S.weather] || 'sun';
+      ui.icon(SPR.ui(t >= 20 * 60 || t < 6 * 60 ? 'moon' : wIcon), 6, 17);
+      ui.text(fmtClock(t), 24, 21, t >= 23 * 60 ? '#ffb0a0' : '#fff4d8');
+      ui.panel('wood', 3, 34, 60, 16);
+      ui.icon(SPR.ui('coin'), 4, 34);
+      ui.text(String(S.coins), 21, 38, '#fff4d8');
+      // ---------------- birder rank: always-visible progress toward the next rank
+      const mine = S.prog || { xp: 0, lvl: 1 };
+      const need = xpForLevel(mine.lvl), frac = mine.lvl >= MAX_LEVEL ? 1 : mine.xp / need;
+      const rw = ui.widget('hud:rank', 3, 51, 96, 18);
+      ui.panel('wood', 3, 51, 96, 18);
+      ui.text('★' + mine.lvl, 7, 54, '#f6d860');
+      ui.text(RANKS[mine.lvl - 1], 22, 54, '#fff4d8');
+      ui.rect(7, 63, 88, 3, '#3a2614');
+      ui.rect(7, 63, Math.round(88 * clamp(frac, 0, 1)), 3, '#9ae07a');
+      if (rw.over || rw.focused) ui.tip = mine.lvl >= MAX_LEVEL ? 'Top birder rank!' : 'Birder rank ' + mine.lvl + ': ' + mine.xp + '/' + need + ' XP to the next rank. Earn XP by watching birds, building nests, finding clues and helping villagers.';
+      if (rw.clicked) game.openModal(new JournalScreen(4));
+    });
+    ui.group('hud:tr', sig, [v.w - 116, 0, 116, 28], () => {
+      // ---------------- buttons (journal, bag, map, mail, menu)
+      let bx = v.w - 23;
+      const by = 3;
+      if (ui.iconButton('hud:menu', SPR.ui('gear'), bx, by, { tip: 'Menu (Esc)' })) game.openModal(new PauseScreen());
+      bx -= 22;
+      if (ui.iconButton('hud:map', SPR.ui('map'), bx, by, { tip: 'Map (M)' })) game.openModal(new MapScreen());
+      bx -= 22;
+      if (ui.iconButton('hud:bag', SPR.ui('bag'), bx, by, { tip: 'Bag (I)' })) game.openModal(new BagScreen());
+      bx -= 22;
+      if (ui.iconButton('hud:jr', SPR.ui('journal'), bx, by, { tip: 'Journal (Tab)' })) game.openModal(new JournalScreen());
+      bx -= 22;
+      const unread = S.mail.filter((m) => !m.read).length;
+      if (unread) {
+        const blink = Math.floor(performance.now() / 500) % 2;
+        if (ui.iconButton('hud:mail', SPR.ui('letter'), bx, by + (blink ? 1 : 0), { tip: 'New letter! (also in the mailbox)', badge: unread })) game.openModal(new MailScreen());
       }
-      if (!Input.touchMode) ui.text(String(i + 1), sx + 1, sy + 1, 'rgba(58,38,20,0.7)');
-    }
-    // what's in your hands, and how to put it away
-    const held = S.inv[game.selSlot];
-    if (held) {
-      const how = Input.touchMode ? 'tap the slot again to put away' : Input.lastDevice === 'pad' ? '[B] put away' : '[Esc] put away';
-      const txt = 'Holding ' + ITEMS[held.k].name + ' · ' + how;
-      const w = ui.font.measure(txt) + 24;
-      const x = Math.floor((v.w - w) / 2);
-      ui.panel('dark', x, hy - 16, w, 14);
-      ui.icon(SPR.itemIcon(held.k), x + 2, hy - 17);
-      ui.text(txt, x + 20, hy - 13, '#f6ecd2');
-    }
+    });
+    ui.group('hud:trk', sig, [v.w - 210, 24, 210, Math.min(150, v.h - 60)], () => {
+      // ---------------- tracker & guide arrow
+      this.tracker(ui, game, v);
+    });
+    ui.group('hud:bar', sig, [Math.floor(v.w / 2) - 160, v.h - 46, 320, 46], () => {
+      // ---------------- hotbar
+      const hw = HOTBAR * 21 + 5, hx = Math.floor((v.w - hw) / 2), hy = v.h - 26;
+      ui.panel('wood', hx, hy, hw, 24);
+      for (let i = 0; i < HOTBAR; i++) {
+        const it = S.inv[i];
+        const sx = hx + 3 + i * 21, sy = hy + 2;
+        if (ui.slot('hb:' + i, sx, sy, it ? SPR.itemIcon(it.k) : null, it ? it.n : '', { selected: game.selSlot === i })) {
+          game.selSlot = game.selSlot === i ? -1 : i; Audio2.sfx('tick');
+        }
+        if (!Input.touchMode) ui.text(String(i + 1), sx + 1, sy + 1, 'rgba(58,38,20,0.7)');
+      }
+      // what's in your hands, and how to put it away
+      const held = S.inv[game.selSlot];
+      if (held) {
+        const how = Input.touchMode ? 'tap the slot again to put away' : Input.lastDevice === 'pad' ? '[B] put away' : '[Esc] put away';
+        const txt = 'Holding ' + ITEMS[held.k].name + ' · ' + how;
+        const w = ui.font.measure(txt) + 24;
+        const x = Math.floor((v.w - w) / 2);
+        ui.panel('dark', x, hy - 16, w, 14);
+        ui.icon(SPR.itemIcon(held.k), x + 2, hy - 17);
+        ui.text(txt, x + 20, hy - 13, '#f6ecd2');
+      }
+    });
+    if (!game.modal) this.guide(ui, game, v);
     // ---------------- prompt
     if (!game.modal && game.target && !game.observe) this.prompt(ui, game, v);
     if (game.observe) {
@@ -97,6 +111,49 @@ const HUD = {
     this.chat(ui, game, v);
     // ---------------- touch controls
     if (game.touchControls()) this.touch(ui, game, v);
+  },
+
+  // An arrow at the screen edge pointing to the guide target (pin, nest spot, quest or tutorial step),
+  // and bobbing markers over nest spots and the pin when they're in view.
+  guide(ui, game, v) {
+    const t = game.guideTarget(), me = game.me, g = ui.g;
+    const now = performance.now(), bob = Math.round(Math.sin(now / 220) * 2);
+    const top = 74, bot = v.h - 40, m = 16;
+    const marker = (wx, wy, col) => {
+      const [sx, sy] = game.toScreen(wx, wy);
+      if (sx < -8 || sx > v.w + 8 || sy < 52 || sy > v.h - 24) return; // off screen, or under the HUD bars
+      const y0 = sy - 16 + bob;
+      g.fillStyle = '#1e2a14'; g.fillRect(sx - 4, y0 - 1, 9, 3); g.fillRect(sx - 3, y0 + 2, 7, 2); g.fillRect(sx - 2, y0 + 4, 5, 2); g.fillRect(sx - 1, y0 + 6, 3, 1);
+      g.fillStyle = col; g.fillRect(sx - 3, y0, 7, 1); g.fillRect(sx - 2, y0 + 1, 5, 2); g.fillRect(sx - 1, y0 + 3, 3, 2); g.fillRect(sx, y0 + 5, 1, 1);
+    };
+    if (game.finder) for (const [x, y] of game.finder.spots) marker(x * TS + 8, y * TS + 6, '#7ae07a');
+    if (game.finder && game.finder.best) marker(game.finder.best.x * TS + 8, game.finder.best.y * TS + 6, '#f6c83a');
+    if (game.pin) marker(game.pin.x, game.pin.y, '#e8485a');
+    if (!t) return;
+    const [sx, sy] = game.toScreen(t.x, t.y);
+    if (sx >= m && sx <= v.w - m && sy >= top && sy <= bot) return; // in view: its own marker shows it
+    const [px, py] = game.toScreen(me.x, me.y - 12);
+    let dx = sx - px, dy = sy - py;
+    const L = Math.hypot(dx, dy) || 1;
+    dx /= L; dy /= L;
+    const kx = dx > 0 ? (v.w - m - px) / dx : dx < 0 ? (m - px) / dx : 1e9;
+    const ky = dy > 0 ? (bot - py) / dy : dy < 0 ? (top - py) / dy : 1e9;
+    const k = Math.min(kx, ky), ax = px + dx * k + dx * bob * 0.6, ay = py + dy * k + dy * bob * 0.6;
+    const col = t.kind === 'spot' ? '#7ae07a' : t.kind === 'pin' ? '#e8485a' : '#f6c83a';
+    const tri = (r) => {
+      g.beginPath();
+      g.moveTo(ax + dx * r, ay + dy * r);
+      g.lineTo(ax - dx * r * 0.6 - dy * r * 0.8, ay - dy * r * 0.6 + dx * r * 0.8);
+      g.lineTo(ax - dx * r * 0.6 + dy * r * 0.8, ay - dy * r * 0.6 - dx * r * 0.8);
+      g.closePath(); g.fill();
+    };
+    g.fillStyle = '#2a1a0e'; tri(8);
+    g.fillStyle = col; tri(5.5);
+    const dist = Math.round(Math.hypot(t.x - me.x, t.y - me.y) / TS);
+    const lbl = t.label + ' · ' + dist + ' m';
+    const w = ui.font.measure(lbl);
+    const lx = clamp(Math.round(ax - dx * 16 - w / 2), 3, v.w - w - 3), ly = clamp(Math.round(ay - dy * 16 - 4), top - 6, bot - 10);
+    ui.text(lbl, lx, ly, '#ffffff', { outline: '#2a1a0e' });
   },
 
   prompt(ui, game, v) {

@@ -3231,6 +3231,57 @@ function nestCenter(S, n) {
 
 function speciesForSite(site) { return SPECIES.filter((s) => s.site === site); }
 
+// Where a quest sends you (for the guide arrow), or null when it isn't about one place
+function questTarget(S, q) {
+  const npcAt = (id, label) => { const n = npcPos(id, S.clock()); return n.away ? null : { x: n.x * TS, y: n.y * TS, label, kind: 'quest' }; };
+  if (questReady(S, q)) return npcAt(q.npc, NPCS[q.npc].name);
+  if (q.kind === 'deliver') return npcAt(q.to, NPCS[q.to].name);
+  if (q.kind === 'trip') {
+    for (const o of S.objs.values()) if (o.type === 'landmark' && o.kind === q.lm) return { x: o.x * TS + 8, y: o.y * TS + 8, label: LANDMARKS[q.lm].name, kind: 'quest' };
+  }
+  if (q.kind === 'find' && q.area) return { x: (q.area[0] + q.area[2]) / 2 * TS, y: (q.area[1] + q.area[3]) / 2 * TS, label: 'Search here', kind: 'quest' };
+  return null;
+}
+
+// Radius of the shadow under something that never moves (painted into the terrain), or 0
+function staticShadow(o) {
+  if (o.type === 'tree') return o.st >= 2 ? 9 : 4;
+  if (o.type === 'shrub') return o.st >= 2 ? 9 : 5;
+  if (o.type === 'struct') return o.kind === 'platform' ? 10 : 5;
+  return 0;
+}
+
+// ---------- travel ----------
+// Places the map can take you to: home, the Field Station, the farm and every landmark found so far.
+// (x, y) is a spot in front of each, in pixels.
+function travelPoints(S) {
+  const out = [];
+  const find = (type, kind) => { for (const o of S.objs.values()) if (o.type === type && o.kind === kind) return o; return null; };
+  for (const [kind, label] of [['cottage', 'Home'], ['station', 'Field Station'], ['farmhouse', 'Mabel\'s farm']]) {
+    const o = find('building', kind);
+    if (!o) continue;
+    const b = BUILDINGS[o.kind], dx = b.door ? b.door[0] : Math.floor(b.w / 2);
+    out.push({ key: kind, label, x: (o.x + dx) * TS + 8, y: (o.y + b.h) * TS + 10 });
+  }
+  for (const o of S.objs.values()) {
+    if (o.type !== 'landmark' || !S.found || S.found[o.kind] == null) continue;
+    const [fw, fh] = footprint(o);
+    out.push({ key: 'lm:' + o.kind, label: LANDMARKS[o.kind].name, x: o.x * TS + fw * 8, y: (o.y + fh) * TS + 10 });
+  }
+  return out;
+}
+// The nearest spot around (x, y) where a player can stand
+function standSpot(S, x, y) {
+  if (!feetBlocked(S, x, y)) return [x, y];
+  for (let r = 4; r <= 64; r += 4) {
+    for (let a = 0; a < 16; a++) {
+      const t = a / 16 * Math.PI * 2, px = x + Math.cos(t) * r, py = y + Math.sin(t) * r;
+      if (!feetBlocked(S, px, py)) return [px, py];
+    }
+  }
+  return [x, y];
+}
+
 function knownSpecies(S, id) { const j = S.journal[id]; return j && j.h >= 3; }
 
 function isPlantable(item, t, S, x, y) {
@@ -3812,6 +3863,7 @@ class World {
     this.saved = {};          // token -> persistent player record
     this.pauseSet = new Set();
     this.msAcc = 0;
+    this.msPerMin = MS_PER_MIN;   // real ms per game minute (the host's "day length" setting)
     this.posTimer = 0;
     this.saveTimer = 0;
     this.bulk = false;
@@ -4016,7 +4068,7 @@ class World {
       d: 0, m: 0, a: '',
       inv: rec && rec.inv ? rec.inv : starterInventory(),
       sleep: false,
-      xp: (rec && rec.xp) || 0, lvl: (rec && rec.lvl) || 1, fr: (rec && rec.fr) || {}, hev: (rec && rec.hev) || {},
+      xp: (rec && rec.xp) || 0, lvl: (rec && rec.lvl) || 1, fr: (rec && rec.fr) || {}, hev: (rec && rec.hev) || {}, gk: (rec && rec.gk) || {},
       talkD: (rec && rec.talkD) || {}, giftD: (rec && rec.giftD) || {}, obsD: {}, lvlUps: [],
     };
     if (feetBlocked(this, p.x, p.y)) { p.x = HOME_SPAWN[0]; p.y = HOME_SPAWN[1]; }
@@ -4045,11 +4097,11 @@ class World {
   }
 
   _storePlayer(p) {
-    this.saved[p.token] = { name: p.name, look: p.look, inv: p.inv, x: p.x, y: p.y, xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, talkD: p.talkD, giftD: p.giftD };
+    this.saved[p.token] = { name: p.name, look: p.look, inv: p.inv, x: p.x, y: p.y, xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, talkD: p.talkD, giftD: p.giftD, gk: p.gk };
   }
   // A player's own progress (rank, friendships). lvlUps lists rank-ups that happened overnight.
   _meData(p, flush) {
-    const d = { xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, gift: p.giftD, lvlUps: p.lvlUps || [] };
+    const d = { xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, gift: p.giftD, gk: p.gk || {}, lvlUps: p.lvlUps || [] };
     if (flush) p.lvlUps = [];
     return d;
   }
@@ -4058,7 +4110,7 @@ class World {
   snapshotFor(pid) {
     const p = this.players.get(pid);
     return {
-      name: this.name, seed: this.seed, you: pid,
+      name: this.name, seed: this.seed, you: pid, mpm: this.msPerMin,
       tiles: b64encode(this.tiles), grass: b64encode(this.grass), objs: Array.from(this.objs.values()),
       time: this.time, weather: this.weather, coins: this.coins, mats: this.mats, journal: this.journal,
       log: this.log, mail: this.mail, quest: this.quest, visitors: this.visitors, featured: this.featured,
@@ -4080,8 +4132,8 @@ class World {
     if (!this.isPaused() && this.players.size > 0) {
       this.msAcc += dt;
       let guard = 0;
-      while (this.msAcc >= MS_PER_MIN && guard++ < 50) {
-        this.msAcc -= MS_PER_MIN;
+      while (this.msAcc >= this.msPerMin && guard++ < 50) {
+        this.msAcc -= this.msPerMin;
         this.time.min++;
         this._onMinute();
       }
@@ -4251,6 +4303,9 @@ class World {
       case 'gift': return this.actGift(p, m);
       case 'board': return this.actBoard(p, m);
       case 'rest': return this.actRest(p, m);
+      case 'travel': return this.actTravel(p, m);
+      case 'sort': return this.actSort(p, m);
+      case 'sellforage': return this.actSellForage(p, m);
     }
   }
 
@@ -4534,7 +4589,15 @@ class World {
     if (TUTORIAL[this.quest] && TUTORIAL[this.quest].id === 'craft') this._advanceQuest();
   }
 
-  clockMin() { return this.time.min + this.msAcc / MS_PER_MIN; }
+  clockMin() { return this.time.min + this.msAcc / this.msPerMin; }
+  setDaySpeed(ms) {
+    ms = clamp(ms | 0, 250, 2000);
+    if (ms === this.msPerMin) return;
+    this.msAcc = this.msAcc * ms / this.msPerMin;
+    this.msPerMin = ms;
+    this.ev('mpm', ms);
+    this.flush();
+  }
   _nearNpc(p, id) {
     if (!NPCS[id]) return false;
     const n = npcPos(id, this.clockMin());
@@ -4725,6 +4788,9 @@ class World {
     p.giftD[id] = today;
     const taste = NPC_GIFTS[id] || { love: [], like: [] };
     const kind = taste.love.includes(s.k) ? 'love' : taste.like.includes(s.k) ? 'like' : 'ok';
+    // remember what each villager thought of it (shown with their hearts in the journal)
+    p.gk = p.gk || {};
+    (p.gk[id] = p.gk[id] || {})[s.k] = kind;
     this.takeSlot(p, slot, 1);
     this.dlg(p, id, [pick(GIFT_LINES[kind])], [{ id: 'bye', label: 'You\'re welcome!' }]);
     this.ev('fx', 'hearts', 0, p.x, p.y - 26);
@@ -4785,6 +4851,16 @@ class World {
       this.bumpStat('rare');
     }
     this.evTo(p.pid, 'fact', sp.id, pick(sp.facts));
+  }
+
+  // Quick travel from the map to a known place
+  actTravel(p, m) {
+    if (p.sleep) return;
+    const pt = travelPoints(this).find((t) => t.key === String(m.k));
+    if (!pt) return;
+    const [x, y] = standSpot(this, pt.x, pt.y);
+    p.x = x; p.y = y;
+    this.evTo(p.pid, 'tp', x, y);
   }
 
   // Rest until the evening (solo only): a gentle way to meet the birds of the night
@@ -4997,6 +5073,39 @@ class World {
       if (a.n <= 0) p.inv[i] = null;
     } else { p.inv[i] = b; p.inv[j] = a; }
     this.evTo(p.pid, 'inv', p.inv);
+  }
+
+  // Tidy the backpack (the hotbar row stays as it is): merge stacks, then sort by kind and name
+  actSort(p) {
+    const CAT = { seed: 0, tree: 1, shrub: 2, struct: 3, forage: 4 };
+    const items = [];
+    for (let i = HOTBAR; i < BAG_SIZE; i++) {
+      const s = p.inv[i];
+      if (!s) continue;
+      const same = items.find((t) => t.k === s.k && t.n < STACK_MAX);
+      if (same) { const mv = Math.min(s.n, STACK_MAX - same.n); same.n += mv; if (s.n - mv > 0) items.push({ k: s.k, n: s.n - mv }); }
+      else items.push({ k: s.k, n: s.n });
+    }
+    items.sort((a, b) => ((CAT[ITEMS[a.k].cat] ?? 9) - (CAT[ITEMS[b.k].cat] ?? 9)) || ITEMS[a.k].name.localeCompare(ITEMS[b.k].name) || b.n - a.n);
+    for (let i = HOTBAR; i < BAG_SIZE; i++) p.inv[i] = items[i - HOTBAR] || null;
+    this.evTo(p.pid, 'inv', p.inv);
+  }
+
+  // Sell every mushroom, berry and nut in the bag at once
+  actSellForage(p) {
+    if (!this._nearNpc(p, 'basil')) return;
+    let coins = 0, n = 0;
+    for (let i = 0; i < BAG_SIZE; i++) {
+      const s = p.inv[i];
+      if (!s || ITEMS[s.k].cat !== 'forage') continue;
+      coins += itemSellPrice(s.k) * s.n; n += s.n;
+      p.inv[i] = null;
+    }
+    if (!n) return;
+    this.evTo(p.pid, 'inv', p.inv);
+    this.coins += coins; this.ev('coins', this.coins);
+    this.evTo(p.pid, 'snd', 'coin');
+    this.toast(p, 'Sold ' + plural(n, 'thing') + ' to Basil for ' + coins + ' coins.', 'coin');
   }
 
   actTrash(p, m) {
@@ -10996,7 +11105,7 @@ const KEYMAP = {
   prev: ['KeyQ'], next: ['KeyR'], run: ['ShiftLeft', 'ShiftRight'],
   hot1: ['Digit1'], hot2: ['Digit2'], hot3: ['Digit3'], hot4: ['Digit4'], hot5: ['Digit5'], hot6: ['Digit6'], hot7: ['Digit7'], hot8: ['Digit8'],
 };
-const PAD_BTN = { 0: 'act', 1: 'cancel', 2: 'alt', 3: 'journal', 4: 'prev', 5: 'next', 8: 'map', 9: 'menu', 12: 'up', 13: 'down', 14: 'left', 15: 'right' };
+const PAD_BTN = { 0: 'act', 1: 'cancel', 2: 'alt', 3: 'journal', 4: 'prev', 5: 'next', 6: 'run', 7: 'run', 8: 'map', 9: 'menu', 10: 'run', 12: 'up', 13: 'down', 14: 'left', 15: 'right' };
 
 const Input = {
   down: new Set(),        // physical key codes held
@@ -11548,8 +11657,8 @@ class ClientState {
 
   loadSnap(s) {
     // remember the old terrain, so a new morning only repaints what actually changed
-    const prev = this.tiles ? { tiles: this.tiles, grass: this.grass, occ: this.occ, season: this.time && this.time.season, key: this.seed + '|' + this.name } : null;
-    this.name = s.name; this.seed = s.seed; this.me = s.you;
+    const prev = this.tiles ? { tiles: this.tiles, grass: this.grass, occ: this.occ, season: this.time && this.time.season, key: this.seed + '|' + this.name, shadow: this._shadowSig() } : null;
+    this.name = s.name; this.seed = s.seed; this.me = s.you; this.mpm = s.mpm || MS_PER_MIN;
     this.tiles = b64decode(s.tiles);
     this.grass = b64decode(s.grass);
     this.objs = new Map();
@@ -11581,9 +11690,11 @@ class ClientState {
     this.sleepN = 0; this.sleepTotal = this.players.size;
     const same = prev && !this.allDirty && prev.key === this.seed + '|' + this.name && prev.season === this.time.season && prev.tiles.length === this.tiles.length;
     if (same) {
+      const shadow = this._shadowSig();
       for (let i = 0; i < this.tiles.length; i++) {
         if (prev.tiles[i] !== this.tiles[i]) this.markTile(i);
         else if (prev.grass[i] !== this.grass[i] || !prev.occ[i] !== !this.occ[i]) this.markDecal(i);
+        if (prev.shadow[i] !== shadow[i]) { this.markDecal(i); if (i % MAP_W) this.markDecal(i - 1); if ((i + 1) % MAP_W) this.markDecal(i + 1); }
       }
     } else this.allDirty = true;
     this.clockMs = 0;
@@ -11611,9 +11722,15 @@ class ClientState {
 
   markTile(i) { this.dirtyTiles.add(i); this.markDecal(i); }
   markDecal(i) { this.grassDirty.add(i); }
+  // tiles whose ground look depends on this object (its footprint, plus the tiles its shadow reaches)
   _markObj(o) {
     const [w, h] = footprint(o);
-    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (inBounds(o.x + dx, o.y + dy)) this.markDecal(tIdx(o.x + dx, o.y + dy));
+    for (let dy = 0; dy < h; dy++) for (let dx = -1; dx <= w; dx++) if (inBounds(o.x + dx, o.y + dy)) this.markDecal(tIdx(o.x + dx, o.y + dy));
+  }
+  _shadowSig() {
+    const sig = new Uint8Array(MAP_W * MAP_H);
+    for (const o of this.objs.values()) { const r = staticShadow(o); if (r && inBounds(o.x, o.y)) sig[tIdx(o.x, o.y)] = r; }
+    return sig;
   }
   // Nests that aren't old yet (cached until objects or nests change)
   activeNests() {
@@ -11641,6 +11758,7 @@ class ClientState {
 
   // Returns a list of "notes" the game layer reacts to (sounds, popups, ...)
   apply(evs, game) {
+    this.evVer = (this.evVer || 0) + 1; // anything the HUD shows may have changed
     for (const e of evs) {
       switch (e[0]) {
         case 'oa': {
@@ -11659,6 +11777,7 @@ class ClientState {
           const prevSt = o.st;
           Object.assign(o, e[2]);
           if (o.type === 'nest') this.nestVer++;
+          if (e[2].st !== undefined && e[2].st !== prevSt && staticShadow(o)) this._markObj(o); // grown: bigger shadow
           game.onObjUpdated(o, e[2], prevSt);
           break;
         }
@@ -11707,6 +11826,7 @@ class ClientState {
         case 'tp': game.onTeleport(e[1], e[2]); break;
         case 'side': this.side = e[1]; break;
         case 'prog': this.prog = e[1]; break;
+        case 'mpm': this.clockMs = this.clockMs * e[1] / (this.mpm || MS_PER_MIN); this.mpm = e[1]; break;
         case 'xp': game.onXP(e[1], e[2]); break;
         case 'lvl': game.onLevel(e[1], e[2]); break;
         case 'badges': this.badges = e[1]; break;
@@ -11720,7 +11840,7 @@ class ClientState {
   }
 
   // Interpolated game clock (minutes) between authoritative updates
-  clock() { return this.time.min + this.clockMs / MS_PER_MIN; }
+  clock() { return this.time.min + this.clockMs / (this.mpm || MS_PER_MIN); }
 }
 
 // ---- js/client/fx.js ----
@@ -12498,7 +12618,7 @@ class Renderer {
         const d = (cx - ccx) ** 2 + (cy - ccy) ** 2;
         if (d < bd) { bd = d; best = [cx, cy]; }
       }
-      if (!best) { this.stale.clear(); return; }
+      if (!best) { this.stale.clear(); this._prewarmArt(S, t0, budget || 5); return; }
       const key = best[0] + ',' + best[1];
       let job = this.jobs.get(key);
       if (!job) { job = SPR.tiles.chunkJob(S.tiles, best[0], best[1], CHUNK, season); this.jobs.set(key, job); }
@@ -12509,9 +12629,69 @@ class Renderer {
     }
   }
 
+  // Loading: paint the chunks of the first view, then the sprites, a few milliseconds per call.
+  // Returns true when everything is ready (loadProgress goes from 0 to 1 meanwhile).
+  loadStep(S, cam, view, budget) {
+    this._processDirty(S);
+    const t0 = performance.now(), season = S.time.season;
+    const cx0 = clamp(cam.x, 0, MAP_W * TS - view.w), cy0 = clamp(cam.y, 0, MAP_H * TS - view.h);
+    const keys = [];
+    for (let cy = Math.floor(cy0 / (CHUNK * TS)); cy <= Math.floor((cy0 + view.h) / (CHUNK * TS)); cy++)
+      for (let cx = Math.floor(cx0 / (CHUNK * TS)); cx <= Math.floor((cx0 + view.w) / (CHUNK * TS)); cx++)
+        if (cx >= 0 && cy >= 0 && cx * CHUNK < MAP_W && cy * CHUNK < MAP_H) keys.push([cx, cy]);
+    let missing = 0;
+    for (const [cx, cy] of keys) {
+      const key = cx + ',' + cy;
+      if (this.chunks.has(key)) continue;
+      missing++;
+      if (performance.now() - t0 > budget) continue;
+      let job = this.jobs.get(key);
+      if (!job) { job = SPR.tiles.chunkJob(S.tiles, cx, cy, CHUNK, season); this.jobs.set(key, job); }
+      let r;
+      while (!(r = job.next()).done) if (performance.now() - t0 > budget) break;
+      if (r.done) { this.jobs.delete(key); this.chunks.set(key, this._finish(S, cx, cy, r.value, season)); missing--; }
+    }
+    this.loadProgress = 0.6 * (keys.length - missing) / Math.max(1, keys.length);
+    if (missing) return false;
+    if (!this.quickReady) { SPR.tiles.quickSet(season); this.quickReady = true; return false; }
+    this._prewarmArt(S, t0, budget);
+    this.loadProgress = 0.6 + 0.4 * (1 - this.artQ.length / Math.max(1, this.artTotal));
+    return this.artQ.length === 0;
+  }
+
   // A visible chunk. Missing ones are painted within a small time budget per frame (all at once only
   // when nothing at all is on screen yet); until they're done, last season's chunk or a rough
   // stand-in is shown, so walking or a new season never freezes the game.
+  // Once the terrain is painted, spare frame time draws the sprites the game will soon need — every
+  // bird and egg (the journal shows them all), this season's trees, shrubs and plants, lit windows for
+  // the night and the villagers — so none of them causes a stall the first time it appears. On the last
+  // day of a season, next season's look is prepared too.
+  _prewarmArt(S, t0, budget) {
+    const season = S.time.season, last = S.time.day >= 7;
+    const key = season + (last ? '+' : '');
+    if (this.artKey !== key) {
+      const q = [], seasons = last ? [season, (season + 1) % 4] : [season];
+      for (const sp of SPECIES) q.push(() => { SPR.bird(sp.id); SPR.egg(sp.id); });
+      for (const sp of AMBIENT.concat(RARE)) q.push(() => SPR.bird(sp.id));
+      for (const k in NPCS) for (let d = 0; d < 4; d++) q.push(() => { for (let f = 0; f < 3; f++) SPR.person(k, NPC_LOOKS[k], d, f); });
+      for (const se of seasons) {
+        q.push(() => SPR.tufts(se));
+        for (const kind in FLORA) {
+          const t = FLORA[kind].type;
+          if (t === 'tree') for (let st = 0; st < 3; st++) q.push(() => SPR.tree(kind, st, se, false));
+          else if (t === 'shrub') for (let st = 0; st < 3; st++) q.push(() => { SPR.shrub(kind, st, se, false); SPR.shrub(kind, st, se, true); });
+        }
+        for (const kind in BUILDINGS) if (kind !== 'mailbox') q.push(() => { SPR.building(kind, se, false); SPR.building(kind, se, true); });
+        for (const kind in LANDMARKS) q.push(() => SPR.landmark(kind, se));
+        for (const kind in STRUCTS) q.push(() => SPR.struct(kind, se));
+      }
+      this.artKey = key; this.artQ = q; this.artTotal = q.length;
+    }
+    while (this.artQ.length && performance.now() - t0 < budget) {
+      try { this.artQ.shift()(); } catch (e) { /* an odd sprite is drawn on demand later */ }
+    }
+  }
+
   _chunk(S, cx, cy, season) {
     const key = cx + ',' + cy;
     const c = this.chunks.get(key);
@@ -12537,7 +12717,8 @@ class Renderer {
     return q;
   }
 
-  // A freshly painted chunk, with the short grass tufts (which never move) painted straight onto it
+  // A freshly painted chunk, with the short grass tufts and the shadows of things that never move
+  // (trees, shrubs, nest boxes…) painted straight onto it
   _finish(S, cx, cy, pix, season) {
     const cv = pix.canvas();
     const tufts = SPR.tufts(season), cg = cv.getContext('2d');
@@ -12547,7 +12728,19 @@ class Renderer {
       const i = ty * MAP_W + tx;
       if (S.grass[i] === 1 && !S.occ[i]) cg.drawImage(tufts.mid[(tx * 3 + ty) % 3], lx * TS, ly * TS + 6);
     }
+    this._bakeShadows(S, cg, cx * CHUNK - 1, cy * CHUNK, cx * CHUNK + CHUNK, cy * CHUNK + CHUNK - 1, cx * CHUNK * TS, cy * CHUNK * TS);
     return cv;
+  }
+  _bakeShadows(S, g, tx0, ty0, tx1, ty1, ox, oy) {
+    for (let ty = Math.max(0, ty0); ty <= Math.min(MAP_H - 1, ty1); ty++) for (let tx = Math.max(0, tx0); tx <= Math.min(MAP_W - 1, tx1); tx++) {
+      const arr = S.byTile.get(ty * MAP_W + tx);
+      if (!arr) continue;
+      for (let k = 0; k < arr.length; k++) {
+        const o = S.objs.get(arr[k]);
+        const r = o && o.x === tx && o.y === ty ? staticShadow(o) : 0;
+        if (r) g.drawImage(this._shadowImg(r), o.x * TS + 8 - r - ox, o.y * TS + 12 - oy);
+      }
+    }
   }
   // Repaint one tile of a finished chunk (terrain, then its tuft)
   _patch(S, i) {
@@ -12555,8 +12748,13 @@ class Renderer {
     const c = this.chunks.get(Math.floor(x / CHUNK) + ',' + Math.floor(y / CHUNK));
     if (!c) return;
     const g = c.getContext('2d');
-    g.drawImage(SPR.tiles.renderTile(S.tiles, x, y, this.season).canvas(), (x % CHUNK) * TS, (y % CHUNK) * TS);
-    if (S.grass[i] === 1 && !S.occ[i]) g.drawImage(SPR.tufts(this.season).mid[(x * 3 + y) % 3], (x % CHUNK) * TS, (y % CHUNK) * TS + 6);
+    const lx = (x % CHUNK) * TS, ly = (y % CHUNK) * TS;
+    g.drawImage(SPR.tiles.renderTile(S.tiles, x, y, this.season).canvas(), lx, ly);
+    if (S.grass[i] === 1 && !S.occ[i]) g.drawImage(SPR.tufts(this.season).mid[(x * 3 + y) % 3], lx, ly + 6);
+    // shadows reaching into this tile (its own, and the edges of its neighbours')
+    g.save(); g.beginPath(); g.rect(lx, ly, TS, TS); g.clip();
+    this._bakeShadows(S, g, x - 1, y, x + 1, y, Math.floor(x / CHUNK) * CHUNK * TS, Math.floor(y / CHUNK) * CHUNK * TS);
+    g.restore();
   }
 
   _processDirty(S) {
@@ -12647,17 +12845,18 @@ class Renderer {
     let L = this.wl;
     if (!L || L.cv.width !== W || L.cv.height !== H) {
       const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-      L = this.wl = { cv, g: cv.getContext('2d'), ox: 0, oy: 0, t: -1e9, any: false, key: '' };
+      L = this.wl = { cv, g: cv.getContext('2d'), ox: 0, oy: 0, t: -1e9, any: false, key: '', bx: 0, by: 0, bw: W, bh: H };
     }
     const sunny = S.weather === 'sun' || S.weather === 'cloud';
     const key = season + (sunny ? 's' : 'n') + this.tileVer;
     const outside = cx0 < L.ox || cy0 < L.oy || cx0 + view.w > L.ox + W || cy0 + view.h > L.oy + H;
-    if (outside || now - L.t >= 48 || now < L.t || key !== L.key) {
+    if (outside || now - L.t >= (this.game.lightFx ? 100 : 48) || now < L.t || key !== L.key) {
       L.t = now; L.key = key; L.ox = cx0 - M; L.oy = cy0 - M; L.any = false;
       const lg = L.g, h = this._tileHash();
-      lg.clearRect(0, 0, W, H);
+      lg.clearRect(L.bx, L.by, L.bw, L.bh);
       const tx0 = Math.max(0, Math.floor(L.ox / TS)), tx1 = Math.min(MAP_W - 1, Math.floor((L.ox + W) / TS));
       const ty0 = Math.max(0, Math.floor(L.oy / TS)), ty1 = Math.min(MAP_H - 1, Math.floor((L.oy + H) / TS));
+      let wx0 = 1e9, wy0 = 1e9, wx1 = -1e9, wy1 = -1e9;  // the box around the water tiles: only that part is drawn
       const hi = season === WINTER ? '#ffffff' : '#d6f4ff', hiA = season === WINTER ? 0.6 : 0.55;
       for (let pass = 0; pass < 2; pass++) {
         lg.fillStyle = pass ? '#285078' : hi;
@@ -12665,6 +12864,7 @@ class Renderer {
           const i = ty * MAP_W + tx, t = S.tiles[i];
           if (t !== T.WATER && t !== T.SHALLOW) continue;
           L.any = true;
+          if (!pass) { if (tx < wx0) wx0 = tx; if (tx > wx1) wx1 = tx; if (ty < wy0) wy0 = ty; if (ty > wy1) wy1 = ty; }
           for (let k = 0; k < 2; k++) {
             const hh = k ? h.w1[i] : h.w0[i];
             if (hh % 5 === 0) continue;
@@ -12682,6 +12882,11 @@ class Renderer {
         }
       }
       lg.globalAlpha = 1;
+      if (L.any) {
+        // highlights wander up to 2 px sideways and glints reach a pixel past their tile
+        L.bx = Math.max(0, wx0 * TS - L.ox - 3); L.by = Math.max(0, wy0 * TS - L.oy - 1);
+        L.bw = Math.min(W, (wx1 + 1) * TS - L.ox + 3) - L.bx; L.bh = Math.min(H, (wy1 + 1) * TS - L.oy + 1) - L.by;
+      } else { L.bx = 0; L.by = 0; L.bw = W; L.bh = H; }
       if (sunny && L.any) {
         lg.fillStyle = '#ffffff';
         for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
@@ -12696,7 +12901,7 @@ class Renderer {
         }
       }
     }
-    if (L.any) g.drawImage(L.cv, L.ox - cx0, L.oy - cy0);
+    if (L.any) g.drawImage(L.cv, L.ox - cx0, L.oy - cy0); // whole-image draws are the browser's fast path
   }
 
   // Long grass is drawn in strips: one image per tile row of a chunk, depth-sorted as a whole and
@@ -12715,10 +12920,19 @@ class Renderer {
     if (!any) return null;
     let st = this.strips.get(key);
     if (st && st.mask === mask) return st;
-    if (!st) {
+    // the canvas is only as wide as the grass in this row, so it can always be drawn whole
+    let lo = 1e9, hi = 0;
+    for (let tx = x0; tx < x1; tx++) {
+      const i = ty * MAP_W + tx;
+      if (S.grass[i] !== 2 || S.occ[i]) continue;
+      const px = (tx - x0) * TS - 1 + (((h[i] >>> 4) % 7) - 3) + 4;
+      if (px < lo) lo = px;
+      if (px + 18 > hi) hi = px + 18;
+    }
+    if (!st || st.lo !== lo || st.cv.width !== hi - lo) {
       const cv = document.createElement('canvas');
-      cv.width = CHUNK * TS + 24; cv.height = 26;
-      st = { cv, g: cv.getContext('2d'), mask: -1 };
+      cv.width = hi - lo; cv.height = 26;
+      st = { cv, g: cv.getContext("2d"), mask: -1, lo };
       if (this.strips.size > 400) this.strips.clear();
       this.strips.set(key, st);
     }
@@ -12730,13 +12944,14 @@ class Renderer {
       if (S.grass[i] !== 2 || S.occ[i]) continue;
       const hh = h[i];
       const jx = ((hh >>> 4) % 7) - 3, jy = ((hh >>> 7) % 5) - 2;
-      sg.drawImage(tufts.long[((hh >>> 10) % 3) * 2 + ((mask >> (tx - x0)) & 1)], (tx - x0) * TS - 1 + jx + 4, jy + 2);
+      sg.drawImage(tufts.long[((hh >>> 10) % 3) * 2 + ((mask >> (tx - x0)) & 1)], (tx - x0) * TS - 1 + jx + 4 - lo, jy + 2);
     }
     return st;
   }
 
   // Long grass sways only when a slow gust of wind rolls across the meadow (and where you walk).
   _gust(tx, ty, hh, now) {
+    if (this.game.lightFx) return false;
     const ph = (now / 7000 - tx * 0.035 - ty * 0.013 - ((hh >>> 12) & 7) * 0.004) % 1;
     return (ph < 0 ? ph + 1 : ph) < 0.08;
   }
@@ -12753,8 +12968,8 @@ class Renderer {
     const cx0 = Math.floor(cam.x), cy0 = Math.floor(cam.y);
     this.budget = 5;
     this.syncBuild = !this.chunks.size && !this.stale.size;
-    g.fillStyle = '#2a4a2a';
-    g.fillRect(0, 0, view.w, view.h);
+    // the terrain covers the whole view, so the background only needs painting past the map's edge
+    if (cx0 < 0 || cy0 < 0 || cx0 + view.w > MAP_W * TS || cy0 + view.h > MAP_H * TS) { g.fillStyle = '#2a4a2a'; g.fillRect(0, 0, view.w, view.h); }
     // terrain
     const ch0x = Math.floor(cx0 / (CHUNK * TS)), ch1x = Math.floor((cx0 + view.w) / (CHUNK * TS));
     const ch0y = Math.floor(cy0 / (CHUNK * TS)), ch1y = Math.floor((cy0 + view.h) / (CHUNK * TS));
@@ -12773,7 +12988,7 @@ class Renderer {
     const tyG = Math.min(MAP_H - 1, Math.floor((cy0 + view.h) / TS) + 1);
     for (let ty = ty0; ty <= tyG; ty++) for (let cx = Math.max(0, ch0x); cx <= ch1x && cx * CHUNK < MAP_W; cx++) {
       const st = this._grassStrip(S, cx, ty, season, now, meTx, meTy);
-      if (st) this._e(ty * TS + 15, st.cv, cx * CHUNK * TS - 4, ty * TS - 6);
+      if (st) this._e(ty * TS + 15, st.cv, cx * CHUNK * TS - 4 + st.lo, ty * TS - 6);
     }
     const stamp = ++this.stamp;
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
@@ -12906,7 +13121,6 @@ class Renderer {
         const shake = this.game.shakeT.get(o.id) || 0;
         const off = shake > 0 ? Math.round(Math.sin(now / 30) * 1.5) : 0;
         const e = this._e(by, spr.img, bx - spr.ax + off, by - spr.ay);
-        e.sh = o.st >= 2 ? 9 : 4; e.sx = bx; e.sy = by - 1;
         if (o.st >= 2) { e.fade = 1; e.fx = bx; e.fh = spr.h - 14; e.fw = spr.w / 2; }
         break;
       }
@@ -12914,8 +13128,7 @@ class Renderer {
         const spr = SPR.shrub(o.kind, o.st, season, o.fr > 0);
         const shake = this.game.shakeT.get(o.id) || 0;
         const off = shake > 0 ? Math.round(Math.sin(now / 30)) : 0;
-        const e = this._e(by, spr.img, bx - spr.ax + off, by - spr.ay + 1);
-        e.sh = o.st >= 2 ? 9 : 5; e.sx = bx; e.sy = by - 1;
+        this._e(by, spr.img, bx - spr.ax + off, by - spr.ay + 1);
         break;
       }
       case 'plant': {
@@ -12934,8 +13147,7 @@ class Renderer {
       case 'stump': { const spr = SPR.stump(o.moss, season); this._e(by, spr.img, bx - spr.ax, by - spr.ay); break; }
       case 'struct': {
         const spr = SPR.struct(o.kind, season);
-        const e = this._e(by, spr.img, bx - spr.ax, by - spr.ay + 1);
-        e.sh = o.kind === 'platform' ? 10 : 5; e.sx = bx; e.sy = by - 1;
+        this._e(by, spr.img, bx - spr.ax, by - spr.ay + 1);
         break;
       }
       case 'building': {
@@ -13096,7 +13308,8 @@ class Renderer {
     const w = S.weather;
     const dt = this.game.dt / 1000;
     if (w === 'rain' || w === 'snow') {
-      const n = w === 'rain' ? 110 : 80;
+      const n = (w === 'rain' ? 110 : 80) >> (this.game.lightFx ? 1 : 0);
+      if (this.rain.length > n) this.rain.length = n;
       while (this.rain.length < n) this.rain.push({ x: Math.random() * view.w, y: Math.random() * view.h, s: 0.6 + Math.random() * 0.6 });
       g.fillStyle = w === 'rain' ? 'rgba(180,210,240,0.55)' : 'rgba(255,255,255,0.9)';
       for (const r of this.rain) {
@@ -13145,7 +13358,8 @@ class Renderer {
       const [m0, c0] = stops[i], [m1, c1] = stops[i + 1];
       if (m >= m0 && m < m1) { const k = (m - m0) / (m1 - m0); col = [0, 1, 2].map((j) => Math.round(lerp(c0[j], c1[j], k))); break; }
     }
-    if (S.weather === 'rain' || S.weather === 'cloud' || S.weather === 'snow') {
+    const light = game.lightFx;  // light effects: no weather dimming by day, no extra night desaturation
+    if (!light && (S.weather === 'rain' || S.weather === 'cloud' || S.weather === 'snow')) {
       const k = S.weather === 'cloud' ? 0.92 : 0.86;
       col = [col[0] * k, col[1] * k, col[2] * (k + 0.06)].map((v) => Math.round(Math.min(255, v)));
     }
@@ -13156,7 +13370,7 @@ class Renderer {
     if (dim < 0.02 && nightF <= 0) return;
     const W = view.w, H = view.h;
     // moonlight carries little colour
-    if (nightF > 0) {
+    if (nightF > 0 && !light) {
       g.globalCompositeOperation = 'saturation';
       g.globalAlpha = 0.3 * nightF;
       g.fillStyle = '#808080';
@@ -13264,6 +13478,15 @@ class Renderer {
 // every interactive widget registers its rectangle; arrow keys / d-pad move focus spatially
 // between widgets, E / Enter / A activates the focused one.
 
+// Stands in for the canvas when a cached group's drawing should be skipped (its input logic still runs).
+const NULL_CTX = (() => {
+  const noop = () => {};
+  const o = { globalAlpha: 1, fillStyle: '', strokeStyle: '', lineWidth: 1, globalCompositeOperation: 'source-over', imageSmoothingEnabled: false };
+  for (const k of ['drawImage', 'fillRect', 'strokeRect', 'clearRect', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fill', 'stroke', 'save', 'restore', 'setTransform', 'rect', 'clip', 'arc', 'fillText', 'strokeText']) o[k] = noop;
+  o.measureText = () => ({ width: 0 });
+  return o;
+})();
+
 class UI {
   constructor() {
     this.g = null;
@@ -13274,6 +13497,37 @@ class UI {
     this.tip = null;
     this.view = { w: 480, h: 270 };
     this.layer = 0;
+    this.groups = new Map();
+    this.hoverRec = null;
+  }
+
+  // A cached group: what fn() draws is kept as one picture and reused until `sig` changes (or the
+  // hover/focus state of its widgets does). fn() still runs every frame so clicks, focus and tooltips
+  // keep working — on unchanged frames its drawing just goes to a 1x1 scratch canvas instead.
+  // rect [x, y, w, h] is the screen area the group draws into (keep it tight: the picture is blended
+  // onto the screen every frame).
+  group(key, sig, rect, fn) {
+    const real = this.g;
+    const [x, y, w, h] = rect.map(Math.round);
+    let c = this.groups.get(key);
+    if (!c) { c = { cv: document.createElement('canvas'), drawn: null, hover: '' }; c.g = c.cv.getContext('2d'); this.groups.set(key, c); }
+    if (c.cv.width !== w || c.cv.height !== h) { c.cv.width = Math.max(1, w); c.cv.height = Math.max(1, h); c.drawn = null; }
+    if (!this.scratch) this.scratch = NULL_CTX;
+    const full = sig + '#' + c.hover + '#' + (this.lock ? 1 : 0) + '#' + x + ',' + y;
+    const redraw = c.drawn !== full;
+    this.hoverRec = '';
+    if (redraw) {
+      c.g.setTransform(1, 0, 0, 1, 0, 0);
+      c.g.clearRect(0, 0, c.cv.width, c.cv.height);
+      c.g.imageSmoothingEnabled = false;
+      c.g.setTransform(1, 0, 0, 1, -x, -y);
+      this.g = c.g;
+    } else this.g = this.scratch;
+    try { fn(); } finally { this.g = real; }
+    if (redraw) { c.hover = this.hoverRec; c.drawn = sig + '#' + c.hover + '#' + (this.lock ? 1 : 0) + '#' + x + ',' + y; }
+    else if (this.hoverRec !== c.hover) { c.hover = this.hoverRec; c.drawn = null; } // hover changed: repaint next frame
+    this.hoverRec = null;
+    real.drawImage(c.cv, x, y);
   }
   get font() { return SPR.font; }
 
@@ -13336,7 +13590,9 @@ class UI {
     let clicked = false;
     if (over && m.clicked) { clicked = true; m.clicked = false; this.focus = id; }
     if (this.activate === id) { clicked = true; this.activate = null; }
-    return { over: over && !Input.touchMode, clicked, focused: this.focus === id && this.showFocus() };
+    const focused = this.focus === id && this.showFocus();
+    if (this.hoverRec != null && ((over && !Input.touchMode) || focused)) this.hoverRec += id + (focused ? '!' : '') + ';';
+    return { over: over && !Input.touchMode, clicked, focused };
   }
 
   // ---------------------------------------------------------------- drawing helpers
@@ -13907,11 +14163,11 @@ class ConfirmScreen {
 // ===================================================================== help
 const HELP_PAGES = [
   ['Controls', [
-    'Move: WASD / arrow keys (or left stick, or drag on the left of a touch screen)',
+    'Move: WASD / arrow keys (or left stick, or drag on the left of a touch screen). Hold Shift (or a trigger) to run.',
     'E or Space: interact — gather, talk, pick up, plant, place, observe birds',
     'F (or right-click): nest site / details of the thing in front of you',
     '1–8, mouse wheel, Q/R: choose a hotbar item. Hold a seed or box and press E to plant/place it.',
-    'Tab: journal · I: bag · M: map · T: chat (co-op) · Esc: menu',
+    'Tab: journal · I: bag · M: map (click to set a pin or travel) · T: chat (co-op) · Esc: menu',
     'Gamepad: A interact · X nest site · Y journal · B back · LB/RB hotbar · Start menu',
   ]],
   ['How to play', [
@@ -13924,7 +14180,7 @@ const HELP_PAGES = [
   ['Tips', [
     'Sleep in your cottage to end the day. Eggs, chicks and plants grow overnight.',
     'Each species has a season: most nest in spring & summer, some even in autumn or winter.',
-    'Check a nest site with F before building: it shows exactly which habitat needs are met.',
+    'Check a nest site with F before building: it shows exactly which habitat needs are met. Or press "Where can it nest?" in the journal and follow the arrow.',
     'Mud is easier to find after rain. Spider webs only sparkle until 11:00.',
     'Sell mushrooms, berries and nuts to Basil for coins. Fledged species earn conservation grants.',
     'Co-op: everyone shares the valley, the coins and the nest-material pouch.',
@@ -13949,7 +14205,7 @@ class HelpScreen {
 class SettingsScreen {
   constructor() { this.pause = true; }
   draw(ui) {
-    const [x, y, w, h] = centered(ui.view, 230, 130);
+    const [x, y, w, h] = centered(ui.view, 230, 216);
     ui.panel('paper', x, y, w, h);
     ui.text('Settings', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
     if (ui.closeX('st:x', x + w - 15, y + 5) || wantClose()) { Audio2.savePrefs(); G.closeModal(); return; }
@@ -13976,6 +14232,28 @@ class SettingsScreen {
       try { localStorage.setItem('nested.touch', G.touchPref); } catch (e) { /* ignore */ }
     }
     cy += 20;
+    // gameplay comfort
+    const P = G.prefs;
+    const cycle = (id, label, value, onClick, opts) => {
+      ui.text(label, x + 14, cy + 3, UI_COL.inkSoft);
+      if (ui.button(id, value, x + 100, cy, 110, 14, opts || {})) { onClick(); Prefs.save(P); Audio2.sfx('tick'); }
+      cy += 20;
+    };
+    cycle('st:run', 'Always run', P.run ? 'On (Shift walks)' : 'Off (Shift runs)', () => { P.run = !P.run; });
+    cycle('st:zoom', 'View', (ZOOMS.find((z) => z.v === (P.zoom | 0)) || ZOOMS[1]).label, () => {
+      const i = ZOOMS.findIndex((z) => z.v === (P.zoom | 0));
+      P.zoom = ZOOMS[(i + 1) % ZOOMS.length].v;
+      G.resize();
+    });
+    const FX = ['auto', 'full', 'light'];
+    cycle('st:fx', 'Effects', P.fx === 'auto' ? 'Auto (' + (G.autoLight ? 'light' : 'full') + ')' : P.fx === 'full' ? 'Full' : 'Light (faster)', () => {
+      P.fx = FX[(FX.indexOf(P.fx) + 1) % FX.length];
+    }, { tip: 'Light effects skip the weather dimming by day and the extra night colour pass, and use fewer raindrops — much faster on slow computers.' });
+    const host = !G.state || G.isHost;
+    cycle('st:day', 'Day length', host ? (DAY_SPEEDS[P.day] || DAY_SPEEDS[0]).label : 'set by the host', () => {
+      P.day = ((P.day | 0) + 1) % DAY_SPEEDS.length;
+      if (G.link && G.link.world) G.link.world.setDaySpeed(DAY_SPEEDS[P.day].ms);
+    }, { disabled: !host });
     if (ui.button('st:fs', 'Toggle fullscreen', x + 14, cy, w - 28, 14)) {
       try {
         const pr = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
@@ -14023,7 +14301,7 @@ class JournalScreen {
     const S = G.state;
     const [x, y, w, h] = centered(ui.view, 460, 264);
     ui.panel('paper', x, y + 12, w, h - 12);
-    this.tab = ui.tabs('jt', ['Birds', 'Clues', 'Materials', 'Quests', 'Progress', 'Valley'], x + 6, y, this.tab);
+    this.tab = ui.tabs('jt', ['Birds', 'Clues', 'Materials', 'Quests', 'Progress', 'Valley', 'Diary'], x + 6, y, this.tab);
     if (ui.closeX('jt:x', x + w - 15, y + 16) || wantClose('journal')) { G.closeModal(); return; }
     const bx = x + 8, by = y + 20, bw = w - 16, bh = h - 28;
     if (this.tab === 0) this.drawBirds(ui, bx, by, bw, bh);
@@ -14031,18 +14309,74 @@ class JournalScreen {
     else if (this.tab === 2) this.drawMats(ui, bx, by, bw, bh);
     else if (this.tab === 3) this.drawQuests(ui, bx, by, bw, bh);
     else if (this.tab === 4) this.drawProgress(ui, bx, by, bw, bh);
-    else this.drawValley(ui, bx, by, bw, bh);
+    else if (this.tab === 5) this.drawValley(ui, bx, by, bw, bh);
+    else this.drawDiary(ui, bx, by, bw, bh);
+  }
+
+  // Everything that happened lately, newest first
+  drawDiary(ui, x, y, w, h) {
+    const list = G.diary.slice().reverse();
+    ui.text('Diary', x + 4, y + 2, UI_COL.ink);
+    if (!list.length) { ui.wrap('Nothing yet. Messages and morning news are written down here, so you can read them again later.', x + 4, y + 16, w - 8, UI_COL.muted); return; }
+    const rows = [];
+    for (const e of list) {
+      const lines = ui.font.wrap(e.text, w - 96);
+      rows.push({ e, lines });
+    }
+    // pages that fit
+    const per = [], avail = h - 34;
+    let page = [], used = 0;
+    for (const r of rows) {
+      const hh = r.lines.length * LINE_H + 3;
+      if (used + hh > avail && page.length) { per.push(page); page = []; used = 0; }
+      page.push(r); used += hh;
+    }
+    if (page.length) per.push(page);
+    this.diaryPage = clamp(this.diaryPage || 0, 0, per.length - 1);
+    let cy = y + 16;
+    for (const r of per[this.diaryPage]) {
+      ui.text(r.e.when, x + 4, cy, UI_COL.muted);
+      if (r.e.icon && r.e.icon !== 'no' && SPR.ui(r.e.icon)) ui.icon(SPR.ui(r.e.icon), x + 66, cy - 3, 0.75);
+      r.lines.forEach((l, i) => ui.text(l, x + 82, cy + i * LINE_H, r.e.icon === 'no' ? '#b8382a' : UI_COL.ink));
+      cy += r.lines.length * LINE_H + 3;
+    }
+    if (per.length > 1) {
+      if (ui.button('dy:pp', '<', x + w - 70, y, 16, 12, { disabled: this.diaryPage === 0 })) this.diaryPage--;
+      ui.text((this.diaryPage + 1) + '/' + per.length, x + w - 40, y + 2, UI_COL.muted, { align: 'center' });
+      if (ui.button('dy:np', '>', x + w - 22, y, 16, 12, { disabled: this.diaryPage >= per.length - 1 })) this.diaryPage++;
+    }
   }
 
   drawBirds(ui, x, y, w, h) {
     const S = G.state;
     // as many columns as needed to fit every bird; smaller cells once there are lots of them
-    let cell = 24, rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1)));
+    const gh = h - 40;
+    let cell = 24, rowsFit = Math.max(1, Math.floor(gh / (cell + 1)));
     let cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit));
-    if (cols > 7) { cell = 20; rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1))); cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit)); }
+    if (cols > 7) { cell = 20; rowsFit = Math.max(1, Math.floor(gh / (cell + 1))); cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit)); }
     if (!this.sel) this.sel = SPECIES[0].id;
-    SPECIES_BY_TIER.forEach((sp, i) => {
-      const cx = x + (i % cols) * (cell + 1), cy = y + Math.floor(i / cols) * (cell + 1);
+    // filters: all birds, ones that need clues, blueprints ready to build, nested, visiting today
+    const ut = unlockedTier(S);
+    const today = new Set([...(S.featured || []), ...(S.visitors || []).map((v) => v.sp)]);
+    const FILTERS = [
+      ['All birds', () => true],
+      ['Need clues', (sp, j) => j.h < 3 && sp.tier <= ut],
+      ['Ready to build', (sp, j) => j.h >= 3 && j.n === 0],
+      ['Nested', (sp, j) => j.n > 0],
+      ['Here today', (sp) => today.has(sp.id)],
+    ];
+    const gw = cols * (cell + 1) - 1;
+    this.filter = this.filter || 0;
+    const fcount = SPECIES.filter((sp) => FILTERS[this.filter][1](sp, S.journal[sp.id])).length;
+    if (ui.button('jbf', 'Show: ' + FILTERS[this.filter][0] + ' (' + fcount + ')', x, y, gw, 13, { tip: 'Click to switch: all · need clues · ready to build · nested · here today' })) {
+      this.filter = (this.filter + 1) % FILTERS.length;
+      Audio2.sfx('tick');
+    }
+    const shown = SPECIES_BY_TIER.filter((sp) => FILTERS[this.filter][1](sp, S.journal[sp.id]));
+    if (!shown.length) ui.wrap(['', 'No birds need clues right now.', 'No blueprints waiting to be built.', 'No species has nested yet.', 'No lead birds are visiting today.'][this.filter], x, y + 18, gw, UI_COL.muted);
+    const gy = y + 16;
+    shown.forEach((sp, i) => {
+      const cx = x + (i % cols) * (cell + 1), cy = gy + Math.floor(i / cols) * (cell + 1);
       const j = S.journal[sp.id];
       const st = ui.widget('jb:' + sp.id, cx, cy, cell, cell);
       const sel = this.sel === sp.id;
@@ -14054,9 +14388,9 @@ class JournalScreen {
       if (st.focused) ui.focusRing(cx, cy, cell, cell);
       if (st.clicked || (st.focused && this.sel !== sp.id)) { if (this.sel !== sp.id) { this.sel = sp.id; this.sub = -1; Audio2.sfx('tick'); } }
     });
-    const n = nestedCount(S), rows = Math.ceil(SPECIES.length / cols);
-    ui.text(n + '/' + SPECIES.length + ' nested', x, y + rows * (cell + 1) + 4, UI_COL.inkSoft);
-    ui.bar(x, y + rows * (cell + 1) + 14, cols * (cell + 1) - 1, 6, n / SPECIES.length, '#e8b830');
+    const n = nestedCount(S);
+    ui.text(n + '/' + SPECIES.length + ' nested', x, y + h - 22, UI_COL.inkSoft);
+    ui.bar(x, y + h - 12, gw, 6, n / SPECIES.length, '#e8b830');
     // detail
     const dx = x + cols * (cell + 1) + 8, dw = w - (dx - x);
     this.drawDetail(ui, SPECIES_BY_ID[this.sel], dx, y, dw, h);
@@ -14097,6 +14431,12 @@ class JournalScreen {
     const subs = ['Nest', 'Clues', 'Facts'];
     if (this.sub < 0) this.sub = j.h >= 2 ? 0 : 1;
     this.sub = ui.tabs('js', subs, x + 6, iy + 42, this.sub, 44);
+    if (j.h >= 3 && j.n === 0 && sp.site !== 'parasite' && ui.button('jb:find', 'Where can it nest?', x + w - 112, iy + 41, 104, 14, { tip: 'Find every spot in the valley where this bird would move in, and point the way' })) {
+      const f = G.findNestSpots(sp.id);
+      this.sub = 0;
+      G.toast(finderText(sp, f), f.count ? 'nest' : 'no');
+      Audio2.sfx('page');
+    }
     const cy0 = iy + 58, cx = x + 8, cw = w - 16;
     ui.rect(x + 4, cy0 - 3, w - 8, 1, '#c8b48a');
     let cy = cy0;
@@ -14127,6 +14467,9 @@ class JournalScreen {
         cy += 10;
       }
       if (sp.terr) { ui.text('• Territorial: no other ' + sp.name.split(' ').pop() + ' nest within ' + sp.terr, cx, cy, UI_COL.ink); cy += 10; }
+      // the nest-spot finder's answer for this bird
+      const f = G.finder && G.finder.sp === sp.id ? G.finder : null;
+      if (f && cy < y + h - 24) ui.wrap(finderText(sp, f), cx, cy + 3, cw, f.count ? '#3a7a2a' : '#8a5a1a', LINE_H, Math.max(1, Math.floor((y + h - 8 - cy) / LINE_H)));
     } else if (this.sub === 1) {
       for (let i = 0; i < 3; i++) {
         const known = i < j.h;
@@ -14215,6 +14558,14 @@ class JournalScreen {
       const p = questProgress(S, q);
       if (q.n > 1) { ui.bar(x + 8, cy + 35, 70, 5, p / q.n, ready ? '#5ac05a' : '#e8b830'); ui.text(p + '/' + q.n, x + 82, cy + 33, UI_COL.inkSoft); }
       if (ready) ui.text('Ready! Go back to ' + NPCS[q.npc].name, x + (q.n > 1 ? 104 : 8), cy + 33, '#3a7a2a');
+      // point the guide arrow at this request
+      if (questTarget(S, q)) {
+        const on = G.guideQuest === q.id;
+        if (ui.button('jq:g:' + q.id, on ? 'Guiding' : 'Guide', x + colW - 50, cy + 31, 40, 12, { selected: on, tip: on ? 'Stop pointing the way' : 'Point the guide arrow here' })) {
+          G.guideQuest = on ? null : q.id;
+          if (!on) { G.pin = null; G.finder = null; }
+        }
+      }
       cy += 52;
     }
     ui.text('Completed: ' + done.length + ' of ' + QUESTS.length + ' requests', x + 6, y + h - 12, UI_COL.muted);
@@ -14274,6 +14625,15 @@ class JournalScreen {
       const pts = (me.fr && me.fr[npc]) || 0, hearts = Math.min(MAX_HEARTS, Math.floor(pts / HEART));
       ui.text(NPCS[npc].name, fx, fyy, UI_COL.inkSoft);
       for (let hh = 0; hh < MAX_HEARTS; hh++) ui.text(hh < hearts ? '♥' : '♡', fx + 62 + hh * 7, fyy, hh < hearts ? '#d8485a' : '#b8a888');
+      // favourite gifts you've found out about
+      const known = (me.gk && me.gk[npc]) || {};
+      const loves = Object.keys(known).filter((it) => known[it] === 'love'), likes = Object.keys(known).filter((it) => known[it] === 'like');
+      [...loves, ...likes].slice(0, 4).forEach((it, n) => ui.icon(SPR.itemIcon(it), fx + 99 + n * 9, fyy - 3, 0.5));
+      const st = ui.widget('fr:' + npc, fx, fyy - 2, Math.floor((w - 8) / 3) - 4, 11);
+      if (st.over || st.focused) {
+        const nm = (l) => l.map((it) => ITEMS[it].name).join(', ');
+        ui.tip = NPCS[npc].name + ' · ' + hearts + '/' + MAX_HEARTS + ' hearts' + (loves.length ? ' · Loves: ' + nm(loves) : '') + (likes.length ? ' · Likes: ' + nm(likes) : '') + (!loves.length && !likes.length ? ' · Give gifts to find out what they love!' : '');
+      }
       k++;
     }
   }
@@ -14313,6 +14673,17 @@ class JournalScreen {
   }
 }
 
+// What the nest-spot finder found, in words
+function finderText(sp, f) {
+  const S = G.state;
+  if (f.count) {
+    const now = sp.breed.includes(S.time.season);
+    return f.count + (f.count === 1 ? ' spot is' : ' spots are') + ' ready for the ' + sp.name + (now ? '' : ' — they\'ll settle in ' + sp.breed.map((b) => SEASON_NAMES[b]).join(' or ')) + '. Follow the green arrow; spots are marked on your map too.';
+  }
+  if (f.best) return 'No spot is ready yet. The closest (yellow arrow) still needs: ' + f.best.missing.join('; ') + '.';
+  return 'There is no "' + SITES[sp.site].label.toLowerCase() + '" in the valley yet — ' + SITES[sp.site].detail.charAt(0).toLowerCase() + SITES[sp.site].detail.slice(1);
+}
+
 // ===================================================================== bag
 class BagScreen {
   constructor() { this.pause = true; this.sel = -1; this.hover = G.selSlot; }
@@ -14335,6 +14706,7 @@ class BagScreen {
       if (ui.focus === 'bg:' + i || (Input.mouse.x >= sx && Input.mouse.x < sx + 20 && Input.mouse.y >= sy && Input.mouse.y < sy + 20)) this.hover = i;
     }
     ui.text('top row = hotbar (1–8)', x + 70, y + 8, UI_COL.muted);
+    if (ui.button('bg:sort', 'Sort', x + w - 60, y + 92, 50, 14, { tip: 'Tidy the backpack: merge stacks and sort (the hotbar stays as it is)' })) { G.send({ t: 'act', a: 'sort' }); this.sel = -1; Audio2.sfx('tick'); }
     const it = S.inv[this.sel >= 0 ? this.sel : this.hover];
     if (it) {
       const def = ITEMS[it.k];
@@ -14392,7 +14764,10 @@ class ShopScreen {
       const items = [];
       S.inv.forEach((s, i) => { if (s) items.push(i); });
       if (!items.length) ui.text('Your bag is empty.', lx, ly + 4, UI_COL.muted);
-      items.slice(0, 20).forEach((slot, n) => {
+      let fn = 0, fc = 0;
+      for (const s of S.inv) if (s && ITEMS[s.k].cat === 'forage') { fn += s.n; fc += itemSellPrice(s.k) * s.n; }
+      if (fn && ui.button('sh:sf', 'Sell all forage (' + fn + ') for ' + fc + 'c', lx, y + h - 20, 2 * colW + 2, 14)) G.send({ t: 'act', a: 'sellforage' });
+      items.slice(0, fn ? 16 : 20).forEach((slot, n) => {
         const s = S.inv[slot];
         const cx = lx + (n % 2) * (colW + 2), cy = ly + Math.floor(n / 2) * 22;
         const st = ui.widget('shs:' + slot, cx, cy, colW, 20);
@@ -14844,6 +15219,8 @@ class DayScreen {
   constructor(sum) {
     this.sum = sum; this.pause = true; this.t = 0; this.defaultFocus = 'dy:ok';
     if (sum.newSpecies && sum.newSpecies.length) Audio2.sfx('fanfare'); else Audio2.sfx('arrive');
+    G.note('Good morning! ' + dateStr(G.state.time) + '.', 'sun');
+    for (const [ic, line] of sum.lines) G.note(line, ic);
   }
   draw(ui, dt) {
     this.t += dt;
@@ -14881,10 +15258,10 @@ class MapScreen {
   draw(ui, dt) {
     const S = G.state, v = ui.view;
     if (!this.cv || this.season !== S.time.season || S.mapDirty) this.build();
-    const sc = Math.max(1, Math.min(Math.floor((v.w - 20) / MAP_W), Math.floor((v.h - 34) / MAP_H)));
+    const sc = Math.max(1, Math.min(Math.floor((v.w - 20) / MAP_W), Math.floor((v.h - 46) / MAP_H)));
     const mw = MAP_W * sc, mh = MAP_H * sc;
     const x = Math.floor((v.w - mw) / 2), y = Math.floor((v.h - mh) / 2) + 6;
-    ui.panel('wood', x - 6, y - 16, mw + 12, mh + 22);
+    ui.panel('wood', x - 6, y - 16, mw + 12, mh + 34);
     ui.text(S.name + ' Valley', x, y - 12, '#fff4d8');
     if (ui.closeX('mp:x', x + mw - 11, y - 14) || wantClose('map')) { G.closeModal(); return; }
     ui.g.drawImage(this.cv, x, y, mw, mh);
@@ -14921,7 +15298,42 @@ class MapScreen {
       ui.rect(px - 2, py - 2, 5, 5, blink ? '#ffffff' : '#e8485a');
       if (S.players.size > 1) ui.text(p.name, px + 4, py - 4, '#ffffff', { outline: '#2a1a0e' });
     }
-    ui.text('■ you   ■ nest (gold = busy)   ? clue leads   ■ villagers', x, y + mh + 1, '#fff4d8');
+    // nest spots from the finder (green), the guide target and the pin
+    const g = ui.g, pulse = 3 + (t / 160) % 3;
+    if (G.finder) {
+      g.strokeStyle = '#7aff7a'; g.lineWidth = 1;
+      for (const [sx, sy] of G.finder.spots) g.strokeRect(Math.round(x + sx * sc + sc / 2 - pulse), Math.round(y + sy * sc + sc / 2 - pulse), Math.round(pulse * 2), Math.round(pulse * 2));
+      if (G.finder.best) { g.strokeStyle = '#f6c83a'; g.strokeRect(Math.round(x + G.finder.best.x * sc + sc / 2 - pulse), Math.round(y + G.finder.best.y * sc + sc / 2 - pulse), Math.round(pulse * 2), Math.round(pulse * 2)); }
+    }
+    const gt = G.guideTarget();
+    if (gt && gt.kind === 'quest') { const [qx, qy] = P(gt.x, gt.y); ui.text('!', qx - 1, qy - 5, '#f6c83a', { outline: '#2a1a0e' }); }
+    if (G.pin) { const [qx, qy] = P(G.pin.x, G.pin.y); ui.rect(qx, qy - 7, 1, 8, '#2a1a0e'); ui.rect(qx + 1, qy - 7, 4, 3, '#e8485a'); }
+    // quick travel: home, the Field Station, the farm and landmarks you've found
+    let overPoint = false;
+    for (const pt of travelPoints(S)) {
+      const [qx, qy] = P(pt.x, pt.y - 10);
+      const st = ui.widget('mp:t:' + pt.key, qx - 4, qy - 4, 9, 9);
+      ui.rect(qx - 3, qy - 3, 7, 7, '#2a1a0e');
+      ui.rect(qx - 2, qy - 2, 5, 5, st.over || st.focused ? '#fff4b0' : '#6ab0e0');
+      if (st.over || st.focused) { ui.tip = 'Travel to ' + pt.label; overPoint = true; }
+      if (st.focused) ui.focusRing(qx - 4, qy - 4, 9, 9);
+      if (st.clicked) {
+        G.openModal(new ConfirmScreen('Travel to ' + pt.label + '?', () => { G.closeAll(); G.travelTo(pt); }, 'Travel', 'Stay', true));
+        return;
+      }
+    }
+    // click the map to set a pin (click it again, or right-click, to remove it)
+    const mx = Input.mouse.x, my = Input.mouse.y, inside = mx >= x && my >= y && mx < x + mw && my < y + mh;
+    if (inside && !overPoint && Input.mouse.clicked) {
+      const wx = (mx - x) / sc * TS, wy = (my - y) / sc * TS;
+      if (G.pin && dist2(G.pin.x, G.pin.y, wx, wy) < (3 * TS) ** 2) G.pin = null;
+      else { G.pin = { x: wx, y: wy }; Audio2.sfx('tick'); }
+      Input.mouse.clicked = false;
+    }
+    if (inside && Input.mouse.rclicked) G.pin = null;
+    ui.text('■ you  ■ nest  ? lead  ■ villager  ■ travel', x, y + mh + 1, '#fff4d8');
+    ui.text('Click: pin  ·  click a blue point: travel', x, y + mh + 11, '#e8d8b8');
+    if ((G.pin || G.finder || G.guideQuest) && ui.button('mp:clr', 'Clear guide', x + mw - 62, y + mh + 2, 62, 14)) { G.pin = null; G.finder = null; G.guideQuest = null; }
   }
   build() {
     const S = G.state;
@@ -14969,69 +15381,83 @@ const HUD = {
   draw(ui, game, dt) {
     const S = game.state, v = ui.view, me = game.me;
     if (!S || !me) return;
-    // ---------------- clock
-    const t = S.clock();
-    ui.panel('wood', 3, 3, 96, 30);
-    const seasonIcon = SPR.ui(SEASONS[S.time.season]);
-    ui.icon(seasonIcon, 6, 5);
-    ui.text(SEASON_NAMES[S.time.season].slice(0, 3) + ' ' + S.time.day + ', Y' + S.time.year, 24, 7, '#fff4d8');
-    const wIcon = { sun: 'sun', rain: 'rain', cloud: 'cloud', snow: 'snow' }[S.weather] || 'sun';
-    ui.icon(SPR.ui(t >= 20 * 60 || t < 6 * 60 ? 'moon' : wIcon), 6, 17);
-    ui.text(fmtClock(t), 24, 21, t >= 23 * 60 ? '#ffb0a0' : '#fff4d8');
-    ui.panel('wood', 3, 34, 60, 16);
-    ui.icon(SPR.ui('coin'), 4, 34);
-    ui.text(String(S.coins), 21, 38, '#fff4d8');
-    // ---------------- birder rank: always-visible progress toward the next rank
-    const mine = S.prog || { xp: 0, lvl: 1 };
-    const need = xpForLevel(mine.lvl), frac = mine.lvl >= MAX_LEVEL ? 1 : mine.xp / need;
-    const rw = ui.widget('hud:rank', 3, 51, 96, 18);
-    ui.panel('wood', 3, 51, 96, 18);
-    ui.text('★' + mine.lvl, 7, 54, '#f6d860');
-    ui.text(RANKS[mine.lvl - 1], 22, 54, '#fff4d8');
-    ui.rect(7, 63, 88, 3, '#3a2614');
-    ui.rect(7, 63, Math.round(88 * clamp(frac, 0, 1)), 3, '#9ae07a');
-    if (rw.over || rw.focused) ui.tip = mine.lvl >= MAX_LEVEL ? 'Top birder rank!' : 'Birder rank ' + mine.lvl + ': ' + mine.xp + '/' + need + ' XP to the next rank. Earn XP by watching birds, building nests, finding clues and helping villagers.';
-    if (rw.clicked) game.openModal(new JournalScreen(4));
-    // ---------------- buttons (journal, bag, map, mail, menu)
-    let bx = v.w - 23;
-    const by = 3;
-    if (ui.iconButton('hud:menu', SPR.ui('gear'), bx, by, { tip: 'Menu (Esc)' })) game.openModal(new PauseScreen());
-    bx -= 22;
-    if (ui.iconButton('hud:map', SPR.ui('map'), bx, by, { tip: 'Map (M)' })) game.openModal(new MapScreen());
-    bx -= 22;
-    if (ui.iconButton('hud:bag', SPR.ui('bag'), bx, by, { tip: 'Bag (I)' })) game.openModal(new BagScreen());
-    bx -= 22;
-    if (ui.iconButton('hud:jr', SPR.ui('journal'), bx, by, { tip: 'Journal (Tab)' })) game.openModal(new JournalScreen());
-    bx -= 22;
-    const unread = S.mail.filter((m) => !m.read).length;
-    if (unread) {
-      const blink = Math.floor(performance.now() / 500) % 2;
-      if (ui.iconButton('hud:mail', SPR.ui('letter'), bx, by + (blink ? 1 : 0), { tip: 'New letter! (also in the mailbox)', badge: unread })) game.openModal(new MailScreen());
-    }
-    // ---------------- tracker
-    this.tracker(ui, game, v);
-    // ---------------- hotbar
-    const hw = HOTBAR * 21 + 5, hx = Math.floor((v.w - hw) / 2), hy = v.h - 26;
-    ui.panel('wood', hx, hy, hw, 24);
-    for (let i = 0; i < HOTBAR; i++) {
-      const it = S.inv[i];
-      const sx = hx + 3 + i * 21, sy = hy + 2;
-      if (ui.slot('hb:' + i, sx, sy, it ? SPR.itemIcon(it.k) : null, it ? it.n : '', { selected: game.selSlot === i })) {
-        game.selSlot = game.selSlot === i ? -1 : i; Audio2.sfx('tick');
+    // The panels below change rarely (a new game minute, coins, the bag, a quest update…), so they're
+    // drawn once into a cached picture and only repainted when something they show has changed.
+    const unreadN = S.mail.reduce((n, m) => n + (m.read ? 0 : 1), 0);
+    const sig = v.w + ',' + v.h + ',' + (S.evVer | 0) + ',' + fmtClock(S.clock()) + ',' + S.time.day + ',' + S.weather + ',' + game.selSlot + ',' +
+      (Input.touchMode ? 't' : '') + Input.lastDevice + ',' + (unreadN ? Math.floor(performance.now() / 500) % 2 : 0) + ',' + game.tracked + ',' + (game.modal ? 1 : 0);
+    ui.group('hud:tl', sig, [0, 0, 102, 72], () => {
+      // ---------------- clock
+      const t = S.clock();
+      ui.panel('wood', 3, 3, 96, 30);
+      const seasonIcon = SPR.ui(SEASONS[S.time.season]);
+      ui.icon(seasonIcon, 6, 5);
+      ui.text(SEASON_NAMES[S.time.season].slice(0, 3) + ' ' + S.time.day + ', Y' + S.time.year, 24, 7, '#fff4d8');
+      const wIcon = { sun: 'sun', rain: 'rain', cloud: 'cloud', snow: 'snow' }[S.weather] || 'sun';
+      ui.icon(SPR.ui(t >= 20 * 60 || t < 6 * 60 ? 'moon' : wIcon), 6, 17);
+      ui.text(fmtClock(t), 24, 21, t >= 23 * 60 ? '#ffb0a0' : '#fff4d8');
+      ui.panel('wood', 3, 34, 60, 16);
+      ui.icon(SPR.ui('coin'), 4, 34);
+      ui.text(String(S.coins), 21, 38, '#fff4d8');
+      // ---------------- birder rank: always-visible progress toward the next rank
+      const mine = S.prog || { xp: 0, lvl: 1 };
+      const need = xpForLevel(mine.lvl), frac = mine.lvl >= MAX_LEVEL ? 1 : mine.xp / need;
+      const rw = ui.widget('hud:rank', 3, 51, 96, 18);
+      ui.panel('wood', 3, 51, 96, 18);
+      ui.text('★' + mine.lvl, 7, 54, '#f6d860');
+      ui.text(RANKS[mine.lvl - 1], 22, 54, '#fff4d8');
+      ui.rect(7, 63, 88, 3, '#3a2614');
+      ui.rect(7, 63, Math.round(88 * clamp(frac, 0, 1)), 3, '#9ae07a');
+      if (rw.over || rw.focused) ui.tip = mine.lvl >= MAX_LEVEL ? 'Top birder rank!' : 'Birder rank ' + mine.lvl + ': ' + mine.xp + '/' + need + ' XP to the next rank. Earn XP by watching birds, building nests, finding clues and helping villagers.';
+      if (rw.clicked) game.openModal(new JournalScreen(4));
+    });
+    ui.group('hud:tr', sig, [v.w - 116, 0, 116, 28], () => {
+      // ---------------- buttons (journal, bag, map, mail, menu)
+      let bx = v.w - 23;
+      const by = 3;
+      if (ui.iconButton('hud:menu', SPR.ui('gear'), bx, by, { tip: 'Menu (Esc)' })) game.openModal(new PauseScreen());
+      bx -= 22;
+      if (ui.iconButton('hud:map', SPR.ui('map'), bx, by, { tip: 'Map (M)' })) game.openModal(new MapScreen());
+      bx -= 22;
+      if (ui.iconButton('hud:bag', SPR.ui('bag'), bx, by, { tip: 'Bag (I)' })) game.openModal(new BagScreen());
+      bx -= 22;
+      if (ui.iconButton('hud:jr', SPR.ui('journal'), bx, by, { tip: 'Journal (Tab)' })) game.openModal(new JournalScreen());
+      bx -= 22;
+      const unread = S.mail.filter((m) => !m.read).length;
+      if (unread) {
+        const blink = Math.floor(performance.now() / 500) % 2;
+        if (ui.iconButton('hud:mail', SPR.ui('letter'), bx, by + (blink ? 1 : 0), { tip: 'New letter! (also in the mailbox)', badge: unread })) game.openModal(new MailScreen());
       }
-      if (!Input.touchMode) ui.text(String(i + 1), sx + 1, sy + 1, 'rgba(58,38,20,0.7)');
-    }
-    // what's in your hands, and how to put it away
-    const held = S.inv[game.selSlot];
-    if (held) {
-      const how = Input.touchMode ? 'tap the slot again to put away' : Input.lastDevice === 'pad' ? '[B] put away' : '[Esc] put away';
-      const txt = 'Holding ' + ITEMS[held.k].name + ' · ' + how;
-      const w = ui.font.measure(txt) + 24;
-      const x = Math.floor((v.w - w) / 2);
-      ui.panel('dark', x, hy - 16, w, 14);
-      ui.icon(SPR.itemIcon(held.k), x + 2, hy - 17);
-      ui.text(txt, x + 20, hy - 13, '#f6ecd2');
-    }
+    });
+    ui.group('hud:trk', sig, [v.w - 210, 24, 210, Math.min(150, v.h - 60)], () => {
+      // ---------------- tracker & guide arrow
+      this.tracker(ui, game, v);
+    });
+    ui.group('hud:bar', sig, [Math.floor(v.w / 2) - 160, v.h - 46, 320, 46], () => {
+      // ---------------- hotbar
+      const hw = HOTBAR * 21 + 5, hx = Math.floor((v.w - hw) / 2), hy = v.h - 26;
+      ui.panel('wood', hx, hy, hw, 24);
+      for (let i = 0; i < HOTBAR; i++) {
+        const it = S.inv[i];
+        const sx = hx + 3 + i * 21, sy = hy + 2;
+        if (ui.slot('hb:' + i, sx, sy, it ? SPR.itemIcon(it.k) : null, it ? it.n : '', { selected: game.selSlot === i })) {
+          game.selSlot = game.selSlot === i ? -1 : i; Audio2.sfx('tick');
+        }
+        if (!Input.touchMode) ui.text(String(i + 1), sx + 1, sy + 1, 'rgba(58,38,20,0.7)');
+      }
+      // what's in your hands, and how to put it away
+      const held = S.inv[game.selSlot];
+      if (held) {
+        const how = Input.touchMode ? 'tap the slot again to put away' : Input.lastDevice === 'pad' ? '[B] put away' : '[Esc] put away';
+        const txt = 'Holding ' + ITEMS[held.k].name + ' · ' + how;
+        const w = ui.font.measure(txt) + 24;
+        const x = Math.floor((v.w - w) / 2);
+        ui.panel('dark', x, hy - 16, w, 14);
+        ui.icon(SPR.itemIcon(held.k), x + 2, hy - 17);
+        ui.text(txt, x + 20, hy - 13, '#f6ecd2');
+      }
+    });
+    if (!game.modal) this.guide(ui, game, v);
     // ---------------- prompt
     if (!game.modal && game.target && !game.observe) this.prompt(ui, game, v);
     if (game.observe) {
@@ -15059,6 +15485,49 @@ const HUD = {
     this.chat(ui, game, v);
     // ---------------- touch controls
     if (game.touchControls()) this.touch(ui, game, v);
+  },
+
+  // An arrow at the screen edge pointing to the guide target (pin, nest spot, quest or tutorial step),
+  // and bobbing markers over nest spots and the pin when they're in view.
+  guide(ui, game, v) {
+    const t = game.guideTarget(), me = game.me, g = ui.g;
+    const now = performance.now(), bob = Math.round(Math.sin(now / 220) * 2);
+    const top = 74, bot = v.h - 40, m = 16;
+    const marker = (wx, wy, col) => {
+      const [sx, sy] = game.toScreen(wx, wy);
+      if (sx < -8 || sx > v.w + 8 || sy < 52 || sy > v.h - 24) return; // off screen, or under the HUD bars
+      const y0 = sy - 16 + bob;
+      g.fillStyle = '#1e2a14'; g.fillRect(sx - 4, y0 - 1, 9, 3); g.fillRect(sx - 3, y0 + 2, 7, 2); g.fillRect(sx - 2, y0 + 4, 5, 2); g.fillRect(sx - 1, y0 + 6, 3, 1);
+      g.fillStyle = col; g.fillRect(sx - 3, y0, 7, 1); g.fillRect(sx - 2, y0 + 1, 5, 2); g.fillRect(sx - 1, y0 + 3, 3, 2); g.fillRect(sx, y0 + 5, 1, 1);
+    };
+    if (game.finder) for (const [x, y] of game.finder.spots) marker(x * TS + 8, y * TS + 6, '#7ae07a');
+    if (game.finder && game.finder.best) marker(game.finder.best.x * TS + 8, game.finder.best.y * TS + 6, '#f6c83a');
+    if (game.pin) marker(game.pin.x, game.pin.y, '#e8485a');
+    if (!t) return;
+    const [sx, sy] = game.toScreen(t.x, t.y);
+    if (sx >= m && sx <= v.w - m && sy >= top && sy <= bot) return; // in view: its own marker shows it
+    const [px, py] = game.toScreen(me.x, me.y - 12);
+    let dx = sx - px, dy = sy - py;
+    const L = Math.hypot(dx, dy) || 1;
+    dx /= L; dy /= L;
+    const kx = dx > 0 ? (v.w - m - px) / dx : dx < 0 ? (m - px) / dx : 1e9;
+    const ky = dy > 0 ? (bot - py) / dy : dy < 0 ? (top - py) / dy : 1e9;
+    const k = Math.min(kx, ky), ax = px + dx * k + dx * bob * 0.6, ay = py + dy * k + dy * bob * 0.6;
+    const col = t.kind === 'spot' ? '#7ae07a' : t.kind === 'pin' ? '#e8485a' : '#f6c83a';
+    const tri = (r) => {
+      g.beginPath();
+      g.moveTo(ax + dx * r, ay + dy * r);
+      g.lineTo(ax - dx * r * 0.6 - dy * r * 0.8, ay - dy * r * 0.6 + dx * r * 0.8);
+      g.lineTo(ax - dx * r * 0.6 + dy * r * 0.8, ay - dy * r * 0.6 - dx * r * 0.8);
+      g.closePath(); g.fill();
+    };
+    g.fillStyle = '#2a1a0e'; tri(8);
+    g.fillStyle = col; tri(5.5);
+    const dist = Math.round(Math.hypot(t.x - me.x, t.y - me.y) / TS);
+    const lbl = t.label + ' · ' + dist + ' m';
+    const w = ui.font.measure(lbl);
+    const lx = clamp(Math.round(ax - dx * 16 - w / 2), 3, v.w - w - 3), ly = clamp(Math.round(ay - dy * 16 - 4), top - 6, bot - 10);
+    ui.text(lbl, lx, ly, '#ffffff', { outline: '#2a1a0e' });
   },
 
   prompt(ui, game, v) {
@@ -15192,6 +15661,19 @@ const HUD = {
 };
 
 // ---- js/client/game.js ----
+// Player preferences kept in this browser (not in the save): running, zoom and day length.
+const Prefs = {
+  KEY: 'nested.prefs',
+  load() {
+    let p = {};
+    try { p = JSON.parse(localStorage.getItem(this.KEY) || '{}') || {}; } catch (e) { /* ignore */ }
+    return Object.assign({ run: false, zoom: 0, day: 0, fx: 'auto' }, p);
+  },
+  save(p) { try { localStorage.setItem(this.KEY, JSON.stringify(p)); } catch (e) { /* ignore */ } },
+};
+const DAY_SPEEDS = [{ ms: 500, label: '10 min' }, { ms: 750, label: '15 min' }, { ms: 1000, label: '20 min' }];
+const ZOOMS = [{ v: -1, label: 'Wide' }, { v: 0, label: 'Normal' }, { v: 1, label: 'Close' }];
+const RUN_SPEED = 1.6;
 // The game client: main loop, player control, interaction targeting and reacting to host events.
 
 class Game {
@@ -15221,17 +15703,26 @@ class Game {
     this.actT = 0;
     this.stepT = 0;
     this.tracked = null;
+    this.diary = [];
+    this.pin = null;          // map pin {x, y} in world pixels
+    this.finder = null;       // nest-spot finder result {sp, spots: [[x, y]...], best, day}
+    this.guideQuest = null;   // quest id the guide arrow points to
+    this.fadeT = 0;           // fade-in after quick travel
+    this.travelling = false;
     this.server = false;
     this.isHost = false;
     this.roomCode = null;
     this.nightLevel = 0;
     this.dt = 16;
     this.view = { w: 480, h: 270, scale: 3 };
+    this.prefs = Prefs.load();
     this.touchPref = 'auto';
     try { this.touchPref = localStorage.getItem('nested.touch') || 'auto'; } catch (e) { /* ignore */ }
   }
 
   get modal() { return this.modals[this.modals.length - 1] || null; }
+  // light effects: chosen in Settings, or switched on automatically when the game runs slowly
+  get lightFx() { return this.prefs.fx === 'light' || (this.prefs.fx === 'auto' && !!this.autoLight); }
   get me() { return this.state ? this.state.players.get(this.state.me) : null; }
 
   // ---------------------------------------------------------------- boot
@@ -15267,7 +15758,14 @@ class Game {
       if (this.focusLost) { this.focusLost = false; this._pauseSync(); }
     });
     this.last = performance.now();
-    const loop = (t) => { this.frame(t); requestAnimationFrame(loop); };
+    // a bug in one frame must never freeze the game: report it once and keep going
+    const loop = (t) => {
+      requestAnimationFrame(loop);
+      try { this.frame(t); } catch (e) {
+        if (!this.frameErr) { this.frameErr = true; console.error(e); this.toast('Something went wrong — the game will try to carry on.', 'no'); }
+        try { this.ui.end(); Input.endFrame(); } catch (e2) { /* ignore */ }
+      }
+    };
     requestAnimationFrame(loop);
   }
 
@@ -15276,7 +15774,9 @@ class Game {
     const host = document.body;
     const cw = host.clientWidth || window.innerWidth, ch = host.clientHeight || window.innerHeight;
     const W = Math.floor(cw * dpr), H = Math.floor(ch * dpr);
-    const scale = Math.max(1, Math.floor(Math.min(W / 400, H / 225)));
+    // pixel scale from the window size, nudged by the zoom setting (never so close the view gets cramped)
+    const base = Math.max(1, Math.floor(Math.min(W / 400, H / 225)));
+    const scale = clamp(base + (this.prefs ? this.prefs.zoom | 0 : 0), 1, Math.max(1, Math.floor(Math.min(W / 260, H / 150))));
     const vw = Math.ceil(W / scale), vh = Math.ceil(H / scale);
     this.canvas.width = vw; this.canvas.height = vh;
     this.canvas.style.width = (vw * scale / dpr) + 'px';
@@ -15319,6 +15819,16 @@ class Game {
   toast(text, icon) {
     this.toasts.push({ text, icon, t: 0, life: 2600 + text.length * 35 });
     if (this.toasts.length > 4) this.toasts.shift();
+    this.note(text, icon);
+  }
+  // The diary keeps every message (toasts disappear after a few seconds)
+  note(text, icon) {
+    const S = this.state;
+    if (!S || !S.time) return;
+    const last = this.diary[this.diary.length - 1];
+    if (last && last.text === text) return;
+    this.diary.push({ when: SEASON_NAMES[S.time.season].slice(0, 3) + ' ' + S.time.day + ' · ' + fmtClock(S.clock()), text, icon: icon || '' });
+    if (this.diary.length > 150) this.diary.splice(0, this.diary.length - 150);
   }
 
   send(msg) { if (this.link) this.link.send(msg); }
@@ -15337,6 +15847,13 @@ class Game {
       return;
     }
     world.onSave = () => { if (!Saves.save(slot, world.serialize())) this.toast('Saving failed (browser storage full?)', 'no'); };
+    world.msPerMin = (DAY_SPEEDS[this.prefs.day] || DAY_SPEEDS[0]).ms;
+    // the diary is kept with the save slot
+    const dkey = 'nested.diary.' + slot;
+    this.diary = [];
+    if (!newName) { try { this.diary = JSON.parse(localStorage.getItem(dkey) || '[]') || []; } catch (e) { this.diary = []; } }
+    const save = world.onSave;
+    world.onSave = () => { save(); try { localStorage.setItem(dkey, JSON.stringify(this.diary.slice(-150))); } catch (e) { /* ignore */ } };
     this.isHost = true;
     this.slot = slot;
     this.closeAll();
@@ -15401,6 +15918,7 @@ class Game {
     this.birds.reset();
     if (this.mode !== 'play') {
       this.mode = 'play';
+      this.loading = { t: 0 }; // paint the first view a slice at a time behind a loading screen
       this.closeAll();
       const p = this.me;
       if (p) { this.cam.x = p.x - this.view.w / 2; this.cam.y = p.y - this.view.h / 2; }
@@ -15421,6 +15939,7 @@ class Game {
 
   // ---------------------------------------------------------------- event hooks (called by ClientState)
   onObjAdded(o) {
+    if (this.finder && o.type === 'nest' && o.kind === this.finder.sp) this.finder = null; // you built it — no more pointing
     if (o.type === 'nest') this.birds.syncNests();
     if (o.type !== 'forage' && o.type !== 'web' && o.type !== 'puddle') this.state.mapDirty = true;
   }
@@ -15534,7 +16053,79 @@ class Game {
   }
   onMail(l) { this.toast('New letter: ' + l.title, 'letter'); Audio2.sfx('mail'); }
   onVisitors() { this.birds.rebuildVisitors(); }
-  onTeleport(x, y) { const me = this.me; if (me) { me.x = x; me.y = y; } }
+  onTeleport(x, y) {
+    const me = this.me;
+    if (!me) return;
+    me.x = x; me.y = y;
+    const v = this.view;
+    this.cam.x = Math.round(clamp(x - v.w / 2, 0, MAP_W * TS - v.w));
+    this.cam.y = Math.round(clamp(y - 12 - v.h / 2, 0, MAP_H * TS - v.h));
+    if (this.travelling) { this.travelling = false; this.fadeT = 450; Audio2.sfx('page'); }
+  }
+  travelTo(pt) {
+    this.travelling = true;
+    this.send({ t: 'act', a: 'travel', k: pt.key });
+  }
+
+  // Where the guide arrow points: a map pin, then a nest spot from the finder, then a chosen quest,
+  // then the next tutorial step. {x, y, label, kind} in world pixels, or null.
+  guideTarget() {
+    const S = this.state, me = this.me;
+    if (!S || !me) return null;
+    if (this.pin) return { x: this.pin.x, y: this.pin.y, label: 'Pin', kind: 'pin' };
+    const f = this.finder;
+    if (f && f.spots.length) {
+      let best = null, bd = 1e12;
+      for (const [x, y] of f.spots) { const d = dist2(x * TS + 8, y * TS + 8, me.x, me.y); if (d < bd) { bd = d; best = [x, y]; } }
+      return { x: best[0] * TS + 8, y: best[1] * TS + 8, label: SPECIES_BY_ID[f.sp].name + ' nest spot', kind: 'spot' };
+    }
+    if (f && f.best) return { x: f.best.x * TS + 8, y: f.best.y * TS + 8, label: 'Nearly right for the ' + SPECIES_BY_ID[f.sp].name, kind: 'spot' };
+    const q = this.guideQuest && QUESTS_BY_ID[this.guideQuest];
+    if (q) {
+      const st = S.side && S.side[q.id];
+      if (!st || st.st !== 'on') this.guideQuest = null;
+      else { const t = questTarget(S, q); if (t) return t; }
+    }
+    const step = TUTORIAL[S.quest] ? TUTORIAL[S.quest].id : '';
+    const b = (kind) => S.first('building', kind);
+    if (step === 'mail') { const o = b('mailbox'); if (o) return { x: o.x * TS + 8, y: o.y * TS + 8, label: 'Mailbox', kind: 'tut' }; }
+    if (step === 'ada') { const n = npcPos('ada', S.clock()); if (!n.away) return { x: n.x * TS, y: n.y * TS, label: 'Prof. Ada', kind: 'tut' }; }
+    if (step === 'craft') { const o = b('bench'); if (o) return { x: o.x * TS + 16, y: o.y * TS + 8, label: 'Workbench', kind: 'tut' }; }
+    if (step === 'sleep') { const o = b('cottage'); if (o) return { x: (o.x + 2) * TS + 8, y: (o.y + 3) * TS, label: 'Your bed', kind: 'tut' }; }
+    return null;
+  }
+
+  // Nest-spot finder: every place where this species would settle right now (season aside), or
+  // the closest candidate and what it is still missing.
+  findNestSpots(spId) {
+    const S = this.state, me = this.me, sp = SPECIES_BY_ID[spId];
+    const spots = [];
+    let best = null;
+    const consider = (cx, cy, x, y) => {
+      const ev = evalNest(S, sp, cx, cy, 0);
+      const missing = ev.checks.filter((c) => !c.ok && !c.label.startsWith('Nesting season'));
+      if (!missing.length) spots.push([x, y]);
+      else {
+        const d = dist2(x * TS, y * TS, me.x, me.y);
+        if (!best || missing.length < best.missing.length || (missing.length === best.missing.length && d < best.d)) best = { x, y, d, missing: missing.map((c) => c.label + (c.have != null ? ' (now ' + c.have + ')' : '')) };
+      }
+    };
+    const tileSite = ['ground', 'field', 'shingle', 'clearing', 'ledge', 'bridge'].includes(sp.site);
+    if (tileSite) {
+      for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (sitesOf(S, { tile: [x, y] }).includes(sp.site)) consider(x, y, x, y);
+    } else {
+      for (const o of S.objs.values()) {
+        if (!sitesOf(S, o).includes(sp.site) || nestsOfHost(S, o.id).length >= hostSlots(o)) continue;
+        const [cx, cy] = hostCenter(o);
+        consider(cx, cy, cx, cy);
+      }
+    }
+    spots.sort((a, b) => dist2(a[0] * TS, a[1] * TS, me.x, me.y) - dist2(b[0] * TS, b[1] * TS, me.x, me.y));
+    this.finder = { sp: spId, spots: spots.slice(0, 12), count: spots.length, best: spots.length ? null : best, day: dayIdx(S.time) };
+    this.pin = null;
+    return this.finder;
+  }
+
   beg(nestId) { this.begT.set(nestId, 1600); }
   // A standing villager turns to face you when you come close
   npcFace(k, n) {
@@ -15580,12 +16171,20 @@ class Game {
     const dt = clamp(t - this.last, 0, 50);
     this.last = t;
     this.dt = dt;
+    this._watchSpeed(dt);
     Input.poll();
     if (this.link) this.link.update(dt);
     this.processInbox();
     const g = this.g, v = this.view;
     this.ui.begin(g, v, this.mode !== 'play' || !!this.modal);
-    if (this.mode === 'play' && this.state && this.me) {
+    if (this.mode === 'play' && this.state && this.me && this.loading) {
+      this.loading.t += dt;
+      const done = this.renderer.loadStep(this.state, this.cam, v, 22) || this.loading.t > 5000;
+      g.fillStyle = '#1d1a2b'; g.fillRect(0, 0, v.w, v.h);
+      this.ui.text('Painting the valley…', v.w / 2, v.h / 2 - 12, '#f6ecd2', { align: 'center' });
+      this.ui.bar(Math.floor(v.w / 2) - 60, Math.floor(v.h / 2) + 2, 120, 6, this.renderer.loadProgress || 0, '#7ac05a');
+      if (done) this.loading = null;
+    } else if (this.mode === 'play' && this.state && this.me) {
       this.updatePlay(dt);
       this.renderer.draw(g, v, this.cam, t);
       if (dt < 25 && this.renderer.budget >= 5) this.renderer.prewarm(this.state, this.cam, v, 4);
@@ -15626,13 +16225,36 @@ class Game {
         ty += 15;
       }
     }
+    // fade back in after quick travel
+    if (this.fadeT > 0) {
+      this.fadeT -= dt;
+      g.globalAlpha = clamp(this.fadeT / 450, 0, 1);
+      g.fillStyle = '#1d1a2b'; g.fillRect(0, 0, v.w, v.h);
+      g.globalAlpha = 1;
+    }
     this.ui.end();
     Input.endFrame();
   }
 
+  // "Auto" effects: if play stays below about 38 fps for ten seconds, switch to light effects (once)
+  _watchSpeed(dt) {
+    if (this.mode !== 'play' || this.modal || this.focusLost || this.prefs.fx !== 'auto' || this.autoLight) { this.perfT = 0; this.perfN = 0; return; }
+    this.playT = (this.playT || 0) + dt;
+    if (this.playT < 15000) return; // loading and the first painting of the valley don't count
+    this.perfT = (this.perfT || 0) + dt; this.perfN = (this.perfN || 0) + 1;
+    if (this.perfT < 5000) return;
+    const avg = this.perfT / this.perfN;
+    this.slowWins = avg > 26 ? (this.slowWins || 0) + 1 : 0;
+    this.perfT = 0; this.perfN = 0;
+    if (this.slowWins >= 2) {
+      this.autoLight = true;
+      this.toast('Switched to light effects for smoother play. You can change this under Settings → Effects.', 'gear');
+    }
+  }
+
   updatePlay(dt) {
     const S = this.state, me = this.me;
-    if (!this.isPausedLocal()) S.clockMs = Math.min(S.clockMs + dt, MS_PER_MIN * 12);
+    if (!this.isPausedLocal()) S.clockMs = Math.min(S.clockMs + dt, (S.mpm || MS_PER_MIN) * 12);
     Audio2.listener.x = me.x; Audio2.listener.y = me.y;
     Audio2.updateMusic(S.time.season, S.clock(), true);
     Audio2.setRain(S.weather === 'rain');
@@ -15672,16 +16294,18 @@ class Game {
     let [mx, my] = canMove ? Input.move() : [0, 0];
     if (this.observe && (mx || my)) this.cancelObserve();
     if (mx || my) {
-      const speed = PLAYER_SPEED * speedAt(S, me.x, me.y);
+      // hold Shift (or a trigger) to run; with "always run" on, holding it walks instead
+      const running = Input.held('run') !== !!this.prefs.run;
+      const speed = PLAYER_SPEED * speedAt(S, me.x, me.y) * (running ? RUN_SPEED : 1);
       const dist = speed * dt / 1000;
       const steps = Math.max(1, Math.ceil(dist / 1.5));
       for (let i = 0; i < steps; i++) [me.x, me.y] = moveActor(S, me.x, me.y, mx * dist / steps, my * dist / steps);
       me.d = Math.abs(mx) > Math.abs(my) ? (mx < 0 ? 1 : 2) : (my < 0 ? 3 : 0);
       me.m = 1;
-      me.walkT = (me.walkT || 0) + dt;
+      me.walkT = (me.walkT || 0) + dt * (running ? 1.4 : 1);
       this.stepT -= dt;
       if (this.stepT <= 0) {
-        this.stepT = 300;
+        this.stepT = running ? 210 : 300;
         const tx = Math.floor(me.x / TS), ty = Math.floor(me.y / TS);
         const t = tileAt(S, tx, ty);
         const tall = inBounds(tx, ty) && S.grass[tIdx(tx, ty)] === 2;
@@ -15714,6 +16338,7 @@ class Game {
     }
     this.birds.update(dt);
     this.fx.update(dt);
+    if (this.pin && dist2(this.pin.x, this.pin.y, me.x, me.y) < 20 * 20) { this.pin = null; Audio2.sfx('tick'); } // arrived
     // ---- camera
     const v = this.view;
     // The camera glides smoothly (cf keeps the exact position) but is drawn at whole pixels that move

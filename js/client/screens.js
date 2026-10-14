@@ -361,11 +361,11 @@ class ConfirmScreen {
 // ===================================================================== help
 const HELP_PAGES = [
   ['Controls', [
-    'Move: WASD / arrow keys (or left stick, or drag on the left of a touch screen)',
+    'Move: WASD / arrow keys (or left stick, or drag on the left of a touch screen). Hold Shift (or a trigger) to run.',
     'E or Space: interact — gather, talk, pick up, plant, place, observe birds',
     'F (or right-click): nest site / details of the thing in front of you',
     '1–8, mouse wheel, Q/R: choose a hotbar item. Hold a seed or box and press E to plant/place it.',
-    'Tab: journal · I: bag · M: map · T: chat (co-op) · Esc: menu',
+    'Tab: journal · I: bag · M: map (click to set a pin or travel) · T: chat (co-op) · Esc: menu',
     'Gamepad: A interact · X nest site · Y journal · B back · LB/RB hotbar · Start menu',
   ]],
   ['How to play', [
@@ -378,7 +378,7 @@ const HELP_PAGES = [
   ['Tips', [
     'Sleep in your cottage to end the day. Eggs, chicks and plants grow overnight.',
     'Each species has a season: most nest in spring & summer, some even in autumn or winter.',
-    'Check a nest site with F before building: it shows exactly which habitat needs are met.',
+    'Check a nest site with F before building: it shows exactly which habitat needs are met. Or press "Where can it nest?" in the journal and follow the arrow.',
     'Mud is easier to find after rain. Spider webs only sparkle until 11:00.',
     'Sell mushrooms, berries and nuts to Basil for coins. Fledged species earn conservation grants.',
     'Co-op: everyone shares the valley, the coins and the nest-material pouch.',
@@ -403,7 +403,7 @@ class HelpScreen {
 class SettingsScreen {
   constructor() { this.pause = true; }
   draw(ui) {
-    const [x, y, w, h] = centered(ui.view, 230, 130);
+    const [x, y, w, h] = centered(ui.view, 230, 216);
     ui.panel('paper', x, y, w, h);
     ui.text('Settings', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
     if (ui.closeX('st:x', x + w - 15, y + 5) || wantClose()) { Audio2.savePrefs(); G.closeModal(); return; }
@@ -430,6 +430,28 @@ class SettingsScreen {
       try { localStorage.setItem('nested.touch', G.touchPref); } catch (e) { /* ignore */ }
     }
     cy += 20;
+    // gameplay comfort
+    const P = G.prefs;
+    const cycle = (id, label, value, onClick, opts) => {
+      ui.text(label, x + 14, cy + 3, UI_COL.inkSoft);
+      if (ui.button(id, value, x + 100, cy, 110, 14, opts || {})) { onClick(); Prefs.save(P); Audio2.sfx('tick'); }
+      cy += 20;
+    };
+    cycle('st:run', 'Always run', P.run ? 'On (Shift walks)' : 'Off (Shift runs)', () => { P.run = !P.run; });
+    cycle('st:zoom', 'View', (ZOOMS.find((z) => z.v === (P.zoom | 0)) || ZOOMS[1]).label, () => {
+      const i = ZOOMS.findIndex((z) => z.v === (P.zoom | 0));
+      P.zoom = ZOOMS[(i + 1) % ZOOMS.length].v;
+      G.resize();
+    });
+    const FX = ['auto', 'full', 'light'];
+    cycle('st:fx', 'Effects', P.fx === 'auto' ? 'Auto (' + (G.autoLight ? 'light' : 'full') + ')' : P.fx === 'full' ? 'Full' : 'Light (faster)', () => {
+      P.fx = FX[(FX.indexOf(P.fx) + 1) % FX.length];
+    }, { tip: 'Light effects skip the weather dimming by day and the extra night colour pass, and use fewer raindrops — much faster on slow computers.' });
+    const host = !G.state || G.isHost;
+    cycle('st:day', 'Day length', host ? (DAY_SPEEDS[P.day] || DAY_SPEEDS[0]).label : 'set by the host', () => {
+      P.day = ((P.day | 0) + 1) % DAY_SPEEDS.length;
+      if (G.link && G.link.world) G.link.world.setDaySpeed(DAY_SPEEDS[P.day].ms);
+    }, { disabled: !host });
     if (ui.button('st:fs', 'Toggle fullscreen', x + 14, cy, w - 28, 14)) {
       try {
         const pr = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
@@ -477,7 +499,7 @@ class JournalScreen {
     const S = G.state;
     const [x, y, w, h] = centered(ui.view, 460, 264);
     ui.panel('paper', x, y + 12, w, h - 12);
-    this.tab = ui.tabs('jt', ['Birds', 'Clues', 'Materials', 'Quests', 'Progress', 'Valley'], x + 6, y, this.tab);
+    this.tab = ui.tabs('jt', ['Birds', 'Clues', 'Materials', 'Quests', 'Progress', 'Valley', 'Diary'], x + 6, y, this.tab);
     if (ui.closeX('jt:x', x + w - 15, y + 16) || wantClose('journal')) { G.closeModal(); return; }
     const bx = x + 8, by = y + 20, bw = w - 16, bh = h - 28;
     if (this.tab === 0) this.drawBirds(ui, bx, by, bw, bh);
@@ -485,18 +507,74 @@ class JournalScreen {
     else if (this.tab === 2) this.drawMats(ui, bx, by, bw, bh);
     else if (this.tab === 3) this.drawQuests(ui, bx, by, bw, bh);
     else if (this.tab === 4) this.drawProgress(ui, bx, by, bw, bh);
-    else this.drawValley(ui, bx, by, bw, bh);
+    else if (this.tab === 5) this.drawValley(ui, bx, by, bw, bh);
+    else this.drawDiary(ui, bx, by, bw, bh);
+  }
+
+  // Everything that happened lately, newest first
+  drawDiary(ui, x, y, w, h) {
+    const list = G.diary.slice().reverse();
+    ui.text('Diary', x + 4, y + 2, UI_COL.ink);
+    if (!list.length) { ui.wrap('Nothing yet. Messages and morning news are written down here, so you can read them again later.', x + 4, y + 16, w - 8, UI_COL.muted); return; }
+    const rows = [];
+    for (const e of list) {
+      const lines = ui.font.wrap(e.text, w - 96);
+      rows.push({ e, lines });
+    }
+    // pages that fit
+    const per = [], avail = h - 34;
+    let page = [], used = 0;
+    for (const r of rows) {
+      const hh = r.lines.length * LINE_H + 3;
+      if (used + hh > avail && page.length) { per.push(page); page = []; used = 0; }
+      page.push(r); used += hh;
+    }
+    if (page.length) per.push(page);
+    this.diaryPage = clamp(this.diaryPage || 0, 0, per.length - 1);
+    let cy = y + 16;
+    for (const r of per[this.diaryPage]) {
+      ui.text(r.e.when, x + 4, cy, UI_COL.muted);
+      if (r.e.icon && r.e.icon !== 'no' && SPR.ui(r.e.icon)) ui.icon(SPR.ui(r.e.icon), x + 66, cy - 3, 0.75);
+      r.lines.forEach((l, i) => ui.text(l, x + 82, cy + i * LINE_H, r.e.icon === 'no' ? '#b8382a' : UI_COL.ink));
+      cy += r.lines.length * LINE_H + 3;
+    }
+    if (per.length > 1) {
+      if (ui.button('dy:pp', '<', x + w - 70, y, 16, 12, { disabled: this.diaryPage === 0 })) this.diaryPage--;
+      ui.text((this.diaryPage + 1) + '/' + per.length, x + w - 40, y + 2, UI_COL.muted, { align: 'center' });
+      if (ui.button('dy:np', '>', x + w - 22, y, 16, 12, { disabled: this.diaryPage >= per.length - 1 })) this.diaryPage++;
+    }
   }
 
   drawBirds(ui, x, y, w, h) {
     const S = G.state;
     // as many columns as needed to fit every bird; smaller cells once there are lots of them
-    let cell = 24, rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1)));
+    const gh = h - 40;
+    let cell = 24, rowsFit = Math.max(1, Math.floor(gh / (cell + 1)));
     let cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit));
-    if (cols > 7) { cell = 20; rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1))); cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit)); }
+    if (cols > 7) { cell = 20; rowsFit = Math.max(1, Math.floor(gh / (cell + 1))); cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit)); }
     if (!this.sel) this.sel = SPECIES[0].id;
-    SPECIES_BY_TIER.forEach((sp, i) => {
-      const cx = x + (i % cols) * (cell + 1), cy = y + Math.floor(i / cols) * (cell + 1);
+    // filters: all birds, ones that need clues, blueprints ready to build, nested, visiting today
+    const ut = unlockedTier(S);
+    const today = new Set([...(S.featured || []), ...(S.visitors || []).map((v) => v.sp)]);
+    const FILTERS = [
+      ['All birds', () => true],
+      ['Need clues', (sp, j) => j.h < 3 && sp.tier <= ut],
+      ['Ready to build', (sp, j) => j.h >= 3 && j.n === 0],
+      ['Nested', (sp, j) => j.n > 0],
+      ['Here today', (sp) => today.has(sp.id)],
+    ];
+    const gw = cols * (cell + 1) - 1;
+    this.filter = this.filter || 0;
+    const fcount = SPECIES.filter((sp) => FILTERS[this.filter][1](sp, S.journal[sp.id])).length;
+    if (ui.button('jbf', 'Show: ' + FILTERS[this.filter][0] + ' (' + fcount + ')', x, y, gw, 13, { tip: 'Click to switch: all · need clues · ready to build · nested · here today' })) {
+      this.filter = (this.filter + 1) % FILTERS.length;
+      Audio2.sfx('tick');
+    }
+    const shown = SPECIES_BY_TIER.filter((sp) => FILTERS[this.filter][1](sp, S.journal[sp.id]));
+    if (!shown.length) ui.wrap(['', 'No birds need clues right now.', 'No blueprints waiting to be built.', 'No species has nested yet.', 'No lead birds are visiting today.'][this.filter], x, y + 18, gw, UI_COL.muted);
+    const gy = y + 16;
+    shown.forEach((sp, i) => {
+      const cx = x + (i % cols) * (cell + 1), cy = gy + Math.floor(i / cols) * (cell + 1);
       const j = S.journal[sp.id];
       const st = ui.widget('jb:' + sp.id, cx, cy, cell, cell);
       const sel = this.sel === sp.id;
@@ -508,9 +586,9 @@ class JournalScreen {
       if (st.focused) ui.focusRing(cx, cy, cell, cell);
       if (st.clicked || (st.focused && this.sel !== sp.id)) { if (this.sel !== sp.id) { this.sel = sp.id; this.sub = -1; Audio2.sfx('tick'); } }
     });
-    const n = nestedCount(S), rows = Math.ceil(SPECIES.length / cols);
-    ui.text(n + '/' + SPECIES.length + ' nested', x, y + rows * (cell + 1) + 4, UI_COL.inkSoft);
-    ui.bar(x, y + rows * (cell + 1) + 14, cols * (cell + 1) - 1, 6, n / SPECIES.length, '#e8b830');
+    const n = nestedCount(S);
+    ui.text(n + '/' + SPECIES.length + ' nested', x, y + h - 22, UI_COL.inkSoft);
+    ui.bar(x, y + h - 12, gw, 6, n / SPECIES.length, '#e8b830');
     // detail
     const dx = x + cols * (cell + 1) + 8, dw = w - (dx - x);
     this.drawDetail(ui, SPECIES_BY_ID[this.sel], dx, y, dw, h);
@@ -551,6 +629,12 @@ class JournalScreen {
     const subs = ['Nest', 'Clues', 'Facts'];
     if (this.sub < 0) this.sub = j.h >= 2 ? 0 : 1;
     this.sub = ui.tabs('js', subs, x + 6, iy + 42, this.sub, 44);
+    if (j.h >= 3 && j.n === 0 && sp.site !== 'parasite' && ui.button('jb:find', 'Where can it nest?', x + w - 112, iy + 41, 104, 14, { tip: 'Find every spot in the valley where this bird would move in, and point the way' })) {
+      const f = G.findNestSpots(sp.id);
+      this.sub = 0;
+      G.toast(finderText(sp, f), f.count ? 'nest' : 'no');
+      Audio2.sfx('page');
+    }
     const cy0 = iy + 58, cx = x + 8, cw = w - 16;
     ui.rect(x + 4, cy0 - 3, w - 8, 1, '#c8b48a');
     let cy = cy0;
@@ -581,6 +665,9 @@ class JournalScreen {
         cy += 10;
       }
       if (sp.terr) { ui.text('• Territorial: no other ' + sp.name.split(' ').pop() + ' nest within ' + sp.terr, cx, cy, UI_COL.ink); cy += 10; }
+      // the nest-spot finder's answer for this bird
+      const f = G.finder && G.finder.sp === sp.id ? G.finder : null;
+      if (f && cy < y + h - 24) ui.wrap(finderText(sp, f), cx, cy + 3, cw, f.count ? '#3a7a2a' : '#8a5a1a', LINE_H, Math.max(1, Math.floor((y + h - 8 - cy) / LINE_H)));
     } else if (this.sub === 1) {
       for (let i = 0; i < 3; i++) {
         const known = i < j.h;
@@ -669,6 +756,14 @@ class JournalScreen {
       const p = questProgress(S, q);
       if (q.n > 1) { ui.bar(x + 8, cy + 35, 70, 5, p / q.n, ready ? '#5ac05a' : '#e8b830'); ui.text(p + '/' + q.n, x + 82, cy + 33, UI_COL.inkSoft); }
       if (ready) ui.text('Ready! Go back to ' + NPCS[q.npc].name, x + (q.n > 1 ? 104 : 8), cy + 33, '#3a7a2a');
+      // point the guide arrow at this request
+      if (questTarget(S, q)) {
+        const on = G.guideQuest === q.id;
+        if (ui.button('jq:g:' + q.id, on ? 'Guiding' : 'Guide', x + colW - 50, cy + 31, 40, 12, { selected: on, tip: on ? 'Stop pointing the way' : 'Point the guide arrow here' })) {
+          G.guideQuest = on ? null : q.id;
+          if (!on) { G.pin = null; G.finder = null; }
+        }
+      }
       cy += 52;
     }
     ui.text('Completed: ' + done.length + ' of ' + QUESTS.length + ' requests', x + 6, y + h - 12, UI_COL.muted);
@@ -728,6 +823,15 @@ class JournalScreen {
       const pts = (me.fr && me.fr[npc]) || 0, hearts = Math.min(MAX_HEARTS, Math.floor(pts / HEART));
       ui.text(NPCS[npc].name, fx, fyy, UI_COL.inkSoft);
       for (let hh = 0; hh < MAX_HEARTS; hh++) ui.text(hh < hearts ? '♥' : '♡', fx + 62 + hh * 7, fyy, hh < hearts ? '#d8485a' : '#b8a888');
+      // favourite gifts you've found out about
+      const known = (me.gk && me.gk[npc]) || {};
+      const loves = Object.keys(known).filter((it) => known[it] === 'love'), likes = Object.keys(known).filter((it) => known[it] === 'like');
+      [...loves, ...likes].slice(0, 4).forEach((it, n) => ui.icon(SPR.itemIcon(it), fx + 99 + n * 9, fyy - 3, 0.5));
+      const st = ui.widget('fr:' + npc, fx, fyy - 2, Math.floor((w - 8) / 3) - 4, 11);
+      if (st.over || st.focused) {
+        const nm = (l) => l.map((it) => ITEMS[it].name).join(', ');
+        ui.tip = NPCS[npc].name + ' · ' + hearts + '/' + MAX_HEARTS + ' hearts' + (loves.length ? ' · Loves: ' + nm(loves) : '') + (likes.length ? ' · Likes: ' + nm(likes) : '') + (!loves.length && !likes.length ? ' · Give gifts to find out what they love!' : '');
+      }
       k++;
     }
   }
@@ -767,6 +871,17 @@ class JournalScreen {
   }
 }
 
+// What the nest-spot finder found, in words
+function finderText(sp, f) {
+  const S = G.state;
+  if (f.count) {
+    const now = sp.breed.includes(S.time.season);
+    return f.count + (f.count === 1 ? ' spot is' : ' spots are') + ' ready for the ' + sp.name + (now ? '' : ' — they\'ll settle in ' + sp.breed.map((b) => SEASON_NAMES[b]).join(' or ')) + '. Follow the green arrow; spots are marked on your map too.';
+  }
+  if (f.best) return 'No spot is ready yet. The closest (yellow arrow) still needs: ' + f.best.missing.join('; ') + '.';
+  return 'There is no "' + SITES[sp.site].label.toLowerCase() + '" in the valley yet — ' + SITES[sp.site].detail.charAt(0).toLowerCase() + SITES[sp.site].detail.slice(1);
+}
+
 // ===================================================================== bag
 class BagScreen {
   constructor() { this.pause = true; this.sel = -1; this.hover = G.selSlot; }
@@ -789,6 +904,7 @@ class BagScreen {
       if (ui.focus === 'bg:' + i || (Input.mouse.x >= sx && Input.mouse.x < sx + 20 && Input.mouse.y >= sy && Input.mouse.y < sy + 20)) this.hover = i;
     }
     ui.text('top row = hotbar (1–8)', x + 70, y + 8, UI_COL.muted);
+    if (ui.button('bg:sort', 'Sort', x + w - 60, y + 92, 50, 14, { tip: 'Tidy the backpack: merge stacks and sort (the hotbar stays as it is)' })) { G.send({ t: 'act', a: 'sort' }); this.sel = -1; Audio2.sfx('tick'); }
     const it = S.inv[this.sel >= 0 ? this.sel : this.hover];
     if (it) {
       const def = ITEMS[it.k];
@@ -846,7 +962,10 @@ class ShopScreen {
       const items = [];
       S.inv.forEach((s, i) => { if (s) items.push(i); });
       if (!items.length) ui.text('Your bag is empty.', lx, ly + 4, UI_COL.muted);
-      items.slice(0, 20).forEach((slot, n) => {
+      let fn = 0, fc = 0;
+      for (const s of S.inv) if (s && ITEMS[s.k].cat === 'forage') { fn += s.n; fc += itemSellPrice(s.k) * s.n; }
+      if (fn && ui.button('sh:sf', 'Sell all forage (' + fn + ') for ' + fc + 'c', lx, y + h - 20, 2 * colW + 2, 14)) G.send({ t: 'act', a: 'sellforage' });
+      items.slice(0, fn ? 16 : 20).forEach((slot, n) => {
         const s = S.inv[slot];
         const cx = lx + (n % 2) * (colW + 2), cy = ly + Math.floor(n / 2) * 22;
         const st = ui.widget('shs:' + slot, cx, cy, colW, 20);
@@ -1298,6 +1417,8 @@ class DayScreen {
   constructor(sum) {
     this.sum = sum; this.pause = true; this.t = 0; this.defaultFocus = 'dy:ok';
     if (sum.newSpecies && sum.newSpecies.length) Audio2.sfx('fanfare'); else Audio2.sfx('arrive');
+    G.note('Good morning! ' + dateStr(G.state.time) + '.', 'sun');
+    for (const [ic, line] of sum.lines) G.note(line, ic);
   }
   draw(ui, dt) {
     this.t += dt;
@@ -1335,10 +1456,10 @@ class MapScreen {
   draw(ui, dt) {
     const S = G.state, v = ui.view;
     if (!this.cv || this.season !== S.time.season || S.mapDirty) this.build();
-    const sc = Math.max(1, Math.min(Math.floor((v.w - 20) / MAP_W), Math.floor((v.h - 34) / MAP_H)));
+    const sc = Math.max(1, Math.min(Math.floor((v.w - 20) / MAP_W), Math.floor((v.h - 46) / MAP_H)));
     const mw = MAP_W * sc, mh = MAP_H * sc;
     const x = Math.floor((v.w - mw) / 2), y = Math.floor((v.h - mh) / 2) + 6;
-    ui.panel('wood', x - 6, y - 16, mw + 12, mh + 22);
+    ui.panel('wood', x - 6, y - 16, mw + 12, mh + 34);
     ui.text(S.name + ' Valley', x, y - 12, '#fff4d8');
     if (ui.closeX('mp:x', x + mw - 11, y - 14) || wantClose('map')) { G.closeModal(); return; }
     ui.g.drawImage(this.cv, x, y, mw, mh);
@@ -1375,7 +1496,42 @@ class MapScreen {
       ui.rect(px - 2, py - 2, 5, 5, blink ? '#ffffff' : '#e8485a');
       if (S.players.size > 1) ui.text(p.name, px + 4, py - 4, '#ffffff', { outline: '#2a1a0e' });
     }
-    ui.text('■ you   ■ nest (gold = busy)   ? clue leads   ■ villagers', x, y + mh + 1, '#fff4d8');
+    // nest spots from the finder (green), the guide target and the pin
+    const g = ui.g, pulse = 3 + (t / 160) % 3;
+    if (G.finder) {
+      g.strokeStyle = '#7aff7a'; g.lineWidth = 1;
+      for (const [sx, sy] of G.finder.spots) g.strokeRect(Math.round(x + sx * sc + sc / 2 - pulse), Math.round(y + sy * sc + sc / 2 - pulse), Math.round(pulse * 2), Math.round(pulse * 2));
+      if (G.finder.best) { g.strokeStyle = '#f6c83a'; g.strokeRect(Math.round(x + G.finder.best.x * sc + sc / 2 - pulse), Math.round(y + G.finder.best.y * sc + sc / 2 - pulse), Math.round(pulse * 2), Math.round(pulse * 2)); }
+    }
+    const gt = G.guideTarget();
+    if (gt && gt.kind === 'quest') { const [qx, qy] = P(gt.x, gt.y); ui.text('!', qx - 1, qy - 5, '#f6c83a', { outline: '#2a1a0e' }); }
+    if (G.pin) { const [qx, qy] = P(G.pin.x, G.pin.y); ui.rect(qx, qy - 7, 1, 8, '#2a1a0e'); ui.rect(qx + 1, qy - 7, 4, 3, '#e8485a'); }
+    // quick travel: home, the Field Station, the farm and landmarks you've found
+    let overPoint = false;
+    for (const pt of travelPoints(S)) {
+      const [qx, qy] = P(pt.x, pt.y - 10);
+      const st = ui.widget('mp:t:' + pt.key, qx - 4, qy - 4, 9, 9);
+      ui.rect(qx - 3, qy - 3, 7, 7, '#2a1a0e');
+      ui.rect(qx - 2, qy - 2, 5, 5, st.over || st.focused ? '#fff4b0' : '#6ab0e0');
+      if (st.over || st.focused) { ui.tip = 'Travel to ' + pt.label; overPoint = true; }
+      if (st.focused) ui.focusRing(qx - 4, qy - 4, 9, 9);
+      if (st.clicked) {
+        G.openModal(new ConfirmScreen('Travel to ' + pt.label + '?', () => { G.closeAll(); G.travelTo(pt); }, 'Travel', 'Stay', true));
+        return;
+      }
+    }
+    // click the map to set a pin (click it again, or right-click, to remove it)
+    const mx = Input.mouse.x, my = Input.mouse.y, inside = mx >= x && my >= y && mx < x + mw && my < y + mh;
+    if (inside && !overPoint && Input.mouse.clicked) {
+      const wx = (mx - x) / sc * TS, wy = (my - y) / sc * TS;
+      if (G.pin && dist2(G.pin.x, G.pin.y, wx, wy) < (3 * TS) ** 2) G.pin = null;
+      else { G.pin = { x: wx, y: wy }; Audio2.sfx('tick'); }
+      Input.mouse.clicked = false;
+    }
+    if (inside && Input.mouse.rclicked) G.pin = null;
+    ui.text('■ you  ■ nest  ? lead  ■ villager  ■ travel', x, y + mh + 1, '#fff4d8');
+    ui.text('Click: pin  ·  click a blue point: travel', x, y + mh + 11, '#e8d8b8');
+    if ((G.pin || G.finder || G.guideQuest) && ui.button('mp:clr', 'Clear guide', x + mw - 62, y + mh + 2, 62, 14)) { G.pin = null; G.finder = null; G.guideQuest = null; }
   }
   build() {
     const S = G.state;
