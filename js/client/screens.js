@@ -5,6 +5,14 @@ function centered(view, w, h) {
   w = Math.min(w, view.w - 6); h = Math.min(h, view.h - 6);
   return [Math.floor((view.w - w) / 2), Math.floor((view.h - h) / 2), w, h];
 }
+// Badge progress as the client sees it (mirrors World.statValue)
+function statValueClient(S, k) {
+  if (k === 'species') return nestedCount(S);
+  if (k === 'landmarks') return Object.keys(S.found || {}).length;
+  if (k === 'nightSpecies') return ((S.stats && S.stats.nightList) || []).length;
+  if (k === 'bestFriends') { const fr = (S.prog && S.prog.fr) || {}; return Object.values(fr).some((v) => v >= HEART * MAX_HEARTS) ? 1 : 0; }
+  return (S.stats && S.stats[k]) || 0;
+}
 function wantClose(extra) { return Input.hit('cancel') || (extra && Input.hit(extra)); }
 
 function birdThumb(ui, spId, x, y, box, sil) {
@@ -469,21 +477,23 @@ class JournalScreen {
     const S = G.state;
     const [x, y, w, h] = centered(ui.view, 460, 264);
     ui.panel('paper', x, y + 12, w, h - 12);
-    this.tab = ui.tabs('jt', ['Birds', 'Clues', 'Materials', 'Quests', 'Valley'], x + 6, y, this.tab);
+    this.tab = ui.tabs('jt', ['Birds', 'Clues', 'Materials', 'Quests', 'Progress', 'Valley'], x + 6, y, this.tab);
     if (ui.closeX('jt:x', x + w - 15, y + 16) || wantClose('journal')) { G.closeModal(); return; }
     const bx = x + 8, by = y + 20, bw = w - 16, bh = h - 28;
     if (this.tab === 0) this.drawBirds(ui, bx, by, bw, bh);
     else if (this.tab === 1) this.drawClues(ui, bx, by, bw, bh);
     else if (this.tab === 2) this.drawMats(ui, bx, by, bw, bh);
     else if (this.tab === 3) this.drawQuests(ui, bx, by, bw, bh);
+    else if (this.tab === 4) this.drawProgress(ui, bx, by, bw, bh);
     else this.drawValley(ui, bx, by, bw, bh);
   }
 
   drawBirds(ui, x, y, w, h) {
     const S = G.state;
-    const cols = 4, cell = 24;
+    const cell = 24, rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1)));
+    const cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit));
     if (!this.sel) this.sel = SPECIES[0].id;
-    SPECIES.forEach((sp, i) => {
+    SPECIES_BY_TIER.forEach((sp, i) => {
       const cx = x + (i % cols) * (cell + 1), cy = y + Math.floor(i / cols) * (cell + 1);
       const j = S.journal[sp.id];
       const st = ui.widget('jb:' + sp.id, cx, cy, cell, cell);
@@ -641,19 +651,25 @@ class JournalScreen {
     const active = QUESTS.filter((q) => S.side[q.id] && S.side[q.id].st === 'on');
     const done = QUESTS.filter((q) => S.side[q.id] && S.side[q.id].st === 'done');
     if (!active.length) cy += ui.wrap(questGateOpen(S) ? 'No open requests. Villagers with a yellow "!" above their head need a hand — talk to them!' : 'Build your first nest, then the villagers will start asking for your help.', x + 6, cy, colW - 10, UI_COL.muted) + 4;
-    for (const q of active) {
+    const per = Math.max(1, Math.floor((h - 34) / 52)), pages = Math.max(1, Math.ceil(active.length / per));
+    this.qPage = clamp(this.qPage || 0, 0, pages - 1);
+    if (pages > 1) {
+      if (ui.button('jq:pp', '<', x + colW - 64, y, 14, 11, { disabled: this.qPage === 0 })) this.qPage--;
+      ui.text((this.qPage + 1) + '/' + pages, x + colW - 41, y + 2, UI_COL.muted, { align: 'center' });
+      if (ui.button('jq:np', '>', x + colW - 26, y, 14, 11, { disabled: this.qPage >= pages - 1 })) this.qPage++;
+    }
+    for (const q of active.slice(this.qPage * per, this.qPage * per + per)) {
       const ready = questReady(S, q);
-      ui.panel('note', x + 2, cy - 2, colW - 6, 44);
+      ui.panel('note', x + 2, cy - 2, colW - 6, 48);
       ui.text(q.title, x + 8, cy + 2, ready ? '#3a7a2a' : UI_COL.ink);
-      ui.text(NPCS[q.npc].name, x + colW - 10, cy + 2, UI_COL.muted, { align: 'right' });
+      ui.text(NPCS[q.npc].name + (q.kind === 'deliver' ? ' → ' + NPCS[q.to].name : ''), x + colW - 10, cy + 2, UI_COL.muted, { align: 'right' });
       ui.wrap(q.hint, x + 8, cy + 13, colW - 20, UI_COL.inkSoft, LINE_H, 2);
       const p = questProgress(S, q);
-      if (q.n > 1) { ui.bar(x + 8, cy + 34, 70, 5, p / q.n, ready ? '#5ac05a' : '#e8b830'); ui.text(p + '/' + q.n, x + 82, cy + 32, UI_COL.inkSoft); }
-      if (ready) ui.text('Ready! Go back to ' + NPCS[q.npc].name, x + (q.n > 1 ? 104 : 8), cy + 32, '#3a7a2a');
-      cy += 48;
-      if (cy > y + h - 40) break;
+      if (q.n > 1) { ui.bar(x + 8, cy + 35, 70, 5, p / q.n, ready ? '#5ac05a' : '#e8b830'); ui.text(p + '/' + q.n, x + 82, cy + 33, UI_COL.inkSoft); }
+      if (ready) ui.text('Ready! Go back to ' + NPCS[q.npc].name, x + (q.n > 1 ? 104 : 8), cy + 33, '#3a7a2a');
+      cy += 52;
     }
-    if (done.length && cy < y + h - 20) { ui.text('Done: ' + done.map((q) => q.title).join(' · '), x + 6, cy, UI_COL.muted); }
+    ui.text('Completed: ' + done.length + ' of ' + QUESTS.length + ' requests', x + 6, y + h - 12, UI_COL.muted);
     // landmarks
     const lx = x + colW + 6, lw = w - colW - 8;
     const found = Object.keys(S.found || {});
@@ -668,6 +684,52 @@ class JournalScreen {
     ui.wrap('Explore the whole valley — each landmark you find earns ' + LANDMARK_REWARD + ' coins.', lx, ly + 4, lw, UI_COL.muted);
   }
 
+  drawProgress(ui, x, y, w, h) {
+    const S = G.state, me = S.prog || { xp: 0, lvl: 1, fr: {} };
+    // rank
+    const need = xpForLevel(me.lvl), top = me.lvl >= MAX_LEVEL;
+    ui.text('★ Rank ' + me.lvl + ': ' + RANKS[me.lvl - 1], x + 4, y + 2, UI_COL.ink);
+    ui.bar(x + 4, y + 13, 170, 7, top ? 1 : me.xp / need, '#7ac05a');
+    ui.text(top ? 'Top rank!' : me.xp + ' / ' + need + ' XP', x + 180, y + 12, UI_COL.inkSoft);
+    const next = !top && LEVEL_REWARDS[me.lvl + 1];
+    if (next) {
+      const bits = [];
+      if (next.coins) bits.push(next.coins + ' coins');
+      for (const k in next.items || {}) bits.push(ITEMS[k].name);
+      if (next.recipe) bits.push('recipe: ' + ITEMS[next.recipe].name);
+      if (next.perk) bits.push(next.perk === 'binoculars' ? 'better binoculars' : 'quiet steps');
+      ui.text('Next rank: ' + bits.join(', '), x + 4, y + 23, UI_COL.muted);
+    }
+    // badges
+    const colW = Math.floor((w - 8) / 2);
+    ui.text('Badges ' + Object.keys(S.badges || {}).length + '/' + BADGES.length, x + 4, y + 36, UI_COL.ink);
+    let i = 0;
+    for (const b of BADGES) {
+      const bx = x + 4 + (i % 2) * colW, by = y + 47 + Math.floor(i / 2) * 15;
+      const got = S.badges && S.badges[b.id] != null;
+      const goal = badgeGoal(b), have = Math.min(goal, statValueClient(S, b.s));
+      ui.icon(SPR.ui(got ? 'star' : 'lock'), bx, by - 3, 0.75);
+      ui.text(b.name, bx + 14, by, got ? UI_COL.ink : UI_COL.inkSoft);
+      if (!got) { ui.bar(bx + 104, by + 1, 40, 5, have / goal, '#e8b830'); ui.text(have + '/' + goal, bx + 148, by - 1, UI_COL.muted); }
+      else ui.text('earned!', bx + 104, by, '#3a7a2a');
+      const st = ui.widget('bd:' + b.id, bx, by - 2, colW - 4, 12);
+      if (st.over || st.focused) ui.tip = b.desc;
+      i++;
+      if (by > y + h - 60) break;
+    }
+    // friends
+    const fy = y + 47 + Math.ceil(Math.min(i, BADGES.length) / 2) * 15 + 4;
+    ui.text('Friends', x + 4, fy, UI_COL.ink);
+    let k = 0;
+    for (const npc in NPCS) {
+      const fx = x + 4 + (k % 3) * Math.floor((w - 8) / 3), fyy = fy + 11 + Math.floor(k / 3) * 11;
+      const pts = (me.fr && me.fr[npc]) || 0, hearts = Math.min(MAX_HEARTS, Math.floor(pts / HEART));
+      ui.text(NPCS[npc].name, fx, fyy, UI_COL.inkSoft);
+      for (let hh = 0; hh < MAX_HEARTS; hh++) ui.text(hh < hearts ? '♥' : '♡', fx + 62 + hh * 7, fyy, hh < hearts ? '#d8485a' : '#b8a888');
+      k++;
+    }
+  }
+
   drawValley(ui, x, y, w, h) {
     const S = G.state;
     const n = nestedCount(S);
@@ -680,6 +742,15 @@ class JournalScreen {
     ui.text(next != null ? 'New birds arrive when ' + next + ' species have nested.' : 'Every bird of the valley has been reported!', x + 4, y + 58, UI_COL.inkSoft);
     const st = S.stats || {};
     ui.text('Broods fledged: ' + (st.fledged || 0) + '   Nests built: ' + (st.built || 0) + '   Days: ' + (st.days || 1), x + 4, y + 70, UI_COL.inkSoft);
+    // rare visitors: a little collection of its own
+    const rx = x + w - 150, seen = S.rareLog || {};
+    const ry = y + 16;
+    ui.panel('note', rx - 6, ry, 152, 22 + RARE.length * 10);
+    ui.text('Rare visitors ' + Object.keys(seen).length + '/' + RARE.length, rx, ry + 6, UI_COL.ink);
+    RARE.forEach((r, k) => {
+      const got = seen[r.id];
+      ui.text(got ? '★ ' + r.name : '? ??? (' + r.present.map((q) => SEASON_NAMES[q]).join('/') + ')', rx, ry + 18 + k * 10, got ? '#a8761a' : UI_COL.muted);
+    });
     ui.text('Active nests', x + 4, y + 86, UI_COL.ink);
     let cy = y + 97;
     const nests = Array.from(S.objs.values()).filter((o) => o.type === 'nest' && o.st !== 'old');
@@ -812,13 +883,14 @@ class CraftScreen {
     const lx = x + 8, ly = y + 22, colW = 108;
     RECIPES.forEach((r, i) => {
       const cx = lx + (i % 2) * (colW + 2), cy = ly + Math.floor(i / 2) * 22;
-      const can = Object.keys(r.mats).every((k) => (S.mats[k] || 0) >= r.mats[k]);
+      const locked = r.lvl && (S.prog.lvl || 1) < r.lvl;
+      const can = !locked && Object.keys(r.mats).every((k) => (S.mats[k] || 0) >= r.mats[k]);
       const st = ui.widget('cfr:' + i, cx, cy, colW, 20);
       ui.panel(this.sel === i ? 'slotsel' : (st.over || st.focused) ? 'slothot' : 'slot', cx, cy, colW, 20);
       ui.icon(SPR.itemIcon(r.id), cx + 2, cy + 2);
       const nm = ITEMS[r.id].name;
       ui.text(nm.length > 15 ? nm.slice(0, 14) + '…' : nm, cx + 20, cy + 3, UI_COL.ink);
-      ui.text(can ? 'ready' : 'need materials', cx + 20, cy + 11, can ? '#3a7a2a' : UI_COL.muted);
+      ui.text(locked ? 'birder rank ' + r.lvl : can ? 'ready' : 'need materials', cx + 20, cy + 11, locked ? '#a8761a' : can ? '#3a7a2a' : UI_COL.muted);
       if (st.focused) ui.focusRing(cx, cy, colW, 20);
       if (st.clicked || st.focused) this.sel = i;
     });
@@ -836,7 +908,9 @@ class CraftScreen {
       const users = SPECIES.filter((s) => s.site === site && S.journal[s.id].h >= 2);
       if (users.length) cy += ui.wrap('Used by: ' + users.map((s) => s.name).join(', '), dx + 6, cy, dw - 12, '#3a6ab0');
     }
-    const can = Object.keys(r.mats).every((k) => (S.mats[k] || 0) >= r.mats[k]);
+    const locked = r.lvl && (S.prog.lvl || 1) < r.lvl;
+    if (locked) cy += ui.wrap('Unlocks at birder rank ' + r.lvl + ' (' + RANKS[r.lvl - 1] + ').', dx + 6, cy, dw - 12, '#a8761a');
+    const can = !locked && Object.keys(r.mats).every((k) => (S.mats[k] || 0) >= r.mats[k]);
     if (ui.button('cf:go', 'Craft', dx + 6, ly + h - 50, dw - 12, 15, { disabled: !can, icon: SPR.ui('hammer') })) { G.autoSelect = r.id; G.send({ t: 'act', a: 'craft', r: r.id }); }
   }
 }
@@ -1040,6 +1114,8 @@ class DialogueScreen {
     const npc = NPCS[this.d.npc];
     ui.text(npc.name, x + 32, y + 46, UI_COL.ink, { align: 'center' });
     ui.text(npc.role, x + 32, y + 56, UI_COL.muted, { align: 'center' });
+    const fr = (G.state.prog && G.state.prog.fr && G.state.prog.fr[this.d.npc]) || 0, hearts = Math.min(MAX_HEARTS, Math.floor(fr / HEART));
+    for (let hh = 0; hh < MAX_HEARTS; hh++) ui.text(hh < hearts ? '♥' : '♡', x + 16 + hh * 7, y + 64, hh < hearts ? '#d8485a' : '#c8b898');
     const text = this.d.lines[this.line] || '';
     this.chars = Math.min(text.length, this.chars + dt * 0.06);
     const shown = text.slice(0, Math.floor(this.chars));
@@ -1075,6 +1151,54 @@ class DialogueScreen {
     if (id === 'bye') { G.closeModal(); return; }
     if (id === 'shop') { G.closeModal(); G.openModal(new ShopScreen()); return; }
     G.send({ t: 'act', a: 'opt', npc: this.d.npc, o: id });
+  }
+}
+
+// ===================================================================== rank up
+class LevelUpScreen {
+  constructor(lvl, got) { this.lvl = lvl; this.got = got || []; this.pause = true; this.t = 0; this.defaultFocus = 'lu:ok'; Audio2.sfx('fanfare'); this.burst = false; }
+  draw(ui, dt) {
+    this.t += dt;
+    if (!this.burst && G.me) { this.burst = true; G.fx.burst('confetti', G.me.x, G.me.y - 30, 24); }
+    const v = ui.view;
+    ui.rect(0, 0, v.w, v.h, 'rgba(20,18,32,0.4)');
+    const lines = this.got.length ? this.got : ['Keep watching and helping the birds!'];
+    const hgt = 66 + lines.reduce((a, l) => a + ui.wrapHeight('• ' + l, 220), 0);
+    const [x, y, w, h] = centered(v, 250, hgt);
+    ui.panel('note', x, y, w, h);
+    const sc = this.t < 250 ? 1 : 1;
+    ui.text('★ New birder rank! ★', x + w / 2, y + 8, '#c8961a', { align: 'center', scale: sc });
+    ui.text('Rank ' + this.lvl + ': ' + RANKS[this.lvl - 1], x + w / 2, y + 20, UI_COL.ink, { align: 'center' });
+    let cy = y + 34;
+    for (const l of lines) cy += ui.wrap('• ' + l, x + 15, cy, 220, UI_COL.inkSoft);
+    if (ui.button('lu:ok', 'Wonderful!', x + w / 2 - 40, y + h - 21, 80, 15, { key: Input.keyLabel('ok') }) || (this.t > 400 && wantClose())) G.closeModal();
+  }
+}
+
+// ===================================================================== notice board
+class BoardScreen {
+  constructor() { this.pause = true; this.defaultFocus = 'nb:x'; Audio2.sfx('page'); }
+  draw(ui) {
+    const S = G.state;
+    const [x, y, w, h] = centered(ui.view, 300, 150);
+    ui.panel('wood', x, y, w, h);
+    ui.text('Notice Board', x + w / 2, y + 6, '#fff4d8', { align: 'center' });
+    if (ui.closeX('nb:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const tasks = S.board || [];
+    if (!tasks.length) ui.wrap('No notices today. Check back tomorrow morning!', x + 12, y + 30, w - 24, '#fff4d8');
+    tasks.forEach((t, i) => {
+      const cy = y + 22 + i * 58;
+      ui.panel('note', x + 8, cy, w - 16, 52);
+      ui.icon(SPR.portrait(t.npc), x + 12, cy + 4, 0.7);
+      ui.text(NPCS[t.npc].name + ': "' + t.text + '"', x + 40, cy + 6, UI_COL.ink);
+      ui.icon(SPR.matIcon(t.mat), x + 40, cy + 16);
+      const have = S.mats[t.mat] || 0;
+      ui.text(t.n + ' ' + MATS[t.mat].name + ' (you have ' + have + ')', x + 58, cy + 20, have >= t.n ? '#3a7a2a' : UI_COL.inkSoft);
+      ui.text('Reward: ' + (15 + t.n * 6) + ' coins · friendship', x + 40, cy + 32, UI_COL.muted);
+      if (t.done) ui.text('Done by ' + t.done + ' ✓', x + w - 20, cy + 32, '#3a7a2a', { align: 'right' });
+      else if (ui.button('nb:' + i, 'Hand in', x + w - 74, cy + 30, 58, 14, { disabled: have < t.n })) G.send({ t: 'act', a: 'board', i });
+    });
+    ui.text('New notices every morning. They\'re optional — help when you like!', x + w / 2, y + h - 12, '#e8d8b8', { align: 'center' });
   }
 }
 

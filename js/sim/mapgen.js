@@ -207,6 +207,7 @@ function generateMap(seed) {
   building('bench', 39, 26);
   building('mailbox', 46, 28);
   building('well', 72, 29);
+  building('board', 74, 28);
   // keep the spots where villagers stand clear (their routes follow paths)
   for (const k in NPCS) {
     const n = NPCS[k], spots = [];

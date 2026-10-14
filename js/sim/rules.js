@@ -22,6 +22,7 @@ const BUILDINGS = {
   bench:   { name: 'Workbench', w: 2, h: 1 },
   mailbox: { name: 'Mailbox', w: 1, h: 1 },
   well:    { name: 'Well', w: 1, h: 1 },
+  board:   { name: 'Notice Board', w: 1, h: 1 },
 };
 
 function footprint(o) {
@@ -49,6 +50,8 @@ function solidBox(o) {
       if (o.kind === 'anvil') return null;
       if (o.kind === 'bank' || o.kind === 'brushpile') return [1, 5, 15, 15];
       if (o.kind === 'birdbath') return [3, 8, 13, 15];
+      if (o.kind === 'gardenbench') return [1, 9, 15, 15];
+      if (o.kind === 'feeder' || o.kind === 'lamppost') return [6, 11, 10, 15];
       return [6, 11, 10, 15];
     default: return null;
   }

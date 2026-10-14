@@ -134,7 +134,7 @@ class Renderer {
     const tx0 = Math.max(0, Math.floor(cx0 / TS) - 1), tx1 = Math.min(MAP_W - 1, Math.floor((cx0 + view.w) / TS) + 1);
     const ty0 = Math.max(0, Math.floor(cy0 / TS) - 1), ty1 = Math.min(MAP_H - 1, Math.floor((cy0 + view.h) / TS) + 6);
     // moving water: drifting wave highlights and sun glints
-    const sunny = S.weather === 'sun' && S.clock() < 19 * 60;
+    const sunny = S.weather === 'sun' || S.weather === 'cloud';
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
       const t = S.tiles[tIdx(tx, ty)];
       if (t !== T.WATER && t !== T.SHALLOW) continue;
@@ -277,7 +277,7 @@ class Renderer {
     if (game.placeGhost) this._ghost(g, game.placeGhost, cx0, cy0, now);
     // weather & light
     this._weather(g, S, view, now);
-    this._lighting(g, S, view, cx0, cy0, now, tx0, tx1, ty0, ty1);
+    this._lighting(g, S, view, cx0, cy0, now);
     // names
     for (const p of S.players.values()) {
       if (p.sleep || (p.pid === S.me && S.players.size < 2)) continue;
@@ -330,7 +330,7 @@ class Renderer {
         break;
       }
       case 'building': {
-        const lit = this.game.nightLevel > 0.35;
+        const lit = this.game.nightLevel > 0.3;
         let spr;
         if (o.kind === 'mailbox') spr = SPR.mailbox(this.game.state.mail.some((m) => !m.read));
         else spr = SPR.building(o.kind, season, lit);
@@ -474,6 +474,16 @@ class Renderer {
         if (o && o.type === 'tree' && o.st >= 2 && o.kind !== 'pine') game.fx.burst('leaf', x, y, 1, AUTUMN);
       }
     }
+    // a rare visitor twinkles now and then, so it's worth a closer look
+    this.rareT = (this.rareT || 0) - game.dt;
+    if (this.rareT <= 0) {
+      this.rareT = 700;
+      for (const a of game.birds.agents) {
+        if (a.role !== 'rare' || (S.rareLog && S.rareLog[a.sp])) continue;
+        if (a.x < cx0 - 20 || a.x > cx0 + view.w + 20 || a.y < cy0 - 20 || a.y > cy0 + view.h + 40) continue;
+        game.fx.burst('sparkle', a.x + (Math.random() - 0.5) * 10, a.y - a.z - 8, 2);
+      }
+    }
   }
 
   _weather(g, S, view, now) {
@@ -498,14 +508,15 @@ class Renderer {
     } else this.rain.length = 0;
   }
 
-  _lighting(g, S, view, cx0, cy0, now, tx0, tx1, ty0, ty1) {
+  // Time-of-day grading. Nights are moonlit and stay easy to read: a soft blue-lavender tint
+  // (never darker than about 70%), a little less colour, and warm light around windows and lanterns.
+  _lighting(g, S, view, cx0, cy0, now) {
     const game = this.game;
-    let m = S.clock();
-    // ambient colour by time of day
+    const m = S.clock();
     const stops = [
-      [300, [70, 80, 140]], [360, [190, 175, 205]], [410, [255, 238, 222]], [460, [255, 255, 255]],
-      [1050, [255, 255, 255]], [1110, [255, 228, 196]], [1170, [220, 160, 170]], [1230, [120, 115, 180]],
-      [1290, [72, 82, 140]], [1600, [64, 74, 130]],
+      [300, [150, 162, 214]], [360, [212, 196, 222]], [410, [255, 238, 222]], [460, [255, 255, 255]],
+      [1050, [255, 255, 255]], [1110, [255, 230, 200]], [1170, [248, 190, 172]], [1230, [198, 178, 222]],
+      [1290, [158, 168, 218]], [1600, [150, 162, 214]],
     ];
     let col = stops[stops.length - 1][1];
     if (m < stops[0][0]) col = stops[0][1];
@@ -514,64 +525,84 @@ class Renderer {
       if (m >= m0 && m < m1) { const k = (m - m0) / (m1 - m0); col = [0, 1, 2].map((j) => Math.round(lerp(c0[j], c1[j], k))); break; }
     }
     if (S.weather === 'rain' || S.weather === 'cloud' || S.weather === 'snow') {
-      const k = S.weather === 'cloud' ? 0.9 : 0.82;
+      const k = S.weather === 'cloud' ? 0.92 : 0.86;
       col = [col[0] * k, col[1] * k, col[2] * (k + 0.06)].map((v) => Math.round(Math.min(255, v)));
     }
-    const dark = 1 - (col[0] + col[1] + col[2]) / 765;
-    game.nightLevel = dark;
-    if (dark < 0.02) return;
+    // how far into the night it is: lit windows, glows and creatures of the night follow this
+    const nightF = m >= 1290 || m < 300 ? 1 : m < 360 ? 1 - (m - 300) / 60 : m < 1170 ? 0 : (m - 1170) / 120;
+    game.nightLevel = nightF;
+    const dim = 1 - (col[0] + col[1] + col[2]) / 765;
+    if (dim < 0.02 && nightF <= 0) return;
+    const W = view.w, H = view.h;
+    // moonlight carries little colour
+    if (nightF > 0) {
+      g.globalCompositeOperation = 'saturation';
+      g.globalAlpha = 0.3 * nightF;
+      g.fillStyle = '#808080';
+      g.fillRect(0, 0, W, H);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+    }
     const lc = this.lightCv;
-    if (lc.width !== view.w || lc.height !== view.h) { lc.width = view.w; lc.height = view.h; }
+    if (lc.width !== W || lc.height !== H) { lc.width = W; lc.height = H; }
     const lg = this.lightG;
     lg.globalCompositeOperation = 'source-over';
     lg.fillStyle = 'rgb(' + col.join(',') + ')';
-    lg.fillRect(0, 0, view.w, view.h);
-    if (dark > 0.25) {
-      lg.globalCompositeOperation = 'lighter';
-      const a = clamp((dark - 0.25) * 1.6, 0, 1);
-      lg.globalAlpha = a;
-      // building windows
+    lg.fillRect(0, 0, W, H);
+    // light sources: windows, lanterns, fireflies
+    const lights = [];
+    if (nightF > 0.15) {
       for (const o of S.objs.values()) {
         if (o.type !== 'building' || o.kind === 'mailbox') continue;
         const spr = SPR.building(o.kind, S.time.season, true);
         if (!spr.lights) continue;
         for (const [lx, ly, r] of spr.lights) {
           const x = o.x * TS - spr.ax + lx - cx0, y = o.y * TS - spr.ay + ly - cy0;
-          if (x < -60 || y < -60 || x > view.w + 60 || y > view.h + 60) continue;
-          lg.drawImage(this.glow, x - r, y - r, r * 2, r * 2);
+          if (x < -60 || y < -60 || x > W + 60 || y > H + 60) continue;
+          lights.push([x, y, r * 1.2]);
         }
       }
-      // lanterns carried by players and villagers
       for (const k in NPCS) {
         if (NPC_LOOKS[k].prop !== 'lantern') continue;
-        const n = npcPos(k, S.clock());
-        if (!n.away) lg.drawImage(this.glow, n.x * TS - 30 - cx0, n.y * TS - 36 - cy0, 60, 60);
+        const n = npcPos(k, m);
+        if (!n.away) lights.push([n.x * TS - cx0, n.y * TS - 12 - cy0, 30]);
       }
-      for (const p of S.players.values()) {
-        if (p.sleep) continue;
-        lg.drawImage(this.glow, p.x - 34 - cx0, p.y - 46 - cy0, 68, 68);
-      }
-      // fireflies on summer nights
-      if (S.time.season === SUMMER && S.weather !== 'rain') {
-        if (!this.fireflies.length) for (let i = 0; i < 40; i++) {
-          const z = pick([ZONES.pond, ZONES.meadow, ZONES.garden, ZONES.eastmeadow]);
-          this.fireflies.push({ x: (z[0] + Math.random() * (z[2] - z[0])) * TS, y: (z[1] + Math.random() * (z[3] - z[1])) * TS, p: Math.random() * 10 });
-        }
-        for (const f of this.fireflies) {
-          const x = f.x + Math.sin(now / 1300 + f.p) * 14 - cx0, y = f.y + Math.cos(now / 1700 + f.p * 2) * 10 - cy0;
-          const on = Math.sin(now / 400 + f.p * 3) > 0.2;
-          if (!on || x < 0 || y < 0 || x > view.w || y > view.h) continue;
-          lg.drawImage(this.glow, x - 6, y - 6, 12, 12);
-          f.sx = x; f.sy = y; f.on = true;
-        }
-      }
+      for (const p of S.players.values()) if (!p.sleep) lights.push([p.x - cx0, p.y - 12 - cy0, 32]);
+      for (const o of S.objs.values()) if (o.type === 'struct' && o.kind === 'lamppost') lights.push([o.x * TS + 8 - cx0, o.y * TS - 18 - cy0, 38]);
+    }
+    if (lights.length) {
+      lg.globalCompositeOperation = 'lighter';
+      lg.globalAlpha = 0.75 * nightF;
+      for (const [x, y, r] of lights) lg.drawImage(this.glow, x - r, y - r, r * 2, r * 2);
       lg.globalAlpha = 1;
+    }
+    // fireflies on summer nights
+    const flies = S.time.season === SUMMER && S.weather !== 'rain' && nightF > 0.4;
+    if (flies) {
+      if (!this.fireflies.length) for (let i = 0; i < 40; i++) {
+        const z = pick([ZONES.pond, ZONES.meadow, ZONES.garden, ZONES.eastmeadow]);
+        this.fireflies.push({ x: (z[0] + Math.random() * (z[2] - z[0])) * TS, y: (z[1] + Math.random() * (z[3] - z[1])) * TS, p: Math.random() * 10 });
+      }
+      lg.globalCompositeOperation = 'lighter';
+      for (const f of this.fireflies) {
+        const x = f.x + Math.sin(now / 1300 + f.p) * 14 - cx0, y = f.y + Math.cos(now / 1700 + f.p * 2) * 10 - cy0;
+        const on = Math.sin(now / 400 + f.p * 3) > 0.2;
+        if (!on || x < 0 || y < 0 || x > W || y > H) continue;
+        lg.drawImage(this.glow, x - 6, y - 6, 12, 12);
+        f.sx = x; f.sy = y; f.on = true;
+      }
     }
     g.globalCompositeOperation = 'multiply';
     g.drawImage(lc, 0, 0);
+    // a warm spill of light on top
+    if (lights.length) {
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = (S.time.season === WINTER ? 0.07 : 0.12) * nightF;
+      for (const [x, y, r] of lights) g.drawImage(this.glow, x - r, y - r, r * 2, r * 2);
+      g.globalAlpha = 1;
+    }
     g.globalCompositeOperation = 'source-over';
-    // firefly dots on top
-    if (dark > 0.3 && S.time.season === SUMMER) {
+    if (flies) {
       g.fillStyle = '#f6ff9a';
       for (const f of this.fireflies) if (f.on) { g.fillRect(Math.round(f.sx), Math.round(f.sy), 1, 1); f.on = false; }
     }

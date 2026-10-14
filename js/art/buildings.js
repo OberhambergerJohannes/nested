@@ -561,6 +561,7 @@ function genBuilding(kind, season, lit) {
     case 'bench': return genBench(season);
     case 'mailbox': return genMailbox(false);
     case 'well': return genWell(season);
+    case 'board': return genNoticeBoard(season);
   }
 }
 
@@ -985,6 +986,20 @@ function genMailbox(flag) {
   px.rect(5, 28, 7, 2, '#7a6a5a');
   px.outline('#14202e');
   return { px, ax: 0, ay: 14 };
+}
+
+function genNoticeBoard(season) {
+  const px = new Pix(24, 32);
+  const P = ramp('#8a5a34');
+  for (const x of [3, 19]) { px.rect(x, 8, 2, 23, P.d); px.vline(x, 8, 30, P.l); }
+  px.rect(1, 6, 22, 16, P.m); px.frame(1, 6, 22, 16, P.d); px.hline(1, 22, 6, P.h);
+  px.rect(3, 8, 18, 12, '#c8a070');
+  const papers = [[4, 9, 6, 5, '#f4f0e0'], [11, 8, 5, 7, '#fff8d8'], [16, 10, 4, 5, '#e8f0f4'], [5, 15, 7, 4, '#f4e8e0']];
+  for (const [x, y, w, h, c] of papers) { px.rect(x, y, w, h, c); px.set(x + Math.floor(w / 2), y, '#c83a2a'); px.hline(x + 1, x + w - 2, y + 2, '#a8a090'); }
+  px.poly([[0, 7], [24, 7], [20, 1], [4, 1]], '#6a4428'); px.hline(4, 19, 1, '#8a6040');
+  if (season === WINTER) px.hline(4, 19, 0, '#f4f8fb');
+  px.outline('#24160e');
+  return { px, ax: 4, ay: 16 };
 }
 
 function genWell(season) {

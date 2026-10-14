@@ -1,7 +1,7 @@
 # Nested 🪺
 
 **A cozy pixel-art life sim about bringing birds back to a valley.**
-Find clues about 37 real European birds, gather the exact materials each one uses for its nest,
+Find clues about 45 real European birds, gather the exact materials each one uses for its nest,
 create the habitat it needs — and watch eggs hatch and chicks fledge. Play alone or build habitats together in co-op.
 
 ![Gameplay](assets/screenshot-garden.png)
@@ -40,7 +40,7 @@ Up to 6 players. Use `python3 server.py --port 9000` if port 8080 is busy.
 |---|---|---|---|
 | Move | WASD / arrow keys | Left stick / d-pad | Drag on the left side |
 | Interact (gather, talk, plant, place, observe) | **E** / Space / left-click | A | **A** button |
-| Nest site / details | **F** / right-click | X | **B** button |
+| Nest site / details · give the item in your hand to a villager | **F** / right-click | X | **B** button |
 | Hotbar | 1–8, mouse wheel, Q / R | LB / RB | tap a slot |
 | Journal · Bag · Map | Tab (J) · I (B) · M | Y · – · Back | top-right buttons |
 | Menu / close | Esc | B / Start | ✕ |
@@ -65,19 +65,38 @@ Prompts above things always tell you what **E** and **F** will do.
 4. **Build the nest** at the right site (press **F** there). The panel shows every habitat need with ✓/✗.
    If the habitat is right and it's the breeding season, a pair moves in, lays eggs, and raises chicks.
 5. When the chicks fledge, the species counts as **nested**, you get a conservation grant, and new birds start visiting.
-   Nest all **37 species** to restore the valley.
+   Nest all **45 species** to restore the valley.
 
 Sleep in your cottage to end the day: plants grow, eggs hatch and chicks fledge overnight. Seasons last 7 days.
 Most birds nest in spring and summer — but Barn Owls and Wood Pigeons still breed in autumn, Crossbills breed in **winter**,
 and Grey Herons start building in late winter.
 
-**Birds of the night:** owls, the nightjar, the nightingale and the corncrake only show themselves from dusk until
-dawn — stay up late (your lantern lights the way) and listen.
+**Birds of the night:** owls, the nightjar, the nightingale, the corncrake and the water rail only show themselves from
+dusk until dawn. Nights are moonlit, not black: the valley turns blue and silver, windows, lanterns and lamp posts glow
+warm, and fireflies dance on summer nights. Stay up late and listen — or, when you play alone, **rest until evening**
+at your cottage door or on a garden bench.
+
+![A moonlit evening in the village](assets/screenshot-night.png)
+
+**Rare visitors:** about one day in five, a villager reports an unusual bird passing through — a Hoopoe, a Golden Oriole,
+Waxwings, an Osprey, a Bluethroat or a Hawfinch, each in its own season. It stays for that day only; look for the sparkle.
 
 **Villagers:** Prof. Ada, Basil, Mabel, Old Tom the fisherman, Edith and her granddaughter Rosie, Finn the
 photographer, Juniper the forest ranger and — after dark — Luna the night birder all go about their day on their own
-routes. A yellow **!** means someone needs a hand: their side quests send you exploring every corner of the valley
-for lost things, materials and the seven hidden **landmarks** (each one you discover earns coins).
+routes. A yellow **!** means someone needs a hand. Their **34 requests** send you exploring every corner of the valley:
+lost things to find, materials to bring, parcels to carry from one neighbour to another, landmarks to visit at dawn or
+after dark, nest boxes and bird baths to put up, and birds to help nest. Each of the seven hidden **landmarks** earns
+coins when you discover it.
+
+**Friends:** talk to villagers every day and give them little gifts (hold something and press **F** in front of them —
+everyone has favourites). Friendships grow in hearts; at 2 and 4 hearts they tell you their stories, and best friends
+give you a keepsake. The **Notice Board** by the well posts two small, optional requests every morning.
+
+**Birder rank & badges:** everything you do for the birds — watching them, finding clues, building nests, seeing chicks
+fledge, helping neighbours, exploring — earns experience. Fifteen ranks (from *Fledgling* to *Legend of the Valley*) bring
+coins, saplings, better binoculars, quieter steps and new workbench recipes: a **bird feeder** (birds really visit it), a
+**lamp post** and a **garden bench**. Seventeen badges celebrate milestones; the journal's **Progress** page shows how
+close you are to each.
 
 **Make it yours:** the character creator (and the **Wardrobe** in the pause menu) has 12 hairstyles, 14 hair colours,
 9 skin tones, eye colours and four eye shapes, 10 kinds of top, trousers/shorts/skirts, shoes, 8 hats, glasses and
@@ -86,7 +105,7 @@ accessories like binoculars, a camera, a scarf, a backpack or a satchel. Hit **S
 ### The birds (spoilers!)
 
 <details>
-<summary>All 37 species with their nests</summary>
+<summary>All 45 species with their nests</summary>
 
 | Bird | Nest site | Materials | Special needs |
 |---|---|---|---|
@@ -127,6 +146,14 @@ accessories like binoculars, a camera, a scarf, a backpack or a satchel. Hit **S
 | Red-backed Shrike | thorny shrub | grass, moss, wool, horsehair | flowery grassland, thorny scrub |
 | European Bee-eater | earth bank in the open | none (digs a tunnel) | lots of flowers buzzing with bees |
 | Eurasian Eagle-Owl 🌙 | rock ledge in the hills | none (a scrape) | steep rocky ground; nests in late winter |
+| Goldcrest | pine (hung under a branch) | moss, spider silk, lichen, feathers | pines all around |
+| Eurasian Treecreeper | standing dead tree (behind loose bark) | twigs, moss, feather | woodland with many trunks |
+| Eurasian Bullfinch | thorny shrub | fine twigs, horsehair | thick shrubs and a few trees |
+| Yellowhammer | shrub (at its foot) | dry grass, horsehair | rough long grass along a hedge |
+| Common Kestrel | rock ledge in the hills | none (a scrape) | crags, and rough grassland full of voles |
+| Northern Lapwing | long grass or marsh by water | a little grass | open wet meadow, no trees |
+| Water Rail 🌙 | dense reed bed | dead leaves, dry grass | a big reed bed |
+| Eurasian Scops Owl 🌙 | broadleaf tree (a hollow) | none | orchard trees and flowers full of moths |
 
 🌙 = only seen from dusk until dawn.
 
@@ -137,6 +164,24 @@ game durations are shortened — the journal lists the real clutch sizes, incuba
 
 ---
 
+## Design notes: what makes it engaging
+
+The third update was planned around what player-experience research says keeps people coming back to a game, and
+what makes a "cozy" game feel cozy. The evidence is mostly small studies and design frameworks, so these are design
+principles to test, not proven laws.
+
+| Research finding | What it means here |
+|---|---|
+| **Competence, autonomy and relatedness.** Self-Determination Theory studies find that games satisfying these three needs are enjoyed more and played longer ([Ryan, Rigby & Przybylski 2006](https://pure.ewha.ac.kr/en/publications/the-motivational-pull-of-video-games-a-self-determination-theory-/)), with recent work linking need satisfaction to wellbeing ([Games & Culture 2023](https://www.ebsco.com/articles/sports-and-leisure/8f5b22f9-782e-5c3f-8b1b-e013013b4fee/last-man-standing-battle-royale-games-through-the-lens-of-self-determination-theory)). | *Competence:* birder rank, an XP bar, rank-up rewards and quest progress counters. *Autonomy:* every request, notice and badge is optional, and many different activities earn progress. *Relatedness:* friendships, hearts and personal stories, deliveries that connect neighbours, and co-op. |
+| **Cozy games rest on safety, abundance and softness**: no threats or penalties, plentiful resources, comforting looks and sounds ([DiGRA paper](https://dl.digra.org/index.php/dl/article/download/3058/3042/3101); see also [Erasmus University 2024](https://thesis.eur.nl/pub/74942/) and a [Utrecht thesis](https://studenttheses.uu.nl/handle/20.500.12932/47430) on slow pacing and low stakes). | Nothing can be lost or failed: board tasks are optional, materials regrow, gifts are never "wrong". Nights are moonlit and gentle instead of dark and threatening. |
+| **Curiosity comes from information gaps** that the player can close ([To et al., DiGRA 2016](https://dl.digra.org/index.php/dl/article/view/793)). Curiosity was also the strongest predictor of enjoyment and playtime in a CHI 2024 study of game feedback ([Kao et al.](https://spiral.imperial.ac.uk/entities/publication/253c32f5-d124-4a23-88b5-9aaaf114608d)). | Three clues per bird, silhouettes in the journal, "???" landmarks and rare-visitor slots, sparkling rare birds that stay one day, night-only birds, and quests that send you to new places at dawn or after dark. |
+| **Moderate "juice" works best**: none, or too much, feedback makes the experience worse ([game-feel survey](https://arxiv.org/pdf/2011.09201); [Hicks et al.](https://dl.digra.org/index.php/dl/article/view/936)). | Short confetti, a fanfare and a card on rank-up; hearts for gifts; small "+XP" floats. Nothing flashes or interrupts play for long. |
+| **Badges, levels and progress bars** are among the most effective motivational elements, especially in combination ([2024 meta-analysis](https://opus4.kobv.de/opus4-ohm/frontdoor/index/index/year/2024/docId/2476)). Meta-analyses don't support the idea that such rewards undermine intrinsic motivation in games ([Kao, CHI 2018](https://people.csail.mit.edu/dkao/pdf/kao2018chi.pdf)). | Badges are informational ("you did this"), never controlling. Each shows a progress bar, and ranks show exactly what the next one brings. |
+| **Goal gradient and endowed progress**: people speed up as a goal gets close, and a head start increases completion ([Nunes & Drèze 2006](https://msbfile03.usc.edu/digitalmeasures/jnunes/intellcont/Endowed%20Progress%20Effect-1.pdf)). | The first rank comes quickly (Ada's first clues already half-fill the bar), and every badge and quest shows how close you are. |
+| **Relatedness in single-player games** can come from characters and stories, though this is understudied ([eudaimonic gaming, 2025](https://arxiv.org/pdf/2507.18084)). | Villagers have routines, tastes, stories at 2 and 4 hearts, and keepsakes at 5. Some requests are about each other, not about you. |
+
+---
+
 ## Project layout
 
 ```
@@ -144,7 +189,8 @@ index.html          the game (loads the scripts below)
 server.py           co-op server: static files + WebSocket relay (Python standard library only)
 build.py            bundles everything into dist/nested.html
 js/core/            helpers and constants
-js/data/            species, items, plants, villagers & their routes, side quests, landmarks, letters — easy to edit
+js/data/            species, items, plants, villagers & their routes, side quests, landmarks, letters,
+                    ranks, badges, gift tastes and notice-board requests — easy to edit
 js/sim/             map generation, rules and the authoritative World (runs on the solo player / co-op host)
 js/art/             code that draws all pixel art: birds, terrain, trees, buildings, people, icons, font
 js/client/          rendering, input, audio synthesis, UI screens, HUD, game loop

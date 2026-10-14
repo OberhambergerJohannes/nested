@@ -8,7 +8,7 @@ const STONE = { o: '#2c2a30', d: '#5a5862', m: '#7e7c86', l: '#a4a2aa', h: '#c8c
 
 // ---------------------------------------------------------------- structures
 function genStruct(kind, season) {
-  const px = new Pix(kind === 'platform' ? 34 : kind === 'owlbox' ? 24 : kind === 'brushpile' ? 26 : 18, kind === 'platform' ? 62 : kind === 'owlbox' ? 46 : 34);
+  const px = new Pix(kind === 'platform' ? 34 : kind === 'owlbox' ? 24 : kind === 'brushpile' ? 26 : kind === 'gardenbench' ? 22 : 18, kind === 'platform' ? 62 : kind === 'owlbox' ? 46 : kind === 'lamppost' ? 38 : 34);
   const cx = Math.floor(px.w / 2), base = px.h - 2;
   const pole = (x, top) => { px.rect(x - 1, top, 3, base - top + 1, WOOD.m); px.vline(x - 1, top, base, WOOD.l); px.vline(x + 1, top, base, WOOD.d); px.rect(x - 2, base - 1, 5, 2, '#5a4a3a'); };
   switch (kind) {
@@ -79,6 +79,32 @@ function genStruct(kind, season) {
       for (const [x, y] of [[cx - 7, base], [cx + 6, base - 1], [cx + 3, base + 1], [cx - 4, base + 1]]) {
         px.set(x, y, '#e8c87a'); px.set(x + 1, y, '#8a5a2a'); px.set(x, y - 1, '#c8a05a');
       }
+      break;
+    }
+    case 'feeder': {
+      pole(cx, 12);
+      px.rect(cx - 6, 11, 13, 2, WOOD.l); px.hline(cx - 6, cx + 6, 11, WOOD.h);
+      px.rect(cx - 3, 4, 7, 7, '#cfe4ec'); px.vline(cx - 3, 4, 10, '#e8f4f8'); px.vline(cx + 3, 4, 10, '#9ab8c4');
+      for (let y = 7; y < 11; y++) px.hline(cx - 2, cx + 2, y, y % 2 ? '#c8a050' : '#a87a3a');
+      px.poly([[cx - 5, 5], [cx + 5, 5], [cx, 1]], '#a8483a'); px.line(cx - 5, 4, cx, 0, '#c8604a');
+      px.set(cx - 5, 10, '#c8a050'); px.set(cx + 5, 10, '#a87a3a');
+      if (season === WINTER) px.hline(cx - 3, cx + 3, 1, '#f4f8fb');
+      break;
+    }
+    case 'lamppost': {
+      px.rect(cx - 1, 10, 3, base - 9, '#3a3a44'); px.vline(cx - 1, 10, base, '#5a5a66');
+      px.rect(cx - 3, base - 1, 7, 2, '#2a2a30');
+      px.rect(cx - 3, 3, 7, 7, '#2a2a30'); px.rect(cx - 2, 4, 5, 5, '#ffe08a'); px.set(cx - 1, 5, '#fff6c8');
+      px.poly([[cx - 4, 4], [cx + 4, 4], [cx, 0]], '#2a2a30'); px.hline(cx - 4, cx + 4, 10, '#2a2a30');
+      if (season === WINTER) px.hline(cx - 2, cx + 2, 0, '#f4f8fb');
+      break;
+    }
+    case 'gardenbench': {
+      const W2 = { d: '#5a3a22', m: '#8a5a34', l: '#a8743f', h: '#c89458' };
+      px.rect(2, base - 14, 18, 3, W2.m); px.hline(2, 19, base - 14, W2.h); px.hline(2, 19, base - 12, W2.d);
+      px.rect(2, base - 8, 18, 3, W2.l); px.hline(2, 19, base - 8, W2.h); px.hline(2, 19, base - 6, W2.d);
+      for (const x of [3, 17]) { px.rect(x, base - 15, 2, 15, '#3a3a44'); px.vline(x, base - 15, base, '#5a5a66'); }
+      if (season === WINTER) px.hline(2, 19, base - 9, '#f4f8fb');
       break;
     }
     case 'birdbath': {

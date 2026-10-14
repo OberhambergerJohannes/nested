@@ -30,6 +30,10 @@ class ClientState {
     this.inv = s.inv || [];
     this.side = s.side || {};
     this.found = s.found || {};
+    this.prog = s.prog || { xp: 0, lvl: 1, fr: {}, hev: {}, gift: {}, lvlUps: [] };
+    this.badges = s.badges || {};
+    this.board = s.board || [];
+    this.rareLog = s.rareLog || {};
     this.stats = s.stats || {};
     this.allDone = !!s.allDone;
     const old = this.players;
@@ -131,6 +135,13 @@ class ClientState {
         case 'vis': this.visitors = e[1]; this.featured = e[2]; game.onVisitors(); break;
         case 'tp': game.onTeleport(e[1], e[2]); break;
         case 'side': this.side = e[1]; break;
+        case 'prog': this.prog = e[1]; break;
+        case 'xp': game.onXP(e[1], e[2]); break;
+        case 'lvl': game.onLevel(e[1], e[2]); break;
+        case 'badges': this.badges = e[1]; break;
+        case 'board': this.board = e[1]; break;
+        case 'stats': this.stats = e[1]; break;
+        case 'rare': this.rareLog = e[1]; break;
         case 'found': this.found = e[1]; this.mapDirty = true; break;
         case 'lore': game.onLore(e[1], e[2]); break;
       }

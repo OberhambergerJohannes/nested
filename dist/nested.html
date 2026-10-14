@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="description" content="Nested — a cozy pixel-art life sim about building nests for 37 real European bird species. Solo or co-op.">
+<meta name="description" content="Nested — a cozy pixel-art life sim about building nests for 45 real European bird species. Solo or co-op.">
 <title>Nested — a bird-haven life sim</title>
 <link rel="icon" href="data:,">
 <style>
@@ -339,6 +339,12 @@ const ITEMS = {
     desc: 'A big, deep box on a tall pole. In open meadows or in the woods — different owls, different homes.' },
   platform:   { name: 'Stork Platform', cat: 'struct', struct: 'platform',
     desc: 'An old cartwheel on a tall pole. Put it up in open country.' },
+  feeder:     { name: 'Bird Feeder', cat: 'struct', struct: 'feeder',
+    desc: 'Seeds for garden birds — they\'ll gather round it. Keep feeders clean: dirty ones can spread disease.' },
+  lamppost:   { name: 'Lamp Post', cat: 'struct', struct: 'lamppost',
+    desc: 'A warm light for evening birdwatching. Moths gather round it on summer nights.' },
+  gardenbench: { name: 'Garden Bench', cat: 'struct', struct: 'gardenbench',
+    desc: 'Sit and watch the day go by. (When you play alone, you can rest here until the evening.)' },
   bank:       { name: 'Earth Bank', cat: 'struct', struct: 'bank',
     desc: 'A steep wall of packed sand and clay for birds that dig nest tunnels. Some want it at the water\'s edge.' },
   snag:       { name: 'Deadwood Trunk', cat: 'struct', struct: 'snag',
@@ -369,6 +375,9 @@ const RECIPES = [
   { id: 'bank',       mats: { sand: 6, clay: 4 } },
   { id: 'owlbox',     mats: { wood: 8 } },
   { id: 'platform',   mats: { wood: 6, stick: 4 } },
+  { id: 'feeder',     mats: { wood: 2, stone: 1 }, lvl: 3 },
+  { id: 'lamppost',   mats: { wood: 2, stone: 2 }, lvl: 5 },
+  { id: 'gardenbench', mats: { wood: 4 }, lvl: 7 },
 ];
 
 // Basil's shop. 'mat:wood' sells a pouch material.
@@ -424,6 +433,9 @@ const STRUCTS = {
   bank:       { name: 'Earth Bank', site: 'bank', solid: true },
   brushpile:  { name: 'Brush Pile', site: 'brushpile', deadwood: true, solid: true },
   anvil:      { name: 'Anvil Stone' },
+  feeder:     { name: 'Bird Feeder' },
+  lamppost:   { name: 'Lamp Post', solid: true },
+  gardenbench: { name: 'Garden Bench', solid: true },
   birdbath:   { name: 'Bird Bath', solid: true },
 };
 
@@ -457,7 +469,7 @@ const SITES = {
 };
 
 // ---- js/data/species.js ----
-// The 37 nesting birds of Featherbrook Valley. Birds with night: true only show themselves
+// The 45 nesting birds of Featherbrook Valley. Birds with night: true only show themselves
 // from dusk until dawn.
 //
 //  site     – where the nest goes (see SITES)
@@ -1387,6 +1399,204 @@ const SPECIES = [
       'Pairs often use the same rock ledge year after year, laying their eggs in late winter.',
     ],
   },
+  // ---------------------------------------------------------------- added in the third update
+  {
+    id: 'goldcrest', name: 'Goldcrest', latin: 'Regulus regulus', tier: 2,
+    zone: 'pines', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'pine', mats: { moss: 3, silk: 2, lichen: 1, feather: 2 },
+    hab: [{ k: 'pines', n: 3, r: 4, why: 'Conifers — goldcrests live almost only in them' }],
+    terr: 4, clutch: [6, 9], incub: 2, nestling: 2, nest: 'cupfine',
+    body: 'small', song: 'goldcrest', beak: 'thin',
+    col: { o: '#1e2414', c: '#f2c41a', n: '#8a9a5a', f: '#c8cca0', m: '#2a2a1e', i: '#e8ecd8', b: '#3a3a2e', t: '#d8dcb8',
+      r: '#c8cca0', s: '#c8cca0', z: '#c8cca0', y: '#dcdcc0', k: '#7a8a4a', w: '#5a6a3a', x: '#f4f4e8', p: '#3a4428',
+      a: '#4a5432', u: '#8a9a5a', l: '#8a6a4a', g: '#2a2a1e' },
+    egg: { c: '#f4ecd8', s: '#c8a888', p: 'fine' },
+    real: { clutch: '7–12 eggs', incub: '15–17 days', fledge: '17–22 days' },
+    hints: [
+      'In the pine grove, a tiny olive-green bird flits restlessly through the needles, flashing a golden stripe on its crown. Its song is so high that some people can\'t hear it at all.',
+      'Goldcrests hang their nest beneath the tip of a conifer branch — a pine with more pines close by.',
+      'A deep little cup of moss and lichen, bound together with spider silk and lined with soft feathers.',
+    ],
+    facts: [
+      'Weighing about as much as a 20-cent coin, the Goldcrest is one of Europe\'s smallest birds.',
+      'Its nest hangs like a hammock beneath a conifer branch, held together with spider silk.',
+      'Tiny as they are, many goldcrests cross the North Sea on migration every autumn.',
+      'Its song is so high-pitched that many people stop being able to hear it as they get older.',
+    ],
+  },
+  {
+    id: 'treecreeper', name: 'Eurasian Treecreeper', latin: 'Certhia familiaris', tier: 2,
+    zone: 'forest', present: [0, 1, 2, 3], breed: [SPRING],
+    site: 'snag', mats: { twig: 2, moss: 2, feather: 1 },
+    hab: [{ k: 'trees', n: 6, r: 4, why: 'Woodland with plenty of trunks to search for insects' }],
+    terr: 5, clutch: [5, 6], incub: 2, nestling: 2, nest: 'hole',
+    body: 'small', song: 'treecreeper', beak: 'thin',
+    col: { o: '#24180e', c: '#7a5a3a', n: '#7a5a3a', f: '#b89a74', m: '#4a3220', i: '#f0e8d8', b: '#4a3a2a', t: '#f4f0e6',
+      r: '#f0ece2', s: '#f0ece2', z: '#f0ece2', y: '#ece4d4', k: '#8a6a44', w: '#6a4a2a', x: '#d8c49c', p: '#4a3420',
+      a: '#7a5a3a', u: '#a07a4a', l: '#c8a888', g: '#4a3220' },
+    egg: { c: '#f6f2ec', s: '#a84a3a', p: 'fine' },
+    real: { clutch: '5–6 eggs', incub: '13–17 days', fledge: '14–16 days' },
+    hints: [
+      'A little brown bird creeps up a tree trunk like a mouse, spiralling upwards and probing the bark with a thin, curved bill — then flutters down to the foot of the next tree.',
+      'Treecreepers tuck their nest behind a flap of loose bark. A standing dead tree is perfect, in woodland with plenty of trunks around.',
+      'A loose base of twigs and moss wedged behind the bark, lined with soft feathers.',
+    ],
+    facts: [
+      'Treecreepers climb trees in spirals, always upwards, then fly down to the base of the next tree to start again.',
+      'Stiff, pointed tail feathers prop it against the trunk, just like a woodpecker\'s.',
+      'On freezing winter nights, several treecreepers may huddle together in a sheltered crevice to keep warm.',
+      'It usually builds its nest behind a loose flap of bark or in a crack in a tree.',
+    ],
+  },
+  {
+    id: 'bullfinch', name: 'Eurasian Bullfinch', latin: 'Pyrrhula pyrrhula', tier: 2,
+    zone: 'orchard', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'thorny', mats: { twig: 3, hair: 1 },
+    hab: [{ k: 'shrubs', n: 3, r: 3, why: 'Thick hedges and bushes for cover' },
+          { k: 'trees', n: 2, r: 5, why: 'Trees with buds and seeds nearby' }],
+    terr: 4, clutch: [4, 5], incub: 2, nestling: 2, nest: 'cup',
+    body: 'small', song: 'bullfinch', beak: 'finch',
+    col: { o: '#1e1418', c: '#141418', n: '#7a7a84', f: '#e8645a', m: '#141418', i: '#141418', b: '#1a1a1e', t: '#e8645a',
+      r: '#ea6a5e', s: '#ea6a5e', z: '#ea6a5e', y: '#f0a8a0', k: '#8a8a94', w: '#1e1e24', x: '#d8d8dc', p: '#141418',
+      a: '#141418', u: '#f4f4f4', l: '#6a5a5a', g: '#141418' },
+    egg: { c: '#b8d0d8', s: '#5a3a3a', p: 'spots' },
+    real: { clutch: '4–5 eggs', incub: '12–14 days', fledge: '15–17 days' },
+    hints: [
+      'A plump finch with a glossy black cap and a breast as rosy as a sunset sits quietly in the orchard hedge, nibbling buds. It whistles a soft, sad "peu".',
+      'Bullfinches hide their nest deep inside a thorny shrub, with more bushes and a few trees around.',
+      'A flimsy platform of fine twigs, with a neat cup of rootlets and hair inside.',
+    ],
+    facts: [
+      'Bullfinch pairs stay together all year and are often seen feeding side by side.',
+      'In spring they nibble the buds of fruit trees, which once made them unpopular with orchard owners.',
+      'When feeding chicks, the parents carry seeds in little pouches inside their mouths.',
+      'Its quiet, piping call is easy to miss — bullfinches are shy birds of thick cover.',
+    ],
+  },
+  {
+    id: 'yellowhammer', name: 'Yellowhammer', latin: 'Emberiza citrinella', tier: 3,
+    zone: 'farm', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'shrub', mats: { grass: 3, hair: 1 },
+    hab: [{ k: 'longgrass', n: 6, r: 3, why: 'Rough grass growing at the foot of the hedge' },
+          { k: 'shrubs', n: 3, r: 4, why: 'A hedgerow to sing from' }],
+    terr: 5, clutch: [3, 5], incub: 2, nestling: 2, nest: 'groundcup',
+    body: 'small', song: 'yellowhammer', beak: 'finch',
+    col: { o: '#2a2010', c: '#f6dc2a', n: '#d8c040', f: '#f6dc2a', m: '#8a7a3a', i: '#f6dc2a', b: '#8a8a8a', t: '#f8e030',
+      r: '#f2d42a', s: '#c8783a', z: '#b8783a', y: '#f6e04a', k: '#a8783a', w: '#8a5a2a', x: '#d8b060', p: '#5a3a1e',
+      a: '#5a3a1e', u: '#c8683a', l: '#c8a080', g: '#8a7a3a' },
+    egg: { c: '#e8dce8', s: '#5a3a4a', p: 'scribble' },
+    real: { clutch: '3–5 eggs', incub: '12–14 days', fledge: '11–13 days' },
+    hints: [
+      'On top of a farm hedge sits a bird as yellow as a buttercup, singing over and over: "a little bit of bread and no cheeeese!"',
+      'Yellowhammers nest on or near the ground at the foot of a shrub, where rough long grass grows along a hedgerow.',
+      'A cup of dry grass hidden in the grass under the hedge, lined with fine hair.',
+    ],
+    facts: [
+      'Its song is famously remembered as "a little bit of bread and no cheese".',
+      'An old country name is "scribble lark": its eggs are covered in fine, scribbly lines.',
+      'Yellowhammers need hedgerows with grassy margins and winter seeds, and have declined on modern farmland.',
+      'Males sing from the top of a hedge or a post all summer long, from dawn until dusk.',
+    ],
+  },
+  {
+    id: 'kestrel', name: 'Common Kestrel', latin: 'Falco tinnunculus', tier: 3,
+    zone: 'hills', present: [0, 1, 2, 3], breed: [SPRING],
+    site: 'ledge', mats: {},
+    hab: [{ k: 'rock', n: 8, r: 3, why: 'A crag or cliff to nest on' },
+          { k: 'longgrass', n: 6, r: 10, why: 'Rough grassland nearby, full of voles' }],
+    terr: 12, clutch: [4, 5], incub: 3, nestling: 3, nest: 'scrape',
+    body: 'cuckoo', song: 'kestrel',
+    col: { o: '#2a1a12', c: '#8a96a4', n: '#8a96a4', f: '#c8ccd0', m: '#3a3a44', i: '#f2c830', b: '#5a5a62', t: '#f4e8d0',
+      r: '#e8c890', s: '#e8c890', z: '#4a3020', y: '#f0dcb0', k: '#b86a3a', w: '#c0703a', x: '#3a2418', p: '#2e2420',
+      a: '#8a96a4', u: '#8a96a4', l: '#f2c830', g: '#3a3a44' },
+    egg: { c: '#d8a080', s: '#8a3a2a', p: 'blotch' },
+    real: { clutch: '4–6 eggs', incub: '27–29 days', fledge: '27–32 days' },
+    hints: [
+      'A small falcon hangs perfectly still in the wind above the grassland, tail fanned and head motionless — then drops onto a vole. "Kee-kee-kee!" it calls from the crags.',
+      'Kestrels build no nest. They lay their eggs on a bare rock ledge up in the hills, with rough, vole-rich grassland within easy reach.',
+      'No nest materials at all: a shallow scrape on the bare ledge is enough.',
+    ],
+    facts: [
+      'The kestrel is the bird that hovers: it flies into the wind at just the right speed to hang still over one spot.',
+      'Kestrels can see ultraviolet light, which may help them spot the scent trails that voles leave in the grass.',
+      'They build no nest of their own, using ledges, holes in trees and buildings, or the old nests of crows.',
+      'In winter, kestrels often hunt from a post or branch instead of hovering, to save energy.',
+    ],
+  },
+  {
+    id: 'lapwing', name: 'Northern Lapwing', latin: 'Vanellus vanellus', tier: 4,
+    zone: 'eastmeadow', present: [0, 1, 2, 3], breed: [SPRING],
+    site: 'ground', mats: { grass: 1 },
+    hab: [{ k: 'open', n: 0, r: 4, why: 'Wide open ground — no trees near the nest' },
+          { k: 'water', n: 3, r: 4, why: 'Wet ground and shallow pools for the chicks to feed in' }],
+    terr: 5, clutch: [4, 4], incub: 3, nestling: 1, nest: 'scrape', precocial: true,
+    body: 'thrush', crest: 'wisp', song: 'lapwing',
+    col: { o: '#141814', c: '#141418', n: '#2a3a2a', f: '#f4f4f0', m: '#141418', i: '#f4f4f0', b: '#141418', t: '#141418',
+      r: '#141418', s: '#141418', z: '#f4f4f0', y: '#f8f8f4', k: '#2e5a3e', w: '#2a4a34', x: '#6a3a6a', p: '#141418',
+      a: '#1e1e22', u: '#e8945a', l: '#d89090', g: '#141418' },
+    egg: { c: '#a89a6a', s: '#2a2018', p: 'blotch' },
+    real: { clutch: '4 eggs', incub: '26–28 days', fledge: 'chicks leave the nest within hours; they fly at 35–40 days' },
+    hints: [
+      'Over the wet meadow, a black-and-white bird with a long, wispy crest tumbles through the sky in a wild display flight, calling "pee-wit! pee-wit!"',
+      'Lapwings nest on the ground in wet meadows: grass or marsh close to water, with no trees nearby.',
+      'Hardly a nest at all: a shallow scrape in the ground with a few bits of grass.',
+    ],
+    facts: [
+      'Its old country name "peewit" copies its call.',
+      'In spring, males perform wild, tumbling display flights, and their broad wings make a throbbing sound.',
+      'Lapwing chicks can run about and feed themselves within hours of hatching.',
+      'Seen up close, its "black" back shines green and purple.',
+    ],
+  },
+  {
+    id: 'waterrail', name: 'Water Rail', latin: 'Rallus aquaticus', tier: 3, night: true,
+    zone: 'pond', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'reeds', mats: { leaves: 2, grass: 2 },
+    hab: [{ k: 'reeds', n: 8, r: 3, why: 'A big, dense reed bed to hide in' }],
+    terr: 5, clutch: [6, 8], incub: 3, nestling: 1, nest: 'reedcup', precocial: true,
+    body: 'thrush', song: 'waterrail',
+    col: { o: '#1e1814', c: '#6a4a2a', n: '#6a4a2a', f: '#7a8494', m: '#5a6474', i: '#c83a2a', b: '#d8342a', t: '#8a94a4',
+      r: '#7a8494', s: '#7a8494', z: '#f4f4f0', y: '#2a2a2e', k: '#7a5a34', w: '#6a4a2a', x: '#3a2a1a', p: '#4a3420',
+      a: '#4a3420', u: '#f4f0e6', l: '#c87a6a', g: '#5a6474' },
+    egg: { c: '#f0e6d4', s: '#a87a5a', p: 'spots' },
+    real: { clutch: '6–11 eggs', incub: '19–22 days', fledge: 'chicks leave the nest within days; they fly at 20–30 days' },
+    hints: [
+      'After dark, an awful squealing like a piglet comes from deep in the reed bed. Whatever makes it is slim, secretive and hardly ever seen.',
+      'Water Rails hide their nest deep inside a big, dense reed bed.',
+      'A cup of dead leaves and dry grass, hidden low among the reed stems.',
+    ],
+    facts: [
+      'Its squealing, grunting calls — known as "sharming" — sound more like a piglet than a bird.',
+      'A body flattened from side to side lets it slip between dense reed stems.',
+      'Water Rails are heard far more often than seen, especially at dusk and after dark.',
+      'Its long red bill probes the mud for insects, snails and worms.',
+    ],
+  },
+  {
+    id: 'scopsowl', name: 'Eurasian Scops Owl', latin: 'Otus scops', tier: 4, night: true,
+    zone: 'orchard', present: [SPRING, SUMMER], breed: [SPRING, SUMMER],
+    site: 'tree', mats: {},
+    hab: [{ k: 'trees', n: 4, r: 4, why: 'Old orchard trees with hollows' },
+          { k: 'flowers', n: 4, r: 5, why: 'Flowers full of moths and crickets — its food' }],
+    terr: 8, clutch: [4, 5], incub: 3, nestling: 3, nest: 'hole',
+    body: 'owl', tufts: true, song: 'scopsowl',
+    col: { o: '#2a2018', c: '#8a7a68', n: '#8a7a68', f: '#a8988a', m: '#5a4a3a', i: '#f2c41a', b: '#3a3430', t: '#a8988a',
+      r: '#9a8a78', s: '#9a8a78', z: '#4a3a2c', y: '#b8a894', k: '#7a6a58', w: '#8a7a68', x: '#d8ccb8', p: '#5a4a3a',
+      a: '#7a6a58', u: '#8a7a68', l: '#9a8a78' },
+    egg: { c: '#f8f6f2', s: '#f8f6f2', p: 'none' },
+    real: { clutch: '4–5 eggs', incub: '24–25 days', fledge: '21–29 days' },
+    hints: [
+      'On warm nights in the orchard, a soft whistled "tyuu… tyuu…" repeats every few seconds, as steady as a metronome. The singer is a tiny owl, hardly bigger than a starling.',
+      'Scops Owls nest in a hollow in a broadleaf tree — an old orchard is ideal — with flowers nearby that buzz with moths and crickets.',
+      'No nest material: the eggs are laid on the bare floor of the hollow. It is a summer visitor.',
+    ],
+    facts: [
+      'The Scops Owl is a migrant: it spends the winter in Africa and returns to Europe in spring.',
+      'It feeds mostly on large insects such as moths, crickets and beetles.',
+      'Its grey-brown, bark-patterned feathers make it almost invisible against a tree trunk by day.',
+      'Its call is a single soft whistle, "tyuu", repeated every two or three seconds for hours on end.',
+    ],
+  },
 ];
 
 // Common birds that live in the valley all year. They make it feel alive but are not part of
@@ -1448,9 +1658,41 @@ AMBIENT.push({
     'Its frowning look comes from pale "eyebrows" above its bright yellow eyes.'],
 });
 
+// Rare visitors: they nest elsewhere, but now and then one turns up for a day. Spotting one is a treat.
+const RARE = [
+  { id: 'hoopoe', name: 'Eurasian Hoopoe', latin: 'Upupa epops', rare: true, present: [SPRING, SUMMER], zone: 'orchard', body: 'small', beak: 'thin', crest: 'fan', song: 'hoopoe',
+    col: { o: '#2a1a12', c: '#e8a070', n: '#d89060', f: '#e8b088', m: '#c8805a', g: '#141414', h: '#e8b088', i: '#e8a070', b: '#3a3030', t: '#e8b088', r: '#e0a078', s: '#e0a078', z: '#e0a078', y: '#f0d8c0', k: '#c88a5a', w: '#1a1a1a', x: '#f4f0e6', p: '#1a1a1a', a: '#1a1a1a', u: '#f4f0e6', l: '#4a4040' },
+    egg: { c: '#d8d0b8', s: '#d8d0b8', p: 'none' },
+    facts: ['Its soft "oop-oop-oop" call gives the Hoopoe its name.', 'A nesting female and her chicks can squirt a foul-smelling liquid to keep predators away.', 'It probes the ground for insect larvae with its long, curved bill.'] },
+  { id: 'oriole', name: 'Eurasian Golden Oriole', latin: 'Oriolus oriolus', rare: true, present: [SUMMER], zone: 'forest', body: 'thrush', song: 'oriole',
+    col: { o: '#2a2208', c: '#f2c81a', n: '#f2c81a', f: '#f2c81a', m: '#141414', i: '#f2c81a', b: '#c8604a', t: '#f4d030', r: '#f2c81a', s: '#f2c81a', z: '#f2c81a', y: '#f6d840', k: '#f2c81a', w: '#1a1a1a', x: '#f2d84a', p: '#141414', a: '#1a1a1a', u: '#f2c81a', l: '#5a5a5a' },
+    egg: { c: '#f4ece4', s: '#4a2a2a', p: 'spots' },
+    facts: ['Despite its brilliant yellow, it is surprisingly hard to spot among sunlit leaves high in the canopy.', 'Its fluting "weela-weeo" song sounds almost tropical.', 'It hangs its cup-shaped nest in a fork near the end of a branch.'] },
+  { id: 'waxwing', name: 'Bohemian Waxwing', latin: 'Bombycilla garrulus', rare: true, present: [WINTER], zone: 'garden', body: 'small', crest: 'swept', song: 'waxwing',
+    col: { o: '#2a1a14', c: '#c89a8a', n: '#b88a7a', f: '#c89a8a', m: '#141414', i: '#141414', b: '#1a1a1a', t: '#141414', r: '#c8a090', s: '#c8a090', z: '#c8a090', y: '#d8b8a8', k: '#a88070', w: '#5a5050', x: '#e8c840', p: '#3a3434', a: '#4a4040', u: '#8a8080', l: '#2a2a2a', g: '#141414' },
+    egg: { c: '#c8d0d8', s: '#3a3a3a', p: 'spots' },
+    facts: ['In some winters, flocks sweep south from the far north when the berries run out there.', 'The red, wax-like tips on its wing feathers gave the waxwing its name.', 'A waxwing can eat several times its own body weight in berries in a single day.'] },
+  { id: 'osprey', name: 'Western Osprey', latin: 'Pandion haliaetus', rare: true, present: [SPRING, AUTUMN], zone: 'river', body: 'cuckoo', song: 'osprey',
+    col: { o: '#1e1814', c: '#f4f0e8', n: '#5a4030', f: '#f4f0e8', m: '#3a2a20', i: '#f2c830', b: '#1a1a1a', t: '#f4f0e8', r: '#f0ece4', s: '#c8a888', z: '#8a6a50', y: '#f4f0e8', k: '#5a4030', w: '#5a4030', x: '#6a5040', p: '#3a2a20', a: '#5a4030', u: '#5a4030', l: '#c8c8c0' },
+    egg: { c: '#e8dcc8', s: '#8a4a2a', p: 'blotch' },
+    facts: ['It dives feet-first into the water to catch fish.', 'Ospreys stop at rivers and lakes on their long journeys between Africa and northern Europe.', 'Spiny pads on its feet help it grip slippery fish.'] },
+  { id: 'bluethroat', name: 'Bluethroat', latin: 'Luscinia svecica', rare: true, present: [SPRING], zone: 'pond', body: 'small', beak: 'thin', song: 'bluethroat',
+    col: { o: '#2a1e14', c: '#7a6048', n: '#7a6048', f: '#8a7058', m: '#f0e8d8', i: '#7a6048', b: '#2a2420', t: '#2a5ab8', r: '#c83a2a', s: '#2a5ab8', z: '#e88a3a', y: '#efe6d8', k: '#7a6048', w: '#6e5640', x: '#7a6048', p: '#5a4634', a: '#b8643a', u: '#a0603a', l: '#5a4a3a' },
+    egg: { c: '#a8b898', s: '#a8b898', p: 'none' },
+    facts: ['The male\'s throat is bright blue with a red or white spot in the middle.', 'On migration it skulks low in reed beds and wet scrub.', 'It is a close relative of the robin and the nightingale.'] },
+  { id: 'hawfinch', name: 'Hawfinch', latin: 'Coccothraustes coccothraustes', rare: true, present: [WINTER, SPRING], zone: 'forest', body: 'small', beak: 'finch', song: 'hawfinch',
+    col: { o: '#2a1a12', c: '#b8763a', n: '#8a8a92', f: '#c8864a', m: '#141414', i: '#c8864a', b: '#b8b0a0', t: '#141414', r: '#c89a7a', s: '#c89a7a', z: '#c89a7a', y: '#d8b098', k: '#6a4a30', w: '#2a2a3a', x: '#f0ece4', p: '#2a2a3a', a: '#6a4a30', u: '#8a6a4a', l: '#c89a8a', g: '#141414' },
+    egg: { c: '#c8d0b8', s: '#5a4a3a', p: 'spots' },
+    facts: ['Its huge bill is strong enough to crack cherry and olive stones.', 'Shy and easily overlooked, it spends most of its time high in the treetops.', 'It is the largest finch in Britain.'] },
+];
+
+// Journal order: by tier, so new arrivals sit next to the birds you meet at the same time
+const SPECIES_BY_TIER = SPECIES.slice().sort((a, b) => a.tier - b.tier);
+
 const SPECIES_BY_ID = {};
 for (const s of SPECIES) SPECIES_BY_ID[s.id] = s;
 for (const s of AMBIENT) SPECIES_BY_ID[s.id] = s;
+for (const s of RARE) { s.breed = []; SPECIES_BY_ID[s.id] = s; }
 
 // Number of species nested needed to unlock each tier of new leads.
 const TIER_UNLOCK = [0, 1, 3, 7, 13, 20];
@@ -1643,14 +1885,16 @@ const LETTERS = {
     from: 'Prof. Ada Finch', title: 'Welcome to Featherbrook!',
     body: 'Dear neighbour,\n\nWelcome to your cottage in Featherbrook Valley! Our valley used to ring with birdsong, but many species have vanished as old hedges, meadows and ponds disappeared.\n\nYou can help them come home. Every bird builds its own special nest, in its own special place — find out how, and build them a home!\n\nPlease visit me at the Field Station, just east of Basil\'s Garden Shop.\n\nYours, Ada',
   },
+  neighbours: { from: 'Prof. Ada Finch', title: 'Meet the neighbours',
+    body: 'Dear neighbour,\n\nWord travels fast in a small valley! Now that the blackbirds have moved in, the villagers would love your help too.\n\n• A yellow "!" over someone\'s head means they have a request. Help them out and they\'ll reward you — and become your friends.\n• The Notice Board by the well has two small requests every morning.\n• Everyone likes a little gift. Hold something in your hands, walk up to a villager and press F (or right-click). They all have favourites!\n• Watching birds, finding clues and building nests all count towards your Birder Rank. New ranks bring rewards and new workbench recipes.\n• Now and then a rare visitor turns up for a single day. Watch for sparkles!\n\nAnd the valley doesn\'t sleep at sunset: some of our birds only come out at night.\n\n— Ada' },
   tier1: { from: 'Prof. Ada Finch', title: 'New leads!',
     body: 'Your first chicks have fledged — wonderful! Word is spreading.\n\nI\'ve had reports of a tiny blue bird in the orchard, a speckled singer in the gardens, and soft cooing from the trees. Keep your eyes open and look for Field Notes!\n\n— Ada' },
   tier2: { from: 'Prof. Ada Finch', title: 'More birds arriving',
-    body: 'Three species nesting already! Now I\'m hearing a tiny, very loud singer in the forest, glossy blue birds around the farm and the village roofs, and ducks on the pond. Something in the forest is walking head-first DOWN the tree trunks, and smart black-and-white flycatchers are back in the oaks.\n\nTip: mud is precious for some birds. After rain, look for puddles!\n\n— Ada' },
+    body: 'Three species nesting already! Now I\'m hearing a tiny, very loud singer in the forest, glossy blue birds around the farm and the village roofs, and ducks on the pond. Something in the forest is walking head-first DOWN the tree trunks, and smart black-and-white flycatchers are back in the oaks.\n\nThere\'s more: a speck of gold flitting through the pines, a mouse-like bird creeping up the tree trunks, and a rosy-breasted finch in the orchard hedge.\n\nTip: mud is precious for some birds. After rain, look for puddles!\n\n— Ada' },
   tier3: { from: 'Prof. Ada Finch', title: 'The valley is waking up',
-    body: 'Seven species! New reports: a charm of red-faced finches in the south meadow, a fluffy long-tailed bird by the forest edge, drumming in the woods, chattering in the reeds and red birds in the pine grove.\n\nA song pours down from high above the hay meadow, a little plover runs over the river gravel, a dark bird walks right into the river, sand martins twitter along the banks and jackdaws chatter on the chimneys. And on spring nights — listen for the nightingale!\n\n— Ada' },
+    body: 'Seven species! New reports: a charm of red-faced finches in the south meadow, a fluffy long-tailed bird by the forest edge, drumming in the woods, chattering in the reeds and red birds in the pine grove.\n\nA song pours down from high above the hay meadow, a little plover runs over the river gravel, a dark bird walks right into the river, sand martins twitter along the banks and jackdaws chatter on the chimneys. A yellow bird sings about bread and cheese on the farm hedges, and a little falcon hangs in the wind above the hills. And on spring nights — listen for the nightingale, and for something squealing like a piglet in the reeds!\n\n— Ada' },
   tier4: { from: 'Prof. Ada Finch', title: 'Rare visitors!',
-    body: 'Thirteen species — the valley is becoming famous! Someone saw a flash of blue on the river, a ghostly white owl over the hay meadow at dusk, a masked little bird in the pond willows… and a certain bird calling its own name.\n\nScreaming swifts race around the rooftops and a tall grey heron stalks the river. And the nights are full of voices: hooting in the forest, a churring nightjar in the clearings, a long-eared owl in the pines and a corncrake rasping all night in the hay meadow. Bring a lantern!\n\n— Ada' },
+    body: 'Thirteen species — the valley is becoming famous! Someone saw a flash of blue on the river, a ghostly white owl over the hay meadow at dusk, a masked little bird in the pond willows… and a certain bird calling its own name.\n\nScreaming swifts race around the rooftops and a tall grey heron stalks the river. And the nights are full of voices: hooting in the forest, a churring nightjar in the clearings, a long-eared owl in the pines and a corncrake rasping all night in the hay meadow. On summer nights a tiny owl whistles "tyuu" in the orchard. And over the wet meadow, a crested black-and-white bird tumbles through the air crying "pee-wit!"\n\n— Ada' },
   tier5: { from: 'Prof. Ada Finch', title: 'A very big visitor',
     body: 'Twenty species! And the biggest news of all: a pair of White Storks has been seen in the wet meadow east of the river. Storks need open, wet meadows and a high place to build. Could you make them a home?\n\nThere are rumours of a rainbow-coloured bird hunting bees over the south meadow — and of a "butcher bird" in the thorn hedges! And after dark, from the rocky hills, comes the deep hoot of an Eagle-Owl…\n\n— Ada' },
   spring: { from: 'Prof. Ada Finch', title: 'Spring is here!',
@@ -1662,7 +1906,7 @@ const LETTERS = {
   winter: { from: 'Prof. Ada Finch', title: 'Winter',
     body: 'A quiet season… mostly! Crossbills breed in winter when the pine cones are full of seeds, and Grey Herons start building their nests in late winter. A good time to prepare structures, plant and plan for spring.\n\n— Ada' },
   allDone: { from: 'Prof. Ada Finch', title: 'You did it!',
-    body: 'All thirty-seven species are nesting in Featherbrook Valley! I can hardly believe it. The valley rings with birdsong from dawn to dusk again.\n\nThank you, from me and from every bird in the valley.\n\n— Ada' },
+    body: 'All forty-five species are nesting in Featherbrook Valley! I can hardly believe it. The valley rings with birdsong from dawn to dusk again.\n\nThank you, from me and from every bird in the valley.\n\n— Ada' },
 };
 
 function nestedLetter(sp, grant) {
@@ -1679,8 +1923,15 @@ function nestedLetter(sp, grant) {
 // kind:  find    – pick up n quest items hidden in an area (spawned when the quest is accepted)
 //        bring   – hand over n of a nest material from the shared pouch
 //        visit   – discover n landmarks
-//        observe – observe n different bird species (night: only birds of the night count)
-//        plant   – plant n of a plant
+//        trip    – go and look at one landmark (night: after 9 pm, early: before 8 am)
+//        observe – observe n different bird species (night: only birds of the night count,
+//                  early: only before 8 am)
+//        plant   – plant n of a plant (or any of a list)
+//        place   – put up n structures of a kind
+//        nest    – n pairs of the listed species move into nests
+//        fledge  – n broods fledge (any species)
+//        deliver – carry something to another villager (to); they finish the quest
+// Each villager's quests form a chain: the next one is offered when the previous is done.
 // reward: coins, items (to the bag), mats (to the pouch), clue (a clue for a bird you don't know
 //         yet; 'night' picks a bird of the night)
 
@@ -1692,6 +1943,10 @@ const QITEMS = {
   pellet: { name: 'an owl pellet' },
   hen:    { name: 'Henrietta the hen' },
   orchid: { name: 'a wild orchid seed pod' },
+  bell:   { name: 'the lost sheep bell' },
+  map:    { name: 'Ada\'s survey map' },
+  carving: { name: 'a wooden kingfisher' },
+  jam:    { name: 'a jar of bramble jelly' },
 };
 
 const QUESTS = [
@@ -1771,6 +2026,112 @@ const QUESTS = [
     thanks: ['Smell that? The moths will find it tonight.', 'Here — a bird of the night I\'ve been hearing lately.'],
     reward: { coins: 90, clue: 'night' } },
 ];
+// ---- the second and third rounds: deliveries, night trips, building and nesting goals
+QUESTS.push(
+  { id: 'map', npc: 'ada', after: 'survey', title: 'Ada\'s map', kind: 'deliver', to: 'juniper', item: 'map', n: 1,
+    ask: ['Could you take this map to Juniper in the forest?', 'I\'ve marked every spot where I heard a woodpecker drumming this spring.'],
+    hint: 'Bring Ada\'s survey map to Juniper in the forest.',
+    thanks: ['Ada\'s drumming map! Woodpeckers drum on dead branches to claim a territory — like a song, but louder.', 'Tell her thanks. Here, take some timber for your trouble.'],
+    reward: { coins: 60, mats: { wood: 3 } } },
+  { id: 'dawn', npc: 'ada', after: 'map', title: 'The dawn chorus', kind: 'observe', early: true, n: 4,
+    ask: ['Have you ever listened to the dawn chorus? Birds sing their hearts out at first light.', 'Get up early and observe four different birds before 8 in the morning.'],
+    hint: 'Observe 4 different bird species before 8 am.',
+    thanks: ['An early riser — splendid! Scientists think birds sing most at dawn because the calm air carries song far, and it\'s still too dark to find food.', 'Here\'s a little something from the Fund.'],
+    reward: { coins: 140, clue: true } },
+  { id: 'ringing', npc: 'ada', after: 'dawn', title: 'Ringing season', kind: 'fledge', n: 3,
+    ask: ['Every brood that fledges here goes into the national records.', 'Help three broods of chicks fledge — any species at all.'],
+    hint: 'Help 3 broods of chicks fledge (any species).',
+    thanks: ['Three broods! Thanks to bird rings we know that swallows from northern Europe spend the winter as far away as South Africa.', 'The Conservation Fund sent this along for you.'],
+    reward: { coins: 180, items: { box_medium: 1 } } },
+
+  { id: 'hedgerow', npc: 'basil', after: 'orchids', title: 'A new hedgerow', kind: 'plant', plant: ['hawthorn', 'blackthorn', 'hazel', 'elder', 'bramble'], n: 3,
+    ask: ['Hedgerows are like roads for wildlife: food, shelter and nest sites all in one line.', 'Would you plant three native shrubs? Hawthorn, blackthorn, hazel, elder or bramble.'],
+    hint: 'Plant 3 native shrubs (hawthorn, blackthorn, hazel, elder or bramble).',
+    thanks: ['Smashing. In a few years that\'ll be buzzing with insects and full of nests.', 'Have a couple of whips on the house.'],
+    reward: { coins: 80, items: { cut_blackthorn: 1, cut_hazel: 1 } } },
+  { id: 'feeder', npc: 'basil', after: 'hedgerow', title: 'Winter feeding', kind: 'place', struct: 'feeder', n: 1,
+    ask: ['In a hard winter a bird feeder can save a small bird\'s life.', 'Would you put one up? The workbench recipe unlocks at birder rank 3.'],
+    hint: 'Craft a Bird Feeder at the workbench (birder rank 3) and put it up anywhere.',
+    thanks: ['Look at them come! Keep it clean, mind — dirty feeders spread disease between birds.', 'Here, some seed money. Ha!'],
+    reward: { coins: 90, items: { seed_thistle: 2 } } },
+
+  { id: 'bell', npc: 'mabel', after: 'henrietta', title: 'The lost bell', kind: 'find', item: 'bell', n: 1, area: [73, 2, 92, 20],
+    ask: ['One of my ewes came home without her bell. It must be up on the hills.', 'It\'s brass, about so big. Would you have a look?'],
+    hint: 'Search the rocky hills in the north-east for the sheep bell.',
+    thanks: ['That\'s it — dented, but it still rings!', 'Have some wool for your nests. A long-tailed tit lines its nest with up to two thousand feathers, you know.'],
+    reward: { coins: 70, mats: { wool: 5 } } },
+  { id: 'swallows', npc: 'mabel', after: 'bell', title: 'Life in the barn', kind: 'nest', sp: ['swallow', 'martin', 'swift', 'barnowl', 'jackdaw'], n: 1,
+    ask: ['When I was a girl, swallows swooped in and out of this barn all summer long.', 'Could you help some birds make a home on the farm or in the village again?'],
+    hint: 'Help a Barn Swallow, House Martin, Swift, Jackdaw or Barn Owl move into a nest.',
+    thanks: ['Listen to that! Swallows come back to the same barn year after year — all the way from Africa.', 'Thank you, dear. Here\'s a bit of wool and some coins.'],
+    reward: { coins: 120, mats: { wool: 4, hair: 3 } } },
+
+  { id: 'carving', npc: 'tom', after: 'stones', title: 'A gift for Rosie', kind: 'deliver', to: 'rosie', item: 'carving', n: 1,
+    ask: ['I\'ve whittled a little wooden kingfisher for Rosie.', 'Would you take it to her? My knees aren\'t what they were.'],
+    hint: 'Bring Tom\'s wooden kingfisher to Rosie in the village.',
+    thanks: ['A kingfisher! It\'s even got an orange tummy!', 'Tell Tom it\'s the BEST. He said to give you this for helping.'],
+    reward: { coins: 60, mats: { feather: 2 } } },
+  { id: 'riverbirds', npc: 'tom', after: 'carving', title: 'River life', kind: 'nest', sp: ['mallard', 'dipper', 'kingfisher', 'sandmartin', 'plover', 'heron'], n: 1,
+    ask: ['The river\'s clean again, but it\'s still too quiet.', 'Help a river bird nest — a dipper, a kingfisher, sand martins, anything!'],
+    hint: 'Help a river bird move in (Mallard, Dipper, Kingfisher, Sand Martin, Little Ringed Plover or Grey Heron).',
+    thanks: ['I saw them at first light! The river\'s alive again.', 'Here — my best driftwood, and a bit of money for your boxes.'],
+    reward: { coins: 150, mats: { wood: 6 } } },
+
+  { id: 'birdbath', npc: 'edith', after: 'oldbox', title: 'Bath time', kind: 'place', struct: 'birdbath', n: 1,
+    ask: ['Arthur always kept a bird bath full of fresh water. Birds need to drink and bathe every day, even in winter.', 'Would you put one up? It needn\'t be by my cottage.'],
+    hint: 'Craft a Bird Bath at the workbench and put it up anywhere.',
+    thanks: ['A blackbird is splashing in it already! Bathing keeps their feathers clean and in good shape for flying.', 'Here, Arthur\'s old seed tin. Still full!'],
+    reward: { coins: 80, items: { seed_wildflower: 3, seed_herbs: 1 } } },
+  { id: 'jam', npc: 'edith', after: 'birdbath', title: 'Bramble jelly', kind: 'deliver', to: 'luna', item: 'jam', n: 1,
+    ask: ['Luna works such long nights, poor thing. Would you take her a jar of my bramble jelly?', 'You\'ll only find her after dark — she walks the meadows from about half past seven.'],
+    hint: 'Bring Edith\'s bramble jelly to Luna (she\'s out after 7:30 pm).',
+    thanks: ['Edith\'s bramble jelly! That woman is an angel.', 'Tell her I\'ll bring her some moth photos. And take these, for your nests.'],
+    reward: { coins: 60, mats: { feather: 3, moss: 3 } } },
+
+  { id: 'owlnight', npc: 'rosie', after: 'feathers', title: 'The ghost in the willow', kind: 'trip', lm: 'willow', night: true, n: 1,
+    ask: ['Grandma says a GHOST lives in the Hollow Willow! It screeches at night!', 'I\'m not allowed out after dark… Will you go and look at the Hollow Willow at night? Please?'],
+    hint: 'Look at the Hollow Willow by the big pond after 9 pm.',
+    thanks: ['An owl? Not a ghost? Phew!', 'Grandma says barn owls screech instead of hooting — that\'s why people used to think they were ghosts!', 'You\'re so brave. Here, I heard a funny noise too…'],
+    reward: { coins: 60, clue: 'night' } },
+  { id: 'diary', npc: 'rosie', after: 'owlnight', title: 'Rosie\'s bird diary', kind: 'observe', n: 8,
+    ask: ['My bird diary needs more birds! I\'ve only drawn robins and sparrows.', 'Can you observe eight different kinds? Then I can draw them all!'],
+    hint: 'Observe 8 different bird species.',
+    thanks: ['EIGHT! My diary is going to be the best in the whole school!', 'Here\'s my piggy-bank money. Don\'t tell Grandma.'],
+    reward: { coins: 100, items: { seed_wildflower: 2 } } },
+
+  { id: 'sunrise', npc: 'finn', after: 'spotter', title: 'Sunrise shot', kind: 'trip', lm: 'cairn', early: true, n: 1,
+    ask: ['Sunrise from the Hilltop Cairn — that\'s the cover of my photo book.', 'Could you scout it out? You\'d have to be up there before 8 in the morning.'],
+    hint: 'Look at the Hilltop Cairn in the north-east before 8 am.',
+    thanks: ['Before breakfast! Proper dedication.', 'Kestrels hunt over those slopes in the morning, hovering on the wind to spot voles. Did you see one?'],
+    reward: { coins: 120, mats: { stone: 4 } } },
+  { id: 'nightshoot', npc: 'finn', after: 'sunrise', title: 'Night shoot', kind: 'observe', night: true, n: 2,
+    ask: ['Night photography is my next challenge — owls, woodcocks, nightjars.', 'Observe two different birds of the night for me? Then I\'ll know where to set up.'],
+    hint: 'Observe 2 different birds of the night (after dark).',
+    thanks: ['Brilliant. Owls\' feathers have soft, comb-like edges so they fly almost silently. Good luck to my microphone!', 'Here\'s some money from the photo club.'],
+    reward: { coins: 160, clue: 'night' } },
+
+  { id: 'deadwood', npc: 'juniper', after: 'brush', title: 'Dead wood is alive', kind: 'place', struct: 'snag', n: 2,
+    ask: ['Too-tidy forests are poor forests. Thousands of beetles, fungi and birds depend on dead wood.', 'Could you stand up two dead trunks? Woodpeckers and nuthatches will thank you.'],
+    hint: 'Craft 2 Deadwood Trunks at the workbench and stand them anywhere.',
+    thanks: ['Beetles will move in first, then the woodpeckers that eat them.', 'Here\'s a little something from the forestry budget.'],
+    reward: { coins: 120, items: { box_large: 1 } } },
+  { id: 'forestbirds', npc: 'juniper', after: 'deadwood', title: 'Forest homes', kind: 'nest', sp: ['woodpecker', 'nuthatch', 'flycatcher', 'crossbill', 'tawny', 'longeared', 'wren', 'longtailed'], n: 1,
+    ask: ['The old forest has lost a lot of its birds over the years.', 'Help a forest bird nest — a woodpecker, nuthatch, flycatcher, wren, owl…'],
+    hint: 'Help a forest bird move in (woodpecker, nuthatch, flycatcher, crossbill, wren, long-tailed tit or a forest owl).',
+    thanks: ['I heard them from the path this morning. The forest\'s getting its voice back.', 'Take this — you\'ve earned it, ranger.'],
+    reward: { coins: 150, mats: { wood: 6, moss: 4 } } },
+
+  { id: 'stars', npc: 'luna', after: 'moths', title: 'Stars over the stones', kind: 'trip', lm: 'stones', night: true, n: 1,
+    ask: ['The sky above the Standing Stones is the darkest in the whole valley.', 'Go and look at the stones after 9 pm, on any night. You\'ll see what I mean.'],
+    hint: 'Look at the Standing Stones in the south-east after 9 pm.',
+    thanks: ['Did you see the Milky Way? Most Europeans can\'t, any more — too much light.', 'Many songbirds migrate at night and steer by the stars. Isn\'t that wonderful?'],
+    reward: { coins: 120, mats: { feather: 4 } } },
+  { id: 'owlbox', npc: 'luna', after: 'stars', title: 'A home for owls', kind: 'place', struct: 'owlbox', n: 1,
+    ask: ['Old barns and hollow trees are disappearing, and owls are running out of places to nest.', 'Could you put up an owl box? Somewhere quiet, near open grassland or woods.'],
+    hint: 'Craft an Owl Box at the workbench and put it up.',
+    thanks: ['Perfect. Barn owls and tawny owls both take to boxes.', 'Here — I heard this one last night…'],
+    reward: { coins: 100, clue: 'night' } },
+);
 const QUESTS_BY_ID = {};
 for (const q of QUESTS) QUESTS_BY_ID[q.id] = q;
 
@@ -1792,6 +2153,161 @@ const LANDMARKS = {
     lore: 'Clear water bubbles up from under the roots here. Birds come to drink and bathe — clean water is as important to them as food.' },
 };
 const LANDMARK_REWARD = 25;
+
+// ---- js/data/progress.js ----
+// Progression: birder rank (XP), badges, villager friendship and the daily notice board.
+//
+// Design notes (see README): visible progress and level-ups support the feeling of competence
+// and the goal-gradient effect; badges are informational (they celebrate what you did, they never
+// take anything away); friendships give the valley's people a reason to matter; nothing here ever
+// punishes the player or runs out.
+
+const XP = {
+  observe: 4, firstSight: 15, clue: 10, blueprint: 20, build: 15, hatch: 10, fledge: 30, newSpecies: 100,
+  quest: 50, landmark: 30, rare: 40, board: 20, gift: 5, badge: 40, heart: 15,
+};
+function xpForLevel(l) { return 60 + 40 * l; } // XP needed to go from level l to l + 1
+const MAX_LEVEL = 15;
+const RANKS = ['Fledgling', 'Bird Spotter', 'Hedgerow Helper', 'Nest Builder', 'Field Naturalist', 'Song Listener',
+  'Habitat Maker', 'Wetland Warden', 'Woodland Keeper', 'Night Watcher', 'Valley Guardian', 'Master Birder',
+  'Ornithologist', 'Bird Whisperer', 'Legend of the Valley'];
+
+// What each new rank brings. perk: binoculars (observe from farther, faster), quiet (birds let you closer)
+const LEVEL_REWARDS = {
+  2: { coins: 50, items: { seed_wildflower: 3 } },
+  3: { recipe: 'feeder', coins: 50 },
+  4: { perk: 'binoculars' },
+  5: { recipe: 'lamppost', items: { sap_oak: 1 } },
+  6: { coins: 120, items: { seed_thistle: 3 } },
+  7: { recipe: 'gardenbench', coins: 80 },
+  8: { perk: 'quiet' },
+  9: { coins: 200, items: { sap_pine: 2, sap_willow: 1 } },
+  10: { coins: 250, mats: { wood: 10 } },
+  11: { coins: 300, items: { owlbox: 1 } },
+  12: { coins: 300, items: { platform: 1 } },
+  13: { coins: 400 },
+  14: { coins: 500 },
+  15: { coins: 1000 },
+};
+const PERK_TEXT = {
+  binoculars: 'Better binoculars: you can observe birds from farther away, and faster.',
+  quiet: 'Quiet steps: birds let you come much closer before they fly off.',
+};
+
+// Badges: s = the stats counter they watch (world.stats), n = goal
+const BADGES = [
+  { id: 'firstnest', name: 'First Nest', desc: 'Build your first nest.', s: 'built', n: 1 },
+  { id: 'builder', name: 'Home Builder', desc: 'Build 10 nests.', s: 'built', n: 10 },
+  { id: 'parent', name: 'Proud Neighbour', desc: 'See 5 broods fledge.', s: 'fledged', n: 5 },
+  { id: 'restorer', name: 'Valley Restorer', desc: 'Help 20 species nest.', s: 'species', n: 20 },
+  { id: 'allbirds', name: 'Full Chorus', desc: 'Help every species nest.', s: 'species', n: 0 },
+  { id: 'clues', name: 'Clue Hunter', desc: 'Find 30 clues.', s: 'clues', n: 30 },
+  { id: 'observer', name: 'Keen Eye', desc: 'Observe 50 birds.', s: 'observed', n: 50 },
+  { id: 'nightowl', name: 'Night Owl', desc: 'Observe 4 different birds of the night.', s: 'nightSpecies', n: 4 },
+  { id: 'earlybird', name: 'Early Bird', desc: 'Observe a bird before 7 am.', s: 'early', n: 1 },
+  { id: 'explorer', name: 'Explorer', desc: 'Discover every landmark.', s: 'landmarks', n: 0 },
+  { id: 'neighbour', name: 'Good Neighbour', desc: 'Complete 10 villager requests.', s: 'quests', n: 10 },
+  { id: 'friend', name: 'Best Friends', desc: 'Become best friends (5 hearts) with a villager.', s: 'bestFriends', n: 1 },
+  { id: 'gardener', name: 'Green Thumb', desc: 'Plant 25 trees, shrubs or flowers.', s: 'planted', n: 25 },
+  { id: 'rare', name: 'Rare Sighting', desc: 'Spot 3 rare visiting birds.', s: 'rare', n: 3 },
+  { id: 'gatherer', name: 'Magpie', desc: 'Gather 500 nest materials.', s: 'gathered', n: 500 },
+  { id: 'board', name: 'Helping Hand', desc: 'Fill 10 notice-board requests.', s: 'board', n: 10 },
+  { id: 'year', name: 'Four Seasons', desc: 'Spend a whole year in the valley.', s: 'days', n: 28 },
+];
+function badgeGoal(b) {
+  if (b.id === 'allbirds') return SPECIES.length;
+  if (b.id === 'explorer') return Object.keys(LANDMARKS).length;
+  return b.n;
+}
+
+// ---------------------------------------------------------------- friendship
+const HEART = 50, MAX_HEARTS = 5;
+// Gift tastes: love / like; anything else is a kind thought (a little friendship)
+const NPC_GIFTS = {
+  ada:     { love: ['hazelnut', 'garlic'], like: ['apple', 'mushroom', 'elderberry'] },
+  basil:   { love: ['mushroom'], like: ['garlic', 'blackberry', 'seed_herbs'] },
+  mabel:   { love: ['apple'], like: ['blackberry', 'elderberry', 'sloe'] },
+  tom:     { love: ['sloe'], like: ['apple', 'mushroom', 'hazelnut'] },
+  edith:   { love: ['elderberry', 'seed_wildflower'], like: ['apple', 'blackberry', 'seed_herbs'] },
+  rosie:   { love: ['blackberry'], like: ['apple', 'hazelnut', 'seed_wildflower'] },
+  finn:    { love: ['garlic'], like: ['apple', 'hazelnut', 'mushroom'] },
+  juniper: { love: ['hazelnut'], like: ['mushroom', 'garlic', 'sloe'] },
+  luna:    { love: ['elderberry'], like: ['blackberry', 'sloe', 'hazelnut'] },
+};
+const GIFT_LINES = {
+  love: ['Oh! My absolute favourite. Thank you!', 'For me? You remembered! That\'s so kind.'],
+  like: ['How lovely, thank you!', 'Oh, that\'s a nice thought. Thank you.'],
+  ok: ['Thank you — that\'s very thoughtful.', 'Oh! Thank you, neighbour.'],
+};
+// Stories villagers share as you become friends (hearts 2 and 4) and a keepsake at 5 hearts
+const HEART_STORIES = {
+  ada: {
+    2: ['I first fell for birds as a girl — a wren sang right outside my window every morning.', 'Forty years later I still get goosebumps when I hear one. Funny, isn\'t it?'],
+    4: ['When I came here, the valley was almost silent. Hedges gone, ponds filled in.', 'Seeing it come alive again… you\'ve given an old ornithologist her dream back.'],
+    5: { lines: ['Here — my old ringing notebook and a little something from the Fund. You\'ve earned it, partner.'], coins: 200, items: { box_large: 2 } },
+  },
+  basil: {
+    2: ['My grandfather ran this shop. He said: "Sell plants that feed the birds, and the birds will sing for your customers."', 'Best business advice I ever got.'],
+    4: ['I almost sold the shop once. Nobody wanted native plants. Then you showed up and started planting hedges!', 'Business has never been better — and the birds are back.'],
+    5: { lines: ['Take these, on the house. Friends don\'t pay for saplings.'], items: { sap_oak: 2, cut_hawthorn: 2, sap_apple: 1 } },
+  },
+  mabel: {
+    2: ['The swallows came back to my barn the spring my Jim passed away.', 'I like to think he sent them. Silly old woman, eh?'],
+    4: ['My farm\'s never made much money. But I wouldn\'t cut the hay early, not for anything.', 'Corncrakes and skylarks nested here when I was young. Maybe they will again.'],
+    5: { lines: ['A basket of the best wool and feathers. For your nests, my dear.'], mats: { wool: 10, feather: 10, hair: 6 } },
+  },
+  tom: {
+    2: ['Fifty years on this river. I\'ve seen it poisoned and I\'ve seen it heal.', 'The day the first kingfisher came back, I cried like a baby.'],
+    4: ['Truth is, I don\'t care much about catching fish any more.', 'I come down here to watch the herons and the dippers. Best company there is.'],
+    5: { lines: ['My father\'s old spotting telescope. You\'ll get more use out of it than me.'], coins: 150, mats: { wood: 8, stone: 6 } },
+  },
+  edith: {
+    2: ['Arthur and I planted every rose on Rose Cottage. Fifty-one years of roses.', 'He always said a garden is never finished — just like a friendship.'],
+    4: ['Rosie lives with me now. Her parents work in the city.', 'You\'ve given her something to love here. I can\'t thank you enough.'],
+    5: { lines: ['Arthur\'s favourite seeds. He\'d want them in your hands.'], items: { seed_wildflower: 6, seed_herbs: 4, seed_thistle: 4 } },
+  },
+  rosie: {
+    2: ['Can I tell you a secret? I\'m keeping a bird diary! I draw every bird I see.', 'Yesterday I drew a robin. It looked like a potato with legs. Hee hee.'],
+    4: ['When I grow up I\'m going to protect birds all over the world!', 'You\'re my best grown-up friend. Don\'t tell Grandma!'],
+    5: { lines: ['I made you a friendship bracelet out of feathers I found! And here are my best marbles.'], coins: 77, mats: { feather: 5 } },
+  },
+  finn: {
+    2: ['I used to only care about getting the perfect shot.', 'Aunt Ada taught me the bird always matters more than the photo.'],
+    4: ['One of my photos — the swifts over the village — got into a magazine!', 'Couldn\'t have done it without your nest work. Thanks, mate.'],
+    5: { lines: ['A print of my best photo, and my old camera bag. Keep birding!'], coins: 180, items: { box_small: 2 } },
+  },
+  juniper: {
+    2: ['People think a ranger\'s job is tidying the forest. It\'s the opposite.', 'Dead trees, tangles, fallen logs — that\'s where the life is.'],
+    4: ['I grew up in a city with no trees at all. The first time I heard a woodpecker drum, I knew where I belonged.', 'This forest is my home now.'],
+    5: { lines: ['Seasoned timber and a dead trunk — perfect for woodpeckers. From one tree-hugger to another.'], mats: { wood: 15 }, items: { snag: 2 } },
+  },
+  luna: {
+    2: ['I work nights at the observatory in town. Birds and stars — the night has both.', 'Most people never see the valley\'s night shift. Their loss!'],
+    4: ['Some people think the night is scary. I think it\'s the kindest time of day.', 'Everything slows down. You can hear an owl breathe.'],
+    5: { lines: ['My spare lantern and a star map of the valley sky. Clear skies, friend.'], coins: 160, items: { lamppost: 1 } },
+  },
+};
+
+// ---------------------------------------------------------------- notice board
+// Each morning two small requests go up. Fill them from the shared pouch — or don't; they're optional.
+const BOARD_TASKS = [
+  { npc: 'basil', mat: 'twig', n: 6, text: 'Twigs for plant supports' },
+  { npc: 'basil', mat: 'leaves', n: 4, text: 'Dead leaves for my compost heap' },
+  { npc: 'mabel', mat: 'grass', n: 6, text: 'Dry grass for the hen house' },
+  { npc: 'mabel', mat: 'stone', n: 3, text: 'Stones to mend a wall' },
+  { npc: 'tom', mat: 'stick', n: 3, text: 'Sticks for a new fishing rod rest' },
+  { npc: 'tom', mat: 'wood', n: 2, text: 'Wood to patch the jetty' },
+  { npc: 'edith', mat: 'moss', n: 3, text: 'Moss for my hanging baskets' },
+  { npc: 'edith', mat: 'feather', n: 2, text: 'Feathers for a hat' },
+  { npc: 'rosie', mat: 'feather', n: 1, text: 'One pretty feather for my collection!' },
+  { npc: 'rosie', mat: 'stone', n: 2, text: 'Smooth stones for hopscotch' },
+  { npc: 'finn', mat: 'lichen', n: 2, text: 'Lichen for a close-up photo' },
+  { npc: 'juniper', mat: 'rotwood', n: 2, text: 'Rotten wood for a beetle survey' },
+  { npc: 'juniper', mat: 'stick', n: 4, text: 'Sticks for a hedgehog house' },
+  { npc: 'ada', mat: 'mud', n: 3, text: 'Mud samples from the pond' },
+  { npc: 'ada', mat: 'grass', n: 4, text: 'Dry grass for a nest display' },
+  { npc: 'luna', mat: 'herbs', n: 2, text: 'Fragrant herbs to attract moths' },
+];
 
 // ---- js/sim/rules.js ----
 // Pure rule queries shared by the authoritative World (host) and the client mirror.
@@ -1817,6 +2333,7 @@ const BUILDINGS = {
   bench:   { name: 'Workbench', w: 2, h: 1 },
   mailbox: { name: 'Mailbox', w: 1, h: 1 },
   well:    { name: 'Well', w: 1, h: 1 },
+  board:   { name: 'Notice Board', w: 1, h: 1 },
 };
 
 function footprint(o) {
@@ -1844,6 +2361,8 @@ function solidBox(o) {
       if (o.kind === 'anvil') return null;
       if (o.kind === 'bank' || o.kind === 'brushpile') return [1, 5, 15, 15];
       if (o.kind === 'birdbath') return [3, 8, 13, 15];
+      if (o.kind === 'gardenbench') return [1, 9, 15, 15];
+      if (o.kind === 'feeder' || o.kind === 'lamppost') return [6, 11, 10, 15];
       return [6, 11, 10, 15];
     default: return null;
   }
@@ -2500,6 +3019,7 @@ function generateMap(seed) {
   building('bench', 39, 26);
   building('mailbox', 46, 28);
   building('well', 72, 29);
+  building('board', 74, 28);
   // keep the spots where villagers stand clear (their routes follow paths)
   for (const k in NPCS) {
     const n = NPCS[k], spots = [];
@@ -2721,6 +3241,9 @@ class World {
     w.visitors = [];
     w.side = {};
     w.found = {};
+    w.badges = {};
+    w.board = [];
+    w.rareLog = {};
     w.sendMail(LETTERS.welcome);
     w._makeAnimals();
     w.bulk = true;
@@ -2749,6 +3272,7 @@ class World {
     w.dug = d.dug || {};
     w.featured = d.featured || []; w.visitors = d.visitors || [];
     w.side = d.side || {}; w.found = d.found || {};
+    w.badges = d.badges || {}; w.board = d.board || []; w.rareLog = d.rareLog || {}; w.rare = d.rare || null;
     w.saved = d.players || {};
     w._addNewBuildings(m);
     w._makeAnimals();
@@ -2811,7 +3335,7 @@ class World {
       quest: this.quest, tierSent: this.tierSent, adaDay: this.adaDay, allDone: this.allDone, stats: this.stats,
       tiles: b64encode(this.tiles), grass: b64encode(this.grass), objs: Array.from(this.objs.values()), nextId: this.nextId,
       dug: this._todayDug(), featured: this.featured, visitors: this.visitors, players: this.saved, savedAt: Date.now(),
-      side: this.side, found: this.found,
+      side: this.side, found: this.found, badges: this.badges, board: this.board, rareLog: this.rareLog, rare: this.rare,
     };
   }
 
@@ -2884,6 +3408,8 @@ class World {
       d: 0, m: 0, a: '',
       inv: rec && rec.inv ? rec.inv : starterInventory(),
       sleep: false,
+      xp: (rec && rec.xp) || 0, lvl: (rec && rec.lvl) || 1, fr: (rec && rec.fr) || {}, hev: (rec && rec.hev) || {},
+      talkD: (rec && rec.talkD) || {}, giftD: (rec && rec.giftD) || {}, obsD: {}, lvlUps: [],
     };
     if (feetBlocked(this, p.x, p.y)) { p.x = HOME_SPAWN[0]; p.y = HOME_SPAWN[1]; }
     this.players.set(pid, p);
@@ -2910,7 +3436,16 @@ class World {
     this._maybeSleep();
   }
 
-  _storePlayer(p) { this.saved[p.token] = { name: p.name, look: p.look, inv: p.inv, x: p.x, y: p.y }; }
+  _storePlayer(p) {
+    this.saved[p.token] = { name: p.name, look: p.look, inv: p.inv, x: p.x, y: p.y, xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, talkD: p.talkD, giftD: p.giftD };
+  }
+  // A player's own progress (rank, friendships). lvlUps lists rank-ups that happened overnight.
+  _meData(p, flush) {
+    const d = { xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, gift: p.giftD, lvlUps: p.lvlUps || [] };
+    if (flush) p.lvlUps = [];
+    return d;
+  }
+  _sendMe(p) { this.evTo(p.pid, 'prog', this._meData(p, false)); }
 
   snapshotFor(pid) {
     const p = this.players.get(pid);
@@ -2922,6 +3457,7 @@ class World {
       players: Array.from(this.players.values()).map(publicPlayer),
       animals: this.animals.map(publicAnimal), dug: this._todayDug(),
       inv: p ? p.inv : [], stats: this.stats, allDone: this.allDone, side: this.side, found: this.found,
+      badges: this.badges, board: this.board, rareLog: this.rareLog, prog: p ? this._meData(p, true) : null,
     };
   }
 
@@ -3014,6 +3550,10 @@ class World {
     const before = this.mats[k] || 0;
     this.mats[k] = Math.min(MAT_MAX, before + n);
     this.ev('mats', { [k]: this.mats[k] });
+    const g0 = this.stats.gathered || 0;
+    this.stats.gathered = g0 + n;
+    if (Math.floor(g0 / 10) !== Math.floor(this.stats.gathered / 10)) this.ev('stats', this.stats);
+    if (this.stats.gathered >= 500 && this.badges && this.badges.gatherer == null) this.checkBadges();
     if (p && src) this.ev('gain', p.pid, src[0], src[1], [['m', k, n]]);
     this.questCheck();
   }
@@ -3100,6 +3640,9 @@ class World {
       case 'look': return this.actLook(p, m);
       case 'pause': if (m.v) this.pauseSet.add(p.pid); else this.pauseSet.delete(p.pid); return;
       case 'brush': return this.actBrush(p, m);
+      case 'gift': return this.actGift(p, m);
+      case 'board': return this.actBoard(p, m);
+      case 'rest': return this.actRest(p, m);
     }
   }
 
@@ -3154,8 +3697,20 @@ class World {
           this.coins += LANDMARK_REWARD; this.ev('coins', this.coins);
           this.ev('found', this.found);
           this.toastAll((p.name ? p.name + ' discovered ' : 'Discovered ') + 'the ' + l.name + '! (+' + LANDMARK_REWARD + ' coins)', 'star');
+          this.addXP(p, XP.landmark, 'landmark');
+          this.checkBadges();
         }
         this.evTo(p.pid, 'lore', o.kind, first);
+        for (const q of QUESTS) {
+          const st = this.side[q.id];
+          if (q.kind !== 'trip' || q.lm !== o.kind || !st || st.st !== 'on' || st.n) continue;
+          const mm = this.time.min;
+          if (q.night && mm < 21 * 60) { this.toast(p, q.title + ': come back after 9 pm, when it\'s dark.', 'moon'); continue; }
+          if (q.early && mm >= 8 * 60) { this.toast(p, q.title + ': come back before 8 in the morning.', 'sun'); continue; }
+          st.n = 1; this.ev('side', this.side);
+          this.toast(p, q.title + ': done — tell ' + NPCS[q.npc].name + '!', 'star');
+          this.ev('snd', 'clue');
+        }
         break;
       }
       case 'bark': o.bk = today; this.gainMat(p, 'bark', 2, src); this.touch(o, ['bk']); this.ev('fx', 'scrape', o.id, 0, 0); break;
@@ -3250,6 +3805,7 @@ class World {
         this.addObj({ type: 'struct', kind: it.struct, x, y, pl: 1, by: p.name });
         this.ev('fx', 'place', 0, x * TS + 8, y * TS + 12);
       }
+      this._bumpQuests((q) => q.kind === 'place' && q.struct === it.struct, p);
     } else {
       const f = FLORA[it.plant];
       const o = { type: f.type, kind: it.plant, x, y, st: 0, g: 0, pl: 1, by: p.name, d: today };
@@ -3258,9 +3814,10 @@ class World {
       if (this.grass[tIdx(x, y)]) this.setGrass(tIdx(x, y), 0);
       this.addObj(o);
       this.ev('fx', 'plant', 0, x * TS + 8, y * TS + 12);
+      this.bumpStat('planted');
       for (const q of QUESTS) {
         const st = this.side[q.id];
-        if (q.kind === 'plant' && q.plant === it.plant && st && st.st === 'on' && (st.n || 0) < q.n) {
+        if (q.kind === 'plant' && [].concat(q.plant).includes(it.plant) && st && st.st === 'on' && (st.n || 0) < q.n) {
           st.n = (st.n || 0) + 1; this.ev('side', this.side);
           this.toast(p, q.title + ': ' + st.n + '/' + q.n + (st.n >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : ''), 'star');
         }
@@ -3296,7 +3853,8 @@ class World {
     };
     if (!host && (this.tiles[tIdx(cx, cy)] === T.GRASS || this.tiles[tIdx(cx, cy)] === T.MARSH)) this.setGrass(tIdx(cx, cy), 2);
     this.addObj(n);
-    this.stats.built++;
+    this.addXP(p, XP.build, 'nest');
+    this.bumpStat('built');
     this.toastAll(p.name + ' built a ' + sp.name + (sp.id === 'wren' ? ' cock nest!' : ' nest!'), 'nest');
     this.ev('fx', 'build', n.id, cx * TS + 8, cy * TS + 8);
     if (sp.id === 'wren') this.toast(p, 'Wren males build several cock nests. Build another one nearby!', 'nest');
@@ -3316,6 +3874,7 @@ class World {
     this.touch(n, ['st', 'cl']);
     this.toastAll('The Wren nest is lined with feathers — the pair has moved in!', 'heart');
     this.ev('fx', 'hearts', n.id, 0, 0);
+    this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), p);
   }
 
   actNestClear(p, m) {
@@ -3357,6 +3916,7 @@ class World {
   actCraft(p, m) {
     const r = RECIPES.find((x) => x.id === m.r);
     if (!r) return;
+    if (r.lvl && p.lvl < r.lvl) return this.fail(p, 'Reach birder rank ' + r.lvl + ' to craft this.');
     if (!this.hasMats(r.mats)) return this.fail(p, 'Not enough materials.');
     if (!this.hasRoom(p, r.id)) return this.fail(p, 'Your bag is full!');
     this.takeMats(r.mats);
@@ -3407,18 +3967,30 @@ class World {
 
   actObserve(p, m) {
     const sp = SPECIES_BY_ID[m.sp];
-    if (!sp || !this.visitors.some((v) => v.sp === sp.id)) return;
-    const j = this.journal[sp.id];
-    if (!j.seen) { j.seen = true; this.ev('jr', sp.id, j); }
+    if (!sp) return;
+    const visiting = this.visitors.some((v) => v.sp === sp.id);
+    if (!visiting && !sp.ambient && !sp.rare) return;
+    const today = dayIdx(this.time);
+    // experience for watching birds: once per species per day, plus a bonus for a first sighting
+    const firstEver = sp.ambient || sp.rare ? !this.stats['seen_' + sp.id] : !this.journal[sp.id].seen;
+    if (p.obsD[sp.id] !== today) { p.obsD[sp.id] = today; this.addXP(p, XP.observe + (firstEver ? XP.firstSight : 0), 'observe'); }
+    if (sp.ambient || sp.rare) this.stats['seen_' + sp.id] = 1;
+    if (this.time.min < 7 * 60) this.stats.early = 1;
+    if (sp.night) { const nl = this.stats.nightList || (this.stats.nightList = []); if (!nl.includes(sp.id)) nl.push(sp.id); }
+    this.bumpStat('observed');
+    if (sp.rare) return this._observeRare(p, sp);
     for (const q of QUESTS) {
       const st = this.side[q.id];
-      if (q.kind !== 'observe' || !st || st.st !== 'on' || (q.night && !sp.night)) continue;
+      if (q.kind !== 'observe' || !st || st.st !== 'on' || (q.night && !sp.night) || (q.early && this.time.min >= 8 * 60)) continue;
       st.seen = st.seen || [];
       if (!st.seen.includes(sp.id) && st.seen.length < q.n) {
         st.seen.push(sp.id); this.ev('side', this.side);
         this.toast(p, q.title + ': ' + st.seen.length + '/' + q.n + ' species' + (st.seen.length >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : ''), 'star');
       }
     }
+    if (sp.ambient) return;
+    const j = this.journal[sp.id];
+    if (!j.seen) { j.seen = true; this.ev('jr', sp.id, j); }
     if (this.featured.includes(sp.id) && j.h < 3 && !this.observed[sp.id]) {
       this.observed[sp.id] = 1;
       this.giveHint(sp.id, 'obs', p);
@@ -3443,15 +4015,194 @@ class World {
     this.ev('clue', spId, i, src, p ? p.pid : '', p ? p.name : '');
     if (j.h === 3) this.toastAll('Nest blueprint learned: ' + SPECIES_BY_ID[spId].name + '!', 'star');
     this.questCheck();
+    if (p) { this.addXP(p, XP.clue + (j.h === 3 ? XP.blueprint : 0), 'clue'); }
+    this.bumpStat('clues');
     return true;
   }
 
   dlg(p, npc, lines, opts) { this.evTo(p.pid, 'dlg', { npc, lines, opts }); }
 
+  // ---------------------------------------------------------------- rank, badges, friendship
+  addXP(p, n, why) {
+    if (!p || !n) return;
+    p.xp = (p.xp || 0) + n;
+    while (p.lvl < MAX_LEVEL && p.xp >= xpForLevel(p.lvl)) { p.xp -= xpForLevel(p.lvl); p.lvl++; this._levelUp(p); }
+    if (p.lvl >= MAX_LEVEL) p.xp = Math.min(p.xp, xpForLevel(p.lvl));
+    this.evTo(p.pid, 'xp', n, why || '');
+    this._sendMe(p);
+    this._storePlayer(p);
+  }
+  teamXP(n, why) { for (const p of this.players.values()) this.addXP(p, n, why); }
+  _levelUp(p) {
+    const lvl = p.lvl, r = LEVEL_REWARDS[lvl] || {}, got = [];
+    if (r.coins) { this.coins += r.coins; this.ev('coins', this.coins); got.push(r.coins + ' coins'); }
+    for (const k in r.items || {}) { this.gainItem(p, k, r.items[k]); got.push(r.items[k] + '× ' + ITEMS[k].name); }
+    for (const k in r.mats || {}) { this.gainMat(p, k, r.mats[k]); got.push(r.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+    if (r.recipe) got.push('New workbench recipe: ' + ITEMS[r.recipe].name);
+    if (r.perk) got.push(PERK_TEXT[r.perk]);
+    if (this.bulk) p.lvlUps.push({ lvl, got });
+    else this.evTo(p.pid, 'lvl', lvl, got);
+    for (const q of this.players.values()) if (q !== p) this.toast(q, p.name + ' is now a ' + RANKS[lvl - 1] + '!', 'star');
+  }
+  bumpStat(k, n) {
+    this.stats[k] = (this.stats[k] || 0) + (n == null ? 1 : n);
+    this.ev('stats', this.stats);
+    this.checkBadges();
+  }
+  statValue(k) {
+    if (k === 'species') return nestedCount(this);
+    if (k === 'landmarks') return Object.keys(this.found || {}).length;
+    if (k === 'nightSpecies') return (this.stats.nightList || []).length;
+    if (k === 'bestFriends') {
+      let best = 0;
+      for (const rec of Object.values(this.saved)) for (const npc in (rec.fr || {})) if (rec.fr[npc] >= HEART * MAX_HEARTS) best = 1;
+      for (const p of this.players.values()) for (const npc in (p.fr || {})) if (p.fr[npc] >= HEART * MAX_HEARTS) best = 1;
+      return best;
+    }
+    return this.stats[k] || 0;
+  }
+  checkBadges() {
+    if (!this.badges) this.badges = {};
+    for (const b of BADGES) {
+      if (this.badges[b.id] != null || this.statValue(b.s) < badgeGoal(b)) continue;
+      this.badges[b.id] = dayIdx(this.time);
+      this.ev('badges', this.badges);
+      this.toastAll('Badge earned: ' + b.name + '! (' + b.desc + ')', 'star');
+      this.ev('snd', 'fanfare');
+      this.teamXP(XP.badge, 'badge');
+    }
+  }
+  hearts(p, npc) { return Math.min(MAX_HEARTS, Math.floor(((p.fr && p.fr[npc]) || 0) / HEART)); }
+  addFriend(p, npc, pts) {
+    if (!p || !NPCS[npc]) return;
+    const before = this.hearts(p, npc);
+    p.fr[npc] = clamp((p.fr[npc] || 0) + pts, 0, HEART * MAX_HEARTS);
+    const after = this.hearts(p, npc);
+    if (after > before) {
+      this.toast(p, NPCS[npc].name + ' likes you more! (' + after + '/' + MAX_HEARTS + ' hearts)', 'heart');
+      this.addXP(p, XP.heart, 'friend');
+      if (after >= MAX_HEARTS) this.checkBadges();
+    }
+    this._sendMe(p);
+    this._storePlayer(p);
+  }
+  // A story the villager wants to share now that you're closer friends (once per heart level)
+  _heartStory(p, npc) {
+    const st = HEART_STORIES[npc];
+    if (!st) return false;
+    const h = this.hearts(p, npc), seen = p.hev[npc] || 0;
+    for (const lv of [2, 4, 5]) {
+      if (h < lv || seen >= lv || !st[lv]) continue;
+      p.hev[npc] = lv;
+      if (lv === 5) {
+        const g = st[5], got = [];
+        if (g.coins) { this.coins += g.coins; this.ev('coins', this.coins); got.push(g.coins + ' coins'); }
+        for (const k in g.items || {}) { this.gainItem(p, k, g.items[k], [p.x, p.y - 20]); got.push(g.items[k] + '× ' + ITEMS[k].name); }
+        for (const k in g.mats || {}) { this.gainMat(p, k, g.mats[k], [p.x, p.y - 20]); got.push(g.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+        this.dlg(p, npc, ['You know… you\'ve become one of my dearest friends.'].concat(g.lines, got.length ? ['(You received ' + got.join(', ') + '.)'] : []), [{ id: 'bye', label: 'Thank you, friend!' }]);
+      } else this.dlg(p, npc, st[lv], [{ id: 'bye', label: 'Thanks for telling me.' }]);
+      this._sendMe(p); this._storePlayer(p);
+      return true;
+    }
+    return false;
+  }
+
+  actGift(p, m) {
+    const id = String(m.npc), slot = m.slot | 0, s = p.inv[slot];
+    if (!NPCS[id] || !this._nearNpc(p, id) || !s) return;
+    const it = ITEMS[s.k];
+    if (!it || it.cat === 'struct') return this.fail(p, 'That\'s not really a gift.');
+    const today = dayIdx(this.time);
+    if (p.giftD[id] === today) return this.dlg(p, id, ['You\'ve already brought me something today — you\'re too kind! Come back tomorrow.'], [{ id: 'bye', label: 'Bye' }]);
+    p.giftD[id] = today;
+    const taste = NPC_GIFTS[id] || { love: [], like: [] };
+    const kind = taste.love.includes(s.k) ? 'love' : taste.like.includes(s.k) ? 'like' : 'ok';
+    this.takeSlot(p, slot, 1);
+    this.dlg(p, id, [pick(GIFT_LINES[kind])], [{ id: 'bye', label: 'You\'re welcome!' }]);
+    this.ev('fx', 'hearts', 0, p.x, p.y - 26);
+    this.addFriend(p, id, kind === 'love' ? 40 : kind === 'like' ? 25 : 10);
+    this.addXP(p, XP.gift, 'gift');
+  }
+
+  // ---------------------------------------------------------------- notice board
+  _postBoard() {
+    const day = dayIdx(this.time), out = [], used = new Set();
+    for (let k = 0; k < 40 && out.length < 2; k++) {
+      const t = BOARD_TASKS[hash32(day, k, this.seed) % BOARD_TASKS.length];
+      if (used.has(t.npc)) continue;
+      used.add(t.npc);
+      out.push({ npc: t.npc, mat: t.mat, n: t.n, text: t.text, done: '' });
+    }
+    this.board = out;
+    this.ev('board', this.board);
+  }
+  actBoard(p, m) {
+    const b = Array.from(this.objs.values()).find((o) => o.type === 'building' && o.kind === 'board');
+    if (!b || !this.reachObj(p, b, 12)) return;
+    const t = this.board[m.i | 0];
+    if (!t || t.done) return;
+    if (!this.hasMats({ [t.mat]: t.n })) return this.fail(p, 'You need ' + t.n + ' ' + MATS[t.mat].name.toLowerCase() + ' in the pouch.');
+    this.takeMats({ [t.mat]: t.n });
+    t.done = p.name;
+    const coins = 15 + t.n * 6;
+    this.coins += coins; this.ev('coins', this.coins);
+    this.ev('board', this.board);
+    this.toastAll(p.name + ' helped ' + NPCS[t.npc].name + ': ' + t.text.toLowerCase() + ' (+' + coins + ' coins)', 'heart');
+    this.ev('snd', 'coin');
+    this.addFriend(p, t.npc, 15);
+    this.addXP(p, XP.board, 'board');
+    this.bumpStat('board');
+  }
+
+  // A rare visitor turns up about one day in five; a villager mentions it in the morning
+  _pickRare(today) {
+    this.rare = null; this.rareMsg = null;
+    const opts = RARE.filter((r) => r.present.includes(this.time.season));
+    if (!opts.length || today < 2 || hashf(today, 404, this.seed) > 0.22) return;
+    const sp = opts[hash32(today, 405, this.seed) % opts.length];
+    this.rare = sp.id;
+    this.visitors.push({ sp: sp.id, role: 'rare' });
+    const who = ['finn', 'tom', 'rosie', 'ada', 'edith'][hash32(today, 406, this.seed) % 5];
+    this.rareMsg = NPCS[who].name + ' says a rare ' + sp.name + ' was seen around ' + ZONES_LABEL[sp.zone] + ' — today only!';
+    if (!this.bulk) { this.ev('vis', this.visitors, this.featured); this.toastAll(this.rareMsg, 'binoculars'); }
+  }
+  _observeRare(p, sp) {
+    if (!this.rareLog[sp.id]) {
+      this.rareLog[sp.id] = dateStr(this.time);
+      this.ev('rare', this.rareLog);
+      this.coins += 50; this.ev('coins', this.coins);
+      this.toastAll(p.name + ' spotted a rare ' + sp.name + '! (+50 coins)', 'star');
+      this.ev('snd', 'fanfare');
+      this.addXP(p, XP.rare, 'rare');
+      this.bumpStat('rare');
+    }
+    this.evTo(p.pid, 'fact', sp.id, pick(sp.facts));
+  }
+
+  // Rest until the evening (solo only): a gentle way to meet the birds of the night
+  actRest(p) {
+    const c = Array.from(this.objs.values()).find((o) => o.type === 'building' && o.kind === 'cottage');
+    const benches = Array.from(this.objs.values()).filter((o) => o.type === 'struct' && o.kind === 'gardenbench');
+    const near = (c && dist2(p.x, p.y, (c.x + 2.5) * TS, (c.y + 3) * TS) < 48 * 48) || benches.some((o) => dist2(p.x, p.y, o.x * TS + 8, o.y * TS + 12) < 32 * 32);
+    if (!near) return;
+    if (this.players.size > 1) return this.fail(p, 'In co-op the day keeps everyone\'s pace — resting only works when you play alone.');
+    if (this.time.min >= 19 * 60) return this.fail(p, 'It\'s already evening!');
+    if (this.time.min < 11 * 60) for (const o of Array.from(this.objs.values())) if (o.type === 'web') this.removeObj(o);
+    this.time.min = 19 * 60; this.msAcc = 0;
+    this.ev('time', this.time, this.weather);
+    this.checkArrivals();
+    this.toast(p, 'You rest with a cup of tea until the evening light. The birds of the night will soon be out!', 'moon');
+  }
+
   actTalk(p, m) {
     const id = String(m.npc);
     if (!NPCS[id] || !this._nearNpc(p, id)) return;
     const step = TUTORIAL[this.quest] ? TUTORIAL[this.quest].id : '';
+    const today = dayIdx(this.time);
+    if (p.talkD[id] !== today) { p.talkD[id] = today; this.addFriend(p, id, 8); }
+    const dq = QUESTS.find((q) => q.kind === 'deliver' && q.to === id && this.side[q.id] && this.side[q.id].st === 'on');
+    if (dq) return this.completeQuest(p, dq);
+    if (!(id === 'ada' && (step === 'mail' || step === 'ada')) && this._heartStory(p, id)) return;
     const nq = npcQuest(this, id);
     const questOpt = nq ? [{ id: 'q', label: nq.state === 'offer' ? 'Need a hand?' : 'About ' + nq.q.title + '…' }] : [];
     if (id === 'ada') {
@@ -3492,6 +4243,7 @@ class World {
     const q = nq.q;
     if (nq.state === 'offer') return this.dlg(p, npc, q.ask, [{ id: 'qa', label: 'I\'ll help!' }, { id: 'bye', label: 'Not now' }]);
     if (nq.state === 'active') {
+      if (q.kind === 'find') this._respawnQuestItems(q);
       const prog = q.n > 1 ? ' (' + questProgress(this, q) + '/' + q.n + ')' : '';
       return this.dlg(p, npc, ['Any luck? ' + q.hint + prog], [{ id: 'bye', label: 'I\'m on it!' }]);
     }
@@ -3508,18 +4260,63 @@ class World {
     this.ev('snd', 'clue');
   }
 
-  _spawnQuestItems(q) {
-    const left = q.n - (this.side[q.id].n || 0);
+  _spawnQuestItems(q, count) {
+    const left = count != null ? count : q.n - (this.side[q.id].n || 0);
+    if (left <= 0) return;
+    const reach = this._reachable();
+    const ok = (x, y) => reach[tIdx(x, y)] === 1;
+    const base = q.shore ? (x, y, t) => t !== T.PATH && nearWater(this, x, y, 1) : (x, y, t) => t !== T.PATH;
     for (let k = 0; k < left; k++) {
-      const test = q.shore ? (x, y, t) => t !== T.PATH && nearWater(this, x, y, 1) : (x, y, t) => t !== T.PATH;
-      const xy = this._randIn(q.area, test, 400) || this._randIn(q.area, null, 400);
+      const xy = this._randIn(q.area, (x, y, t) => base(x, y, t) && ok(x, y), 800) || this._randIn(q.area, (x, y) => ok(x, y), 800) || this._randIn(q.area, null, 400);
       if (xy) this.addObj({ type: 'qitem', kind: q.item, q: q.id, x: xy[0], y: xy[1] });
+    }
+  }
+  // Items can be lost (a spot built over, an old save): top them up when the player asks about the quest
+  _respawnQuestItems(q) {
+    const st = this.side[q.id];
+    let have = 0;
+    for (const o of this.objs.values()) if (o.type === 'qitem' && o.q === q.id) have++;
+    this._spawnQuestItems(q, q.n - (st.n || 0) - have);
+  }
+  // Tiles a player can walk to from the cottage
+  _reachable() {
+    const seen = new Uint8Array(MAP_W * MAP_H);
+    const start = tIdx(Math.floor(HOME_SPAWN[0] / TS), Math.floor(HOME_SPAWN[1] / TS));
+    const stack = [start];
+    seen[start] = 1;
+    while (stack.length) {
+      const i = stack.pop(), x = i % MAP_W, y = (i - x) / MAP_W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (!inBounds(nx, ny)) continue;
+        const j = tIdx(nx, ny);
+        if (seen[j] || feetBlocked(this, nx * TS + 8, ny * TS + 10)) continue;
+        seen[j] = 1;
+        stack.push(j);
+      }
+    }
+    return seen;
+  }
+
+  // Progress on active quests matching pred: a toast for p (or everyone), or a line in the morning summary
+  _bumpQuests(pred, p, sum) {
+    for (const q of QUESTS) {
+      const st = this.side[q.id];
+      if (!st || st.st !== 'on' || !pred(q) || (st.n || 0) >= q.n) continue;
+      st.n = (st.n || 0) + 1;
+      this.ev('side', this.side);
+      const msg = q.title + ': ' + (q.n > 1 ? st.n + '/' + q.n : 'done') + (st.n >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : '');
+      if (sum) sum.push(['star', msg]);
+      else if (p) this.toast(p, msg, 'star');
+      else this.toastAll(msg, 'star');
     }
   }
 
   completeQuest(p, q) {
     const st = this.side[q.id];
-    if (!st || st.st !== 'on' || !questReady(this, q)) return;
+    if (!st || st.st !== 'on') return;
+    if (q.kind === 'deliver') st.n = 1;
+    if (!questReady(this, q)) return;
     if (q.kind === 'bring') { if (!this.hasMats({ [q.mat]: q.n })) return; this.takeMats({ [q.mat]: q.n }); }
     st.st = 'done';
     this.ev('side', this.side);
@@ -3528,7 +4325,9 @@ class World {
     if (r.coins) { this.coins += r.coins; this.ev('coins', this.coins); got.push(r.coins + ' coins'); }
     for (const k in r.items || {}) { this.gainItem(p, k, r.items[k], src); got.push(r.items[k] + '× ' + ITEMS[k].name); }
     for (const k in r.mats || {}) { this.gainMat(p, k, r.mats[k], src); got.push(r.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
-    this.dlg(p, q.npc, q.thanks.concat(got.length ? ['(You received ' + got.join(', ') + '.)'] : []), [{ id: 'bye', label: 'You\'re welcome!' }]);
+    const who = q.kind === 'deliver' ? q.to : q.npc;
+    const lines = (q.kind === 'deliver' ? ['(You hand over ' + QITEMS[q.item].name + ' from ' + NPCS[q.npc].name + '.)'] : []).concat(q.thanks);
+    this.dlg(p, who, lines.concat(got.length ? ['(You received ' + got.join(', ') + '.)'] : []), [{ id: 'bye', label: 'You\'re welcome!' }]);
     if (r.clue) {
       const ut = unlockedTier(this);
       const cands = SPECIES.filter((s) => s.tier <= ut && this.journal[s.id].h < 3 && s.site !== 'parasite' && (r.clue !== 'night' || s.night));
@@ -3537,6 +4336,10 @@ class World {
     }
     this.toastAll('Quest complete: ' + q.title + '!', 'star');
     this.ev('snd', 'fanfare');
+    this.addXP(p, XP.quest, 'quest');
+    this.addFriend(p, q.npc, 30);
+    if (who !== q.npc) this.addFriend(p, who, 20);
+    this.bumpStat('quests');
   }
 
   actOpt(p, m) {
@@ -3655,6 +4458,7 @@ class World {
       this.quest++;
       changed = true;
       if (s.id === 'build') this.toastAll('Now wait for the birds — they\'re checking it out.', 'heart');
+      if (s.id === 'arrive') this.sendMail(LETTERS.neighbours);
     }
     if (changed) {
       this.ev('quest', this.quest);
@@ -3701,6 +4505,7 @@ class World {
     this.toastAll('A pair of ' + sp.name + 's moved into the nest!', 'heart');
     this.ev('fx', 'hearts', n.id, 0, 0);
     this.ev('snd', 'arrive', 0, 0);
+    this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), null, this.bulk ? [] : null);
     this.questCheck();
   }
 
@@ -3734,6 +4539,7 @@ class World {
           if (evalNest(this, sp, cx, cy, n.id).ok) {
             n.st = 'pair'; n.arr = 0; n.cl = randInt(Math.random, sp.clutch[0], sp.clutch[1]);
             sum.push(['heart', 'A pair of ' + sp.name + 's moved into a nest at dawn.']);
+            this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), null, sum);
           }
           break;
         }
@@ -3751,6 +4557,7 @@ class World {
             } else {
               n.ch = n.cl || n.eggs; n.eggs = 0;
               sum.push(['chick', n.ch + ' ' + sp.name + ' chicks hatched!']);
+              this.teamXP(XP.hatch, 'hatch');
             }
           } else if (n.t === 1) {
             n.eggs = n.cl || n.eggs;
@@ -3789,6 +4596,8 @@ class World {
     const j = this.journal[id];
     j.n++;
     this.stats.fledged++;
+    this._bumpQuests((q) => q.kind === 'fledge' && (!q.sp || q.sp.includes(id)), null, sum);
+    this.teamXP(XP.fledge + (j.n === 1 ? XP.newSpecies : 0), 'fledge');
     if (j.n === 1) {
       j.first = dateStr(this.time);
       if (j.h < 3) j.h = 3;
@@ -3874,6 +4683,8 @@ class World {
     if (seasonChanged) this.sendMail(LETTERS[SEASONS[season]]);
     this._checkTier();
     this.startDay();
+    if (this.rareMsg) sum.push(['star', this.rareMsg]);
+    for (const p of this.players.values()) for (const u of p.lvlUps || []) sum.push(['star', p.name + ' is now a ' + RANKS[u.lvl - 1] + '!']);
     // wake everyone at home
     let k = 0;
     for (const p of this.players.values()) {
@@ -3903,6 +4714,9 @@ class World {
     this.observed = {};
     this._spawnForage(today);
     this.pickFeatured();
+    this._postBoard();
+    this._pickRare(today);
+    this.checkBadges();
   }
 
   _freeLand(x, y) {
@@ -4318,6 +5132,7 @@ const GLYPHS = {
   '✗': '...../#...#/.#.#./..#../.#.#./#...#',
   '★': '..#../..#../#####/.###./.#.#./#...#',
   '♥': '...../.#.#./#####/#####/.###./..#..',
+  '♡': '...../.#.#./#.#.#/#...#/.#.#./..#..',
   '•': '.../.../.../.#./###/.#.',
   '…': '...../...../...../...../...../...../#.#.#',
   '·': './././#',
@@ -5450,6 +6265,26 @@ function birdPalette(sp) {
   return pal;
 }
 
+// Crests drawn above the crown, relative to the back of the crown's top row: [dx, dy, region]
+const CRESTS = {
+  wisp: [[0, -1, 'c'], [-1, -2, 'c'], [-2, -2, 'c'], [-3, -3, 'c']],                                    // lapwing
+  fan: [[-1, -1, 'c'], [0, -1, 'c'], [1, -1, 'c'], [2, -1, 'c'], [-1, -2, 'g'], [1, -2, 'g'], [3, -2, 'g'], [0, -2, 'c'], [2, -2, 'c']], // hoopoe
+  swept: [[0, -1, 'c'], [-1, -1, 'c'], [-2, 0, 'c'], [-1, -2, 'c']],                                    // waxwing
+};
+function applyCrest(rows, kind) {
+  const shape = CRESTS[kind];
+  if (!shape) return rows;
+  const g = rows.map((r) => r.split(''));
+  const top = g.findIndex((r) => r.includes('c'));
+  if (top < 0) return rows;
+  const l = g[top].indexOf('c');
+  for (const [dx, dy, ch] of shape) {
+    const x = l + dx, y = top + dy;
+    if (y >= 0 && x >= 0 && x < g[0].length && g[y][x] === '.') g[y][x] = ch;
+  }
+  return g.map((r) => r.join(''));
+}
+
 // Build all frames for one species: {perch, peck, fly1, fly2, hop} plus mirrored *_L
 function buildBirdSprites(sp) {
   const T = BIRD_T[sp.body];
@@ -5458,6 +6293,7 @@ function buildBirdSprites(sp) {
   for (const name of ['perch', 'peck', 'fly1', 'fly2']) {
     let rows = T[name];
     if (sp.body === 'small' || sp.body === 'longtail') rows = applyBeak(rows, sp.beak);
+    if (sp.crest && name !== 'fly2') rows = applyCrest(rows, sp.crest);
     if (sp.tufts && sp.body === 'owl' && (name === 'perch' || name === 'peck')) {
       // ear tufts above the head
       const g = rows.map((r) => r.split(''));
@@ -5524,7 +6360,13 @@ function buildEgg(e, big) {
   const mask = big ? EGG_MASK_BIG : EGG_MASK;
   const px = Pix.rows(mask, { '#': e.c }).pad(1, 1, 1, 1);
   const rnd = artRng('egg' + e.c + e.s + e.p);
-  if (e.p !== 'none') {
+  if (e.p === 'scribble') {
+    // fine, wandering hairlines (yellowhammers were called "scribble larks")
+    for (let i = 0; i < 3; i++) {
+      let x = 1 + Math.floor(rnd() * (px.w - 3)), y = 2 + Math.floor(rnd() * (px.h - 4));
+      for (let k = 0; k < 3; k++) { if (px.op(x, y)) px.set(x, y, e.s); x += 1; y += rnd() < 0.5 ? 1 : -1; }
+    }
+  } else if (e.p !== 'none') {
     const n = e.p === 'fine' ? 6 : e.p === 'spots' ? 4 : 3;
     for (let i = 0; i < n; i++) {
       const x = 1 + Math.floor(rnd() * (px.w - 2)), y = 2 + Math.floor(rnd() * (px.h - 3));
@@ -6640,7 +7482,7 @@ const STONE = { o: '#2c2a30', d: '#5a5862', m: '#7e7c86', l: '#a4a2aa', h: '#c8c
 
 // ---------------------------------------------------------------- structures
 function genStruct(kind, season) {
-  const px = new Pix(kind === 'platform' ? 34 : kind === 'owlbox' ? 24 : kind === 'brushpile' ? 26 : 18, kind === 'platform' ? 62 : kind === 'owlbox' ? 46 : 34);
+  const px = new Pix(kind === 'platform' ? 34 : kind === 'owlbox' ? 24 : kind === 'brushpile' ? 26 : kind === 'gardenbench' ? 22 : 18, kind === 'platform' ? 62 : kind === 'owlbox' ? 46 : kind === 'lamppost' ? 38 : 34);
   const cx = Math.floor(px.w / 2), base = px.h - 2;
   const pole = (x, top) => { px.rect(x - 1, top, 3, base - top + 1, WOOD.m); px.vline(x - 1, top, base, WOOD.l); px.vline(x + 1, top, base, WOOD.d); px.rect(x - 2, base - 1, 5, 2, '#5a4a3a'); };
   switch (kind) {
@@ -6711,6 +7553,32 @@ function genStruct(kind, season) {
       for (const [x, y] of [[cx - 7, base], [cx + 6, base - 1], [cx + 3, base + 1], [cx - 4, base + 1]]) {
         px.set(x, y, '#e8c87a'); px.set(x + 1, y, '#8a5a2a'); px.set(x, y - 1, '#c8a05a');
       }
+      break;
+    }
+    case 'feeder': {
+      pole(cx, 12);
+      px.rect(cx - 6, 11, 13, 2, WOOD.l); px.hline(cx - 6, cx + 6, 11, WOOD.h);
+      px.rect(cx - 3, 4, 7, 7, '#cfe4ec'); px.vline(cx - 3, 4, 10, '#e8f4f8'); px.vline(cx + 3, 4, 10, '#9ab8c4');
+      for (let y = 7; y < 11; y++) px.hline(cx - 2, cx + 2, y, y % 2 ? '#c8a050' : '#a87a3a');
+      px.poly([[cx - 5, 5], [cx + 5, 5], [cx, 1]], '#a8483a'); px.line(cx - 5, 4, cx, 0, '#c8604a');
+      px.set(cx - 5, 10, '#c8a050'); px.set(cx + 5, 10, '#a87a3a');
+      if (season === WINTER) px.hline(cx - 3, cx + 3, 1, '#f4f8fb');
+      break;
+    }
+    case 'lamppost': {
+      px.rect(cx - 1, 10, 3, base - 9, '#3a3a44'); px.vline(cx - 1, 10, base, '#5a5a66');
+      px.rect(cx - 3, base - 1, 7, 2, '#2a2a30');
+      px.rect(cx - 3, 3, 7, 7, '#2a2a30'); px.rect(cx - 2, 4, 5, 5, '#ffe08a'); px.set(cx - 1, 5, '#fff6c8');
+      px.poly([[cx - 4, 4], [cx + 4, 4], [cx, 0]], '#2a2a30'); px.hline(cx - 4, cx + 4, 10, '#2a2a30');
+      if (season === WINTER) px.hline(cx - 2, cx + 2, 0, '#f4f8fb');
+      break;
+    }
+    case 'gardenbench': {
+      const W2 = { d: '#5a3a22', m: '#8a5a34', l: '#a8743f', h: '#c89458' };
+      px.rect(2, base - 14, 18, 3, W2.m); px.hline(2, 19, base - 14, W2.h); px.hline(2, 19, base - 12, W2.d);
+      px.rect(2, base - 8, 18, 3, W2.l); px.hline(2, 19, base - 8, W2.h); px.hline(2, 19, base - 6, W2.d);
+      for (const x of [3, 17]) { px.rect(x, base - 15, 2, 15, '#3a3a44'); px.vline(x, base - 15, base, '#5a5a66'); }
+      if (season === WINTER) px.hline(2, 19, base - 9, '#f4f8fb');
       break;
     }
     case 'birdbath': {
@@ -7585,6 +8453,7 @@ function genBuilding(kind, season, lit) {
     case 'bench': return genBench(season);
     case 'mailbox': return genMailbox(false);
     case 'well': return genWell(season);
+    case 'board': return genNoticeBoard(season);
   }
 }
 
@@ -8009,6 +8878,20 @@ function genMailbox(flag) {
   px.rect(5, 28, 7, 2, '#7a6a5a');
   px.outline('#14202e');
   return { px, ax: 0, ay: 14 };
+}
+
+function genNoticeBoard(season) {
+  const px = new Pix(24, 32);
+  const P = ramp('#8a5a34');
+  for (const x of [3, 19]) { px.rect(x, 8, 2, 23, P.d); px.vline(x, 8, 30, P.l); }
+  px.rect(1, 6, 22, 16, P.m); px.frame(1, 6, 22, 16, P.d); px.hline(1, 22, 6, P.h);
+  px.rect(3, 8, 18, 12, '#c8a070');
+  const papers = [[4, 9, 6, 5, '#f4f0e0'], [11, 8, 5, 7, '#fff8d8'], [16, 10, 4, 5, '#e8f0f4'], [5, 15, 7, 4, '#f4e8e0']];
+  for (const [x, y, w, h, c] of papers) { px.rect(x, y, w, h, c); px.set(x + Math.floor(w / 2), y, '#c83a2a'); px.hline(x + 1, x + w - 2, y + 2, '#a8a090'); }
+  px.poly([[0, 7], [24, 7], [20, 1], [4, 1]], '#6a4428'); px.hline(4, 19, 1, '#8a6040');
+  if (season === WINTER) px.hline(4, 19, 0, '#f4f8fb');
+  px.outline('#24160e');
+  return { px, ax: 4, ay: 16 };
 }
 
 function genWell(season) {
@@ -8797,6 +9680,24 @@ function genQItem(kind) {
     case 'litter': px.rect(3, 4, 6, 6, '#b8bcc4'); px.hline(3, 8, 4, '#e0e4ea'); px.rect(3, 6, 6, 2, '#c83a3a'); px.set(4, 5, '#ffffff'); px.line(8, 10, 10, 11, '#8a8e96'); break;
     case 'pellet': px.ellipse(6, 7, 4, 2.4, '#7a7470'); px.ellipse(5, 6.5, 2.5, 1.2, '#948e88'); px.set(4, 7, '#f4f0e6'); px.set(7, 8, '#f4f0e6'); px.set(8, 6, '#e8e4dc'); break;
     case 'orchid': px.vline(6, 3, 11, '#5a8a4a'); px.ellipse(6, 3, 1.6, 2.4, '#a88a5a'); px.set(4, 7, '#b86ad0'); px.set(5, 6, '#d08ae8'); px.set(3, 8, '#5a8a4a'); px.set(8, 9, '#5a8a4a'); break;
+    case 'bell':
+      px.rect(5, 2, 2, 2, '#5a3a22');
+      px.poly([[3, 10], [9, 10], [8, 4], [4, 4]], '#c8962a');
+      px.vline(4, 5, 9, '#f0c85a'); px.set(5, 4, '#f6dc8a'); px.hline(2, 9, 10, '#a8761a'); px.set(6, 11, '#5a4a3a');
+      px.set(10, 3, '#f8f0c0');
+      break;
+    case 'map':
+      px.rect(1, 3, 10, 7, '#e8dcb8'); px.vline(4, 3, 9, '#c8b890'); px.vline(8, 3, 9, '#c8b890');
+      px.line(2, 8, 5, 5, '#5a9ad8'); px.line(5, 5, 9, 6, '#5a9ad8'); px.set(6, 7, '#d8342a'); px.set(3, 4, '#5aa03a'); px.set(9, 4, '#5aa03a');
+      break;
+    case 'carving':
+      px.ellipse(5, 7, 3.2, 2.2, '#2a8ac8'); px.ellipse(5, 8, 2.4, 1.2, '#e88a3a'); px.disc(8, 5, 1.8, '#2a8ac8');
+      px.hline(9, 11, 5, '#3a3a3a'); px.set(8, 4, '#ffffff'); px.line(1, 8, 2, 7, '#1e6a9a'); px.hline(3, 8, 10, '#a87a4a');
+      break;
+    case 'jam':
+      px.rect(3, 4, 6, 7, '#6a1a3a'); px.rect(4, 5, 1, 4, '#a83a6a'); px.rect(3, 2, 6, 2, '#e8dcc8');
+      px.hline(3, 8, 2, '#c84a4a'); px.set(5, 3, '#c84a4a'); px.set(7, 3, '#c84a4a'); px.rect(4, 7, 4, 2, '#f4ecd8');
+      break;
   }
   px.outline('#1e1612');
   return { px, ax: 6, ay: 10 };
@@ -8865,6 +9766,9 @@ const ITEM_ICON = {
   box_medium(px) { boxIcon(px, 'medium'); },
   box_large(px) { boxIcon(px, 'large'); },
   box_open(px) { boxIcon(px, 'open'); },
+  feeder(px) { px.vline(8, 9, 15, '#8a5a34'); px.rect(5, 4, 7, 6, '#cfe4ec'); for (let y = 6; y < 10; y++) px.hline(6, 10, y, y % 2 ? '#c8a050' : '#a87a3a'); px.poly([[3, 5], [13, 5], [8, 1]], '#a8483a'); },
+  lamppost(px) { px.vline(8, 7, 15, '#3a3a44'); px.rect(6, 15, 5, 1, '#2a2a30'); px.rect(5, 2, 7, 6, '#2a2a30'); px.rect(6, 3, 5, 4, '#ffe08a'); px.set(7, 4, '#fff6c8'); },
+  gardenbench(px) { px.rect(2, 5, 12, 2, '#8a5a34'); px.hline(2, 13, 5, '#c89458'); px.rect(2, 9, 12, 2, '#a8743f'); px.hline(2, 13, 9, '#c89458'); px.vline(3, 5, 14, '#3a3a44'); px.vline(12, 5, 14, '#3a3a44'); },
   owlbox(px) { px.rect(3, 4, 10, 10, '#9a6a3a'); px.vline(3, 4, 13, '#b8844e'); px.poly([[2, 5], [14, 5], [12, 1], [4, 1]], '#5a3e26'); px.rect(5, 7, 6, 4, '#1a120c'); px.rect(7, 14, 2, 2, '#8a5a34'); },
   platform(px) { px.ellipse(8, 5, 7, 3, '#5a3a22'); px.ellipse(8, 5, 5.5, 2, '#a8743f'); for (let a = 0; a < 6; a++) { const t = a / 6 * Math.PI * 2; px.line(8, 5, 8 + Math.cos(t) * 5, 5 + Math.sin(t) * 2, '#c89458'); } px.rect(7, 8, 3, 8, '#8a5a34'); },
   bank(px) { px.rect(2, 5, 12, 10, '#b07c4c'); for (let y = 5; y < 15; y += 3) px.hline(2, 13, y, '#8a5e38'); px.rect(1, 3, 14, 3, '#5aa048'); px.ellipse(9, 10, 2, 1.6, '#1a120c'); },
@@ -9573,6 +10477,25 @@ const Audio2 = {
       case 'eagleowl': T(0, 210, 230, 0.25, 0.16, 'sine'); T(0.45, 240, 200, 0.4, 0.14, 'sine'); break;
       case 'littleowl': T(0, 1400, 1050, 0.4, 0.08, 'sine'); T(1.2, 1450, 1080, 0.38, 0.07, 'sine'); break;
       case 'woodcock': T(0, 600, 560, 0.12, 0.06, 'sawtooth'); T(0.14, 600, 560, 0.12, 0.06, 'sawtooth'); T(0.5, 6500, 7200, 0.08, 0.04); break;
+      // ---- added species
+      case 'goldcrest': { let k = 0; for (let i = 0; i < 4; i++) { T(k, 7600, 7000, 0.07, 0.03); T(k + 0.08, 8200, 7600, 0.06, 0.03); k += 0.17; } for (let i = 0; i < 5; i++) T(k + i * 0.05, 7400 - i * 300, 6800 - i * 300, 0.04, 0.03); break; }
+      case 'treecreeper': { let k = 0; for (let i = 0; i < 9; i++) { T(k, 7000 - i * 300, 6700 - i * 300, 0.06, 0.035); k += 0.07; } T(k + 0.05, 5200, 7200, 0.12, 0.035); break; }
+      case 'bullfinch': T(0, 1900, 1700, 0.28, 0.07, 'sine'); T(0.9, 1850, 1650, 0.3, 0.06, 'sine'); break;
+      case 'yellowhammer': { for (let i = 0; i < 7; i++) T(i * 0.11, 5600, 5400, 0.06, 0.05); T(0.85, 4400, 4500, 0.12, 0.06); T(1.0, 3500, 3300, 0.45, 0.06); break; }
+      case 'kestrel': for (let i = 0; i < 6; i++) { T(i * 0.13, 3300, 3000, 0.09, 0.07, 'triangle'); } break;
+      case 'lapwing': { T(0, 1600, 2900, 0.18, 0.08); T(0.2, 2900, 1800, 0.22, 0.07); T(0.9, 1700, 3000, 0.16, 0.07); T(1.08, 3000, 1900, 0.2, 0.06); break; }
+      case 'waterrail': { // "sharming": grunts, then a piglet-like squeal
+        for (let i = 0; i < 3; i++) this.noise(d, t + i * 0.16, 0.1, 0.1, 'bandpass', 900, 700, 3);
+        this.tone(d, t + 0.55, 2400, 1300, 0.7, 0.07, 'sawtooth'); this.noise(d, t + 0.55, 0.7, 0.06, 'bandpass', 2600, 1600, 2);
+        break;
+      }
+      case 'scopsowl': T(0, 1220, 1180, 0.22, 0.08, 'sine'); T(2.6, 1220, 1180, 0.22, 0.08, 'sine'); break;
+      case 'hoopoe': for (let i = 0; i < 3; i++) T(i * 0.2, 520, 500, 0.12, 0.12, 'sine'); break;
+      case 'oriole': { T(0, 1500, 1900, 0.14, 0.08); T(0.15, 1900, 1400, 0.12, 0.08); T(0.3, 1700, 2200, 0.2, 0.08); T(0.52, 2200, 1600, 0.18, 0.07); break; }
+      case 'waxwing': for (let i = 0; i < 3; i++) { for (let j = 0; j < 8; j++) T(i * 0.5 + j * 0.03, 6200, 5900, 0.025, 0.035); } break;
+      case 'osprey': for (let i = 0; i < 6; i++) T(i * 0.16, 2600 + i * 60, 2300 + i * 60, 0.1, 0.06); break;
+      case 'bluethroat': { let k = 0; for (let i = 0; i < 4; i++) { T(k, 4200, 4200, 0.06, 0.05); k += 0.09; } for (let i = 0; i < 8; i++) { const f = 2500 + R() * 4000; T(k, f, f * (0.8 + R() * 0.4), 0.07, 0.05); k += 0.09; } this.noise(d, t + k, 0.05, 0.08, 'bandpass', 3000, 0, 4); break; }
+      case 'hawfinch': T(0, 7200, 6400, 0.05, 0.07, 'square'); T(0.5, 7200, 6400, 0.05, 0.06, 'square'); break;
       case 'sparrow': for (let i = 0; i < 5; i++) { const f = 3200 + R() * 600; T(i * 0.22, f, f * 0.85, 0.08, 0.06, 'triangle'); } break;
       case 'starling': { let k = 0; for (let i = 0; i < 10; i++) { const r = R(); if (r < 0.3) this.noise(d, t + k, 0.05, 0.06, 'bandpass', 3000 + R() * 2000, 0, 6); else T(k, 1500 + R() * 4000, 1500 + R() * 4000, 0.1 + R() * 0.15, 0.05); k += 0.14 + R() * 0.1; } break; }
       case 'magpie': for (let i = 0; i < 6; i++) { this.noise(d, t + i * 0.11, 0.07, 0.16, 'bandpass', 1900, 1500, 2.5); this.tone(d, t + i * 0.11, 900, 700, 0.06, 0.04, 'sawtooth'); } break;
@@ -9670,6 +10593,10 @@ class ClientState {
     this.inv = s.inv || [];
     this.side = s.side || {};
     this.found = s.found || {};
+    this.prog = s.prog || { xp: 0, lvl: 1, fr: {}, hev: {}, gift: {}, lvlUps: [] };
+    this.badges = s.badges || {};
+    this.board = s.board || [];
+    this.rareLog = s.rareLog || {};
     this.stats = s.stats || {};
     this.allDone = !!s.allDone;
     const old = this.players;
@@ -9771,6 +10698,13 @@ class ClientState {
         case 'vis': this.visitors = e[1]; this.featured = e[2]; game.onVisitors(); break;
         case 'tp': game.onTeleport(e[1], e[2]); break;
         case 'side': this.side = e[1]; break;
+        case 'prog': this.prog = e[1]; break;
+        case 'xp': game.onXP(e[1], e[2]); break;
+        case 'lvl': game.onLevel(e[1], e[2]); break;
+        case 'badges': this.badges = e[1]; break;
+        case 'board': this.board = e[1]; break;
+        case 'stats': this.stats = e[1]; break;
+        case 'rare': this.rareLog = e[1]; break;
         case 'found': this.found = e[1]; this.mapDirty = true; break;
         case 'lore': game.onLore(e[1], e[2]); break;
       }
@@ -9813,6 +10747,7 @@ class FX {
         case 'zzz': p.c = '#e8eef8'; p.vx = 4; p.vy = -10; p.g = 0; p.life = 2; break;
         case 'smoke': p.c = pick(['#d8d4d0', '#c8c4c0', '#e8e4e0']); p.vx = 3 + R() * 4; p.vy = -10 - R() * 5; p.g = 0; p.life = 2.5 + R(); p.size = 2 + (R() < 0.5 ? 1 : 0); break;
         case 'drip': p.c = '#8cd2ea'; p.vx = 0; p.vy = 0; p.g = 160; p.life = 0.5; break;
+        case 'confetti': p.c = pick(['#f6d860', '#e8485a', '#5ac05a', '#5a9ae8', '#f08ac8', '#ffffff']); p.vx = (R() - 0.5) * 130; p.vy = -60 - R() * 70; p.g = 150; p.life = 1.1 + R() * 0.7; p.size = 2; p.sway = 4; break;
         case 'ripple': p.c = '#d6f0f6'; p.vx = 0; p.vy = 0; p.g = 0; p.life = 0.8; break;
       }
       this.parts.push(p);
@@ -9889,17 +10824,17 @@ class FX {
 // simulated on each client; only "observe" is sent to the host.
 
 const BIRD_PREFS = {
-  blackbird: { ground: 6, shrub: 3, tree: 2 },
-  robin: { ground: 5, shrub: 3, post: 2 },
-  greattit: { tree: 7, shrub: 3 },
-  bluetit: { tree: 7, shrub: 3 },
-  songthrush: { ground: 6, tree: 3 },
-  woodpigeon: { tree: 6, ground: 4 },
+  blackbird: { ground: 6, shrub: 3, tree: 2, bath: 3 },
+  robin: { ground: 5, shrub: 3, post: 2, feeder: 2, bath: 2 },
+  greattit: { tree: 7, shrub: 3, feeder: 8, bath: 1 },
+  bluetit: { tree: 7, shrub: 3, feeder: 6, bath: 1 },
+  songthrush: { ground: 6, tree: 3, bath: 2 },
+  woodpigeon: { tree: 6, ground: 4, bath: 1 },
   wren: { shrub: 5, ground: 4, post: 1 },
   swallow: { air: 7, post: 2, roof: 1 },
   martin: { air: 7, roof: 3 },
   mallard: { water: 8, ground: 2 },
-  goldfinch: { thistle: 5, tree: 4, shrub: 1 },
+  goldfinch: { thistle: 5, tree: 4, shrub: 1, feeder: 4 },
   longtailed: { shrub: 5, tree: 5 },
   woodpecker: { trunk: 9, tree: 1 },
   reedwarbler: { reed: 9, shrub: 1 },
@@ -9909,7 +10844,7 @@ const BIRD_PREFS = {
   penduline: { willow: 6, reed: 4 },
   cuckoo: { tree: 6, post: 4 },
   stork: { ground: 7, roof: 3 },
-  nuthatch: { trunk: 7, tree: 3 },
+  nuthatch: { trunk: 7, tree: 3, feeder: 3 },
   skylark: { ground: 6, air: 4 },
   plover: { shore: 10, ground: 1 },
   swift: { air: 10 },
@@ -9926,10 +10861,24 @@ const BIRD_PREFS = {
   longeared: { pine: 8, tree: 2 },
   corncrake: { ground: 10 },
   eagleowl: { ground: 7, tree: 3 },
+  goldcrest: { pine: 10 },
+  treecreeper: { trunk: 10 },
+  bullfinch: { shrub: 7, tree: 3, feeder: 3 },
+  yellowhammer: { shrub: 5, post: 3, ground: 2, feeder: 2 },
+  kestrel: { air: 7, post: 3 },
+  lapwing: { ground: 7, shore: 3 },
+  waterrail: { reed: 8, shore: 2 },
+  scopsowl: { tree: 9, post: 1 },
+  hoopoe: { ground: 7, tree: 3 },
+  oriole: { tree: 10 },
+  waxwing: { shrub: 6, tree: 4 },
+  osprey: { air: 6, waterperch: 2, tree: 2 },
+  bluethroat: { reed: 5, shore: 3, shrub: 2 },
+  hawfinch: { tree: 9, ground: 1, feeder: 2 },
   woodcock: { air: 6, ground: 4 },
   littleowl: { roof: 5, post: 5 },
-  sparrow: { ground: 6, roof: 2, shrub: 2, post: 1 },
-  starling: { ground: 8, tree: 1, post: 1 },
+  sparrow: { ground: 6, roof: 2, shrub: 2, post: 1, feeder: 14, bath: 3 },
+  starling: { ground: 8, tree: 1, post: 1, feeder: 3, bath: 3 },
   magpie: { ground: 5, tree: 4, roof: 1 },
 };
 
@@ -10012,7 +10961,7 @@ class Birds {
     if (c) return c;
     const S = this.S;
     const r = this.zoneRect(zone);
-    c = { ground: [], shrub: [], tree: [], post: [], roof: [], water: [], thistle: [], trunk: [], reed: [], pine: [], waterperch: [], willow: [], air: [], shore: [] };
+    c = { ground: [], shrub: [], tree: [], post: [], roof: [], water: [], thistle: [], trunk: [], reed: [], pine: [], waterperch: [], willow: [], air: [], shore: [], feeder: [], bath: [] };
     const inZ = (x, y) => x >= r[0] - 1 && y >= r[1] - 1 && x <= r[2] + 1 && y <= r[3] + 1;
     const river = zone === 'river';
     for (const o of S.objs.values()) {
@@ -10036,10 +10985,14 @@ class Birds {
       } else if (o.type === 'plant' && o.st >= 1) {
         if (o.kind === 'thistle') c.thistle.push({ kind: 'thistle', x: bx, y: by, z: 15, sortY: by + 1, spread: 2, zs: 1 });
         if (o.kind === 'reed' || o.kind === 'cattail') { const p = { kind: 'reed', x: bx, y: by, z: 13, sortY: by + 1, spread: 3, zs: 4 }; c.reed.push(p); c.waterperch.push(p); }
-      } else if (o.type === 'fence' || (o.type === 'struct' && o.kind !== 'anvil' && o.kind !== 'birdbath')) {
-        const z = o.type === 'fence' ? 11 : o.kind === 'platform' ? 50 : o.kind === 'owlbox' ? 40 : o.kind.startsWith('box') ? 28 : 10;
-        const p = { kind: 'post', x: bx, y: by, z, sortY: by + 1, spread: 1, zs: 0 };
+      } else if (o.type === 'struct' && o.kind === 'birdbath') {
+        c.bath.push({ kind: 'bath', x: bx, y: by, z: 13, sortY: by + 1, spread: 4, zs: 0 });
+      } else if (o.type === 'fence' || (o.type === 'struct' && o.kind !== 'anvil')) {
+        const z = o.type === 'fence' ? 11 : o.kind === 'platform' ? 50 : o.kind === 'owlbox' ? 40 : o.kind.startsWith('box') ? 28
+          : o.kind === 'feeder' ? 21 : o.kind === 'lamppost' ? 36 : o.kind === 'gardenbench' ? 15 : 10;
+        const p = { kind: 'post', x: bx, y: by, z, sortY: by + 1, spread: o.kind === 'feeder' ? 4 : 1, zs: 0 };
         c.post.push(p);
+        if (o.kind === 'feeder') c.feeder.push(Object.assign({}, p, { kind: 'feeder' }));
         if (nearW) c.waterperch.push(p);
       } else if (o.type === 'building' && o.kind !== 'bench' && o.kind !== 'mailbox' && o.kind !== 'well') {
         const b = BUILDINGS[o.kind];
@@ -10251,7 +11204,8 @@ class Birds {
       if (a.state === 'idle' || a.state === 'swim') {
         for (const p of S.players.values()) {
           if (p.sleep) continue;
-          const close = dist2(p.x, p.y, a.x, a.y) < (p.m ? 26 * 26 : 12 * 12);
+          const r = p.m ? (p.pid === S.me && this.game.perk('quiet') ? 15 : 26) : 12;
+          const close = dist2(p.x, p.y, a.x, a.y) < r * r;
           if (close && !a.observed && a.job !== 'sit') {
             const np = a.nest ? this._nearPerch(S.objs.get(a.nest) || { kind: a.sp }, a.anchor, 0) : this.pickPerch(a.sp, a.zone);
             this.flyTo(a, np, 95);
@@ -10346,6 +11300,8 @@ class Birds {
           else a.frame = (a.anim % 5000) < 200 ? 'peck' : 'perch';
           if (a.perch && a.perch.cling) a.frame = (a.anim % 900) < 120 ? 'peck' : 'perch';
           if (Math.random() < dt / 6000) a.face = -a.face;
+          if (a.perch && a.perch.kind === 'bath' && Math.random() < dt / 2200) { a.frame = 'peck'; this.game.fx.burst('splash', a.x, a.y - a.z, 3); }
+          if (a.perch && a.perch.kind === 'feeder') a.frame = (a.anim % 1200) < 300 ? 'peck' : 'perch';
           if (ground && Math.random() < dt / 2500) {
             // hop
             const nx = a.x + a.face * (3 + Math.random() * 6);
@@ -10567,7 +11523,7 @@ class Renderer {
     const tx0 = Math.max(0, Math.floor(cx0 / TS) - 1), tx1 = Math.min(MAP_W - 1, Math.floor((cx0 + view.w) / TS) + 1);
     const ty0 = Math.max(0, Math.floor(cy0 / TS) - 1), ty1 = Math.min(MAP_H - 1, Math.floor((cy0 + view.h) / TS) + 6);
     // moving water: drifting wave highlights and sun glints
-    const sunny = S.weather === 'sun' && S.clock() < 19 * 60;
+    const sunny = S.weather === 'sun' || S.weather === 'cloud';
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
       const t = S.tiles[tIdx(tx, ty)];
       if (t !== T.WATER && t !== T.SHALLOW) continue;
@@ -10710,7 +11666,7 @@ class Renderer {
     if (game.placeGhost) this._ghost(g, game.placeGhost, cx0, cy0, now);
     // weather & light
     this._weather(g, S, view, now);
-    this._lighting(g, S, view, cx0, cy0, now, tx0, tx1, ty0, ty1);
+    this._lighting(g, S, view, cx0, cy0, now);
     // names
     for (const p of S.players.values()) {
       if (p.sleep || (p.pid === S.me && S.players.size < 2)) continue;
@@ -10763,7 +11719,7 @@ class Renderer {
         break;
       }
       case 'building': {
-        const lit = this.game.nightLevel > 0.35;
+        const lit = this.game.nightLevel > 0.3;
         let spr;
         if (o.kind === 'mailbox') spr = SPR.mailbox(this.game.state.mail.some((m) => !m.read));
         else spr = SPR.building(o.kind, season, lit);
@@ -10907,6 +11863,16 @@ class Renderer {
         if (o && o.type === 'tree' && o.st >= 2 && o.kind !== 'pine') game.fx.burst('leaf', x, y, 1, AUTUMN);
       }
     }
+    // a rare visitor twinkles now and then, so it's worth a closer look
+    this.rareT = (this.rareT || 0) - game.dt;
+    if (this.rareT <= 0) {
+      this.rareT = 700;
+      for (const a of game.birds.agents) {
+        if (a.role !== 'rare' || (S.rareLog && S.rareLog[a.sp])) continue;
+        if (a.x < cx0 - 20 || a.x > cx0 + view.w + 20 || a.y < cy0 - 20 || a.y > cy0 + view.h + 40) continue;
+        game.fx.burst('sparkle', a.x + (Math.random() - 0.5) * 10, a.y - a.z - 8, 2);
+      }
+    }
   }
 
   _weather(g, S, view, now) {
@@ -10931,14 +11897,15 @@ class Renderer {
     } else this.rain.length = 0;
   }
 
-  _lighting(g, S, view, cx0, cy0, now, tx0, tx1, ty0, ty1) {
+  // Time-of-day grading. Nights are moonlit and stay easy to read: a soft blue-lavender tint
+  // (never darker than about 70%), a little less colour, and warm light around windows and lanterns.
+  _lighting(g, S, view, cx0, cy0, now) {
     const game = this.game;
-    let m = S.clock();
-    // ambient colour by time of day
+    const m = S.clock();
     const stops = [
-      [300, [70, 80, 140]], [360, [190, 175, 205]], [410, [255, 238, 222]], [460, [255, 255, 255]],
-      [1050, [255, 255, 255]], [1110, [255, 228, 196]], [1170, [220, 160, 170]], [1230, [120, 115, 180]],
-      [1290, [72, 82, 140]], [1600, [64, 74, 130]],
+      [300, [150, 162, 214]], [360, [212, 196, 222]], [410, [255, 238, 222]], [460, [255, 255, 255]],
+      [1050, [255, 255, 255]], [1110, [255, 230, 200]], [1170, [248, 190, 172]], [1230, [198, 178, 222]],
+      [1290, [158, 168, 218]], [1600, [150, 162, 214]],
     ];
     let col = stops[stops.length - 1][1];
     if (m < stops[0][0]) col = stops[0][1];
@@ -10947,64 +11914,84 @@ class Renderer {
       if (m >= m0 && m < m1) { const k = (m - m0) / (m1 - m0); col = [0, 1, 2].map((j) => Math.round(lerp(c0[j], c1[j], k))); break; }
     }
     if (S.weather === 'rain' || S.weather === 'cloud' || S.weather === 'snow') {
-      const k = S.weather === 'cloud' ? 0.9 : 0.82;
+      const k = S.weather === 'cloud' ? 0.92 : 0.86;
       col = [col[0] * k, col[1] * k, col[2] * (k + 0.06)].map((v) => Math.round(Math.min(255, v)));
     }
-    const dark = 1 - (col[0] + col[1] + col[2]) / 765;
-    game.nightLevel = dark;
-    if (dark < 0.02) return;
+    // how far into the night it is: lit windows, glows and creatures of the night follow this
+    const nightF = m >= 1290 || m < 300 ? 1 : m < 360 ? 1 - (m - 300) / 60 : m < 1170 ? 0 : (m - 1170) / 120;
+    game.nightLevel = nightF;
+    const dim = 1 - (col[0] + col[1] + col[2]) / 765;
+    if (dim < 0.02 && nightF <= 0) return;
+    const W = view.w, H = view.h;
+    // moonlight carries little colour
+    if (nightF > 0) {
+      g.globalCompositeOperation = 'saturation';
+      g.globalAlpha = 0.3 * nightF;
+      g.fillStyle = '#808080';
+      g.fillRect(0, 0, W, H);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+    }
     const lc = this.lightCv;
-    if (lc.width !== view.w || lc.height !== view.h) { lc.width = view.w; lc.height = view.h; }
+    if (lc.width !== W || lc.height !== H) { lc.width = W; lc.height = H; }
     const lg = this.lightG;
     lg.globalCompositeOperation = 'source-over';
     lg.fillStyle = 'rgb(' + col.join(',') + ')';
-    lg.fillRect(0, 0, view.w, view.h);
-    if (dark > 0.25) {
-      lg.globalCompositeOperation = 'lighter';
-      const a = clamp((dark - 0.25) * 1.6, 0, 1);
-      lg.globalAlpha = a;
-      // building windows
+    lg.fillRect(0, 0, W, H);
+    // light sources: windows, lanterns, fireflies
+    const lights = [];
+    if (nightF > 0.15) {
       for (const o of S.objs.values()) {
         if (o.type !== 'building' || o.kind === 'mailbox') continue;
         const spr = SPR.building(o.kind, S.time.season, true);
         if (!spr.lights) continue;
         for (const [lx, ly, r] of spr.lights) {
           const x = o.x * TS - spr.ax + lx - cx0, y = o.y * TS - spr.ay + ly - cy0;
-          if (x < -60 || y < -60 || x > view.w + 60 || y > view.h + 60) continue;
-          lg.drawImage(this.glow, x - r, y - r, r * 2, r * 2);
+          if (x < -60 || y < -60 || x > W + 60 || y > H + 60) continue;
+          lights.push([x, y, r * 1.2]);
         }
       }
-      // lanterns carried by players and villagers
       for (const k in NPCS) {
         if (NPC_LOOKS[k].prop !== 'lantern') continue;
-        const n = npcPos(k, S.clock());
-        if (!n.away) lg.drawImage(this.glow, n.x * TS - 30 - cx0, n.y * TS - 36 - cy0, 60, 60);
+        const n = npcPos(k, m);
+        if (!n.away) lights.push([n.x * TS - cx0, n.y * TS - 12 - cy0, 30]);
       }
-      for (const p of S.players.values()) {
-        if (p.sleep) continue;
-        lg.drawImage(this.glow, p.x - 34 - cx0, p.y - 46 - cy0, 68, 68);
-      }
-      // fireflies on summer nights
-      if (S.time.season === SUMMER && S.weather !== 'rain') {
-        if (!this.fireflies.length) for (let i = 0; i < 40; i++) {
-          const z = pick([ZONES.pond, ZONES.meadow, ZONES.garden, ZONES.eastmeadow]);
-          this.fireflies.push({ x: (z[0] + Math.random() * (z[2] - z[0])) * TS, y: (z[1] + Math.random() * (z[3] - z[1])) * TS, p: Math.random() * 10 });
-        }
-        for (const f of this.fireflies) {
-          const x = f.x + Math.sin(now / 1300 + f.p) * 14 - cx0, y = f.y + Math.cos(now / 1700 + f.p * 2) * 10 - cy0;
-          const on = Math.sin(now / 400 + f.p * 3) > 0.2;
-          if (!on || x < 0 || y < 0 || x > view.w || y > view.h) continue;
-          lg.drawImage(this.glow, x - 6, y - 6, 12, 12);
-          f.sx = x; f.sy = y; f.on = true;
-        }
-      }
+      for (const p of S.players.values()) if (!p.sleep) lights.push([p.x - cx0, p.y - 12 - cy0, 32]);
+      for (const o of S.objs.values()) if (o.type === 'struct' && o.kind === 'lamppost') lights.push([o.x * TS + 8 - cx0, o.y * TS - 18 - cy0, 38]);
+    }
+    if (lights.length) {
+      lg.globalCompositeOperation = 'lighter';
+      lg.globalAlpha = 0.75 * nightF;
+      for (const [x, y, r] of lights) lg.drawImage(this.glow, x - r, y - r, r * 2, r * 2);
       lg.globalAlpha = 1;
+    }
+    // fireflies on summer nights
+    const flies = S.time.season === SUMMER && S.weather !== 'rain' && nightF > 0.4;
+    if (flies) {
+      if (!this.fireflies.length) for (let i = 0; i < 40; i++) {
+        const z = pick([ZONES.pond, ZONES.meadow, ZONES.garden, ZONES.eastmeadow]);
+        this.fireflies.push({ x: (z[0] + Math.random() * (z[2] - z[0])) * TS, y: (z[1] + Math.random() * (z[3] - z[1])) * TS, p: Math.random() * 10 });
+      }
+      lg.globalCompositeOperation = 'lighter';
+      for (const f of this.fireflies) {
+        const x = f.x + Math.sin(now / 1300 + f.p) * 14 - cx0, y = f.y + Math.cos(now / 1700 + f.p * 2) * 10 - cy0;
+        const on = Math.sin(now / 400 + f.p * 3) > 0.2;
+        if (!on || x < 0 || y < 0 || x > W || y > H) continue;
+        lg.drawImage(this.glow, x - 6, y - 6, 12, 12);
+        f.sx = x; f.sy = y; f.on = true;
+      }
     }
     g.globalCompositeOperation = 'multiply';
     g.drawImage(lc, 0, 0);
+    // a warm spill of light on top
+    if (lights.length) {
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = (S.time.season === WINTER ? 0.07 : 0.12) * nightF;
+      for (const [x, y, r] of lights) g.drawImage(this.glow, x - r, y - r, r * 2, r * 2);
+      g.globalAlpha = 1;
+    }
     g.globalCompositeOperation = 'source-over';
-    // firefly dots on top
-    if (dark > 0.3 && S.time.season === SUMMER) {
+    if (flies) {
       g.fillStyle = '#f6ff9a';
       for (const f of this.fireflies) if (f.on) { g.fillRect(Math.round(f.sx), Math.round(f.sy), 1, 1); f.on = false; }
     }
@@ -11302,6 +12289,14 @@ class UI {
 function centered(view, w, h) {
   w = Math.min(w, view.w - 6); h = Math.min(h, view.h - 6);
   return [Math.floor((view.w - w) / 2), Math.floor((view.h - h) / 2), w, h];
+}
+// Badge progress as the client sees it (mirrors World.statValue)
+function statValueClient(S, k) {
+  if (k === 'species') return nestedCount(S);
+  if (k === 'landmarks') return Object.keys(S.found || {}).length;
+  if (k === 'nightSpecies') return ((S.stats && S.stats.nightList) || []).length;
+  if (k === 'bestFriends') { const fr = (S.prog && S.prog.fr) || {}; return Object.values(fr).some((v) => v >= HEART * MAX_HEARTS) ? 1 : 0; }
+  return (S.stats && S.stats[k]) || 0;
 }
 function wantClose(extra) { return Input.hit('cancel') || (extra && Input.hit(extra)); }
 
@@ -11767,21 +12762,23 @@ class JournalScreen {
     const S = G.state;
     const [x, y, w, h] = centered(ui.view, 460, 264);
     ui.panel('paper', x, y + 12, w, h - 12);
-    this.tab = ui.tabs('jt', ['Birds', 'Clues', 'Materials', 'Quests', 'Valley'], x + 6, y, this.tab);
+    this.tab = ui.tabs('jt', ['Birds', 'Clues', 'Materials', 'Quests', 'Progress', 'Valley'], x + 6, y, this.tab);
     if (ui.closeX('jt:x', x + w - 15, y + 16) || wantClose('journal')) { G.closeModal(); return; }
     const bx = x + 8, by = y + 20, bw = w - 16, bh = h - 28;
     if (this.tab === 0) this.drawBirds(ui, bx, by, bw, bh);
     else if (this.tab === 1) this.drawClues(ui, bx, by, bw, bh);
     else if (this.tab === 2) this.drawMats(ui, bx, by, bw, bh);
     else if (this.tab === 3) this.drawQuests(ui, bx, by, bw, bh);
+    else if (this.tab === 4) this.drawProgress(ui, bx, by, bw, bh);
     else this.drawValley(ui, bx, by, bw, bh);
   }
 
   drawBirds(ui, x, y, w, h) {
     const S = G.state;
-    const cols = 4, cell = 24;
+    const cell = 24, rowsFit = Math.max(1, Math.floor((h - 24) / (cell + 1)));
+    const cols = Math.max(4, Math.ceil(SPECIES.length / rowsFit));
     if (!this.sel) this.sel = SPECIES[0].id;
-    SPECIES.forEach((sp, i) => {
+    SPECIES_BY_TIER.forEach((sp, i) => {
       const cx = x + (i % cols) * (cell + 1), cy = y + Math.floor(i / cols) * (cell + 1);
       const j = S.journal[sp.id];
       const st = ui.widget('jb:' + sp.id, cx, cy, cell, cell);
@@ -11939,19 +12936,25 @@ class JournalScreen {
     const active = QUESTS.filter((q) => S.side[q.id] && S.side[q.id].st === 'on');
     const done = QUESTS.filter((q) => S.side[q.id] && S.side[q.id].st === 'done');
     if (!active.length) cy += ui.wrap(questGateOpen(S) ? 'No open requests. Villagers with a yellow "!" above their head need a hand — talk to them!' : 'Build your first nest, then the villagers will start asking for your help.', x + 6, cy, colW - 10, UI_COL.muted) + 4;
-    for (const q of active) {
+    const per = Math.max(1, Math.floor((h - 34) / 52)), pages = Math.max(1, Math.ceil(active.length / per));
+    this.qPage = clamp(this.qPage || 0, 0, pages - 1);
+    if (pages > 1) {
+      if (ui.button('jq:pp', '<', x + colW - 64, y, 14, 11, { disabled: this.qPage === 0 })) this.qPage--;
+      ui.text((this.qPage + 1) + '/' + pages, x + colW - 41, y + 2, UI_COL.muted, { align: 'center' });
+      if (ui.button('jq:np', '>', x + colW - 26, y, 14, 11, { disabled: this.qPage >= pages - 1 })) this.qPage++;
+    }
+    for (const q of active.slice(this.qPage * per, this.qPage * per + per)) {
       const ready = questReady(S, q);
-      ui.panel('note', x + 2, cy - 2, colW - 6, 44);
+      ui.panel('note', x + 2, cy - 2, colW - 6, 48);
       ui.text(q.title, x + 8, cy + 2, ready ? '#3a7a2a' : UI_COL.ink);
-      ui.text(NPCS[q.npc].name, x + colW - 10, cy + 2, UI_COL.muted, { align: 'right' });
+      ui.text(NPCS[q.npc].name + (q.kind === 'deliver' ? ' → ' + NPCS[q.to].name : ''), x + colW - 10, cy + 2, UI_COL.muted, { align: 'right' });
       ui.wrap(q.hint, x + 8, cy + 13, colW - 20, UI_COL.inkSoft, LINE_H, 2);
       const p = questProgress(S, q);
-      if (q.n > 1) { ui.bar(x + 8, cy + 34, 70, 5, p / q.n, ready ? '#5ac05a' : '#e8b830'); ui.text(p + '/' + q.n, x + 82, cy + 32, UI_COL.inkSoft); }
-      if (ready) ui.text('Ready! Go back to ' + NPCS[q.npc].name, x + (q.n > 1 ? 104 : 8), cy + 32, '#3a7a2a');
-      cy += 48;
-      if (cy > y + h - 40) break;
+      if (q.n > 1) { ui.bar(x + 8, cy + 35, 70, 5, p / q.n, ready ? '#5ac05a' : '#e8b830'); ui.text(p + '/' + q.n, x + 82, cy + 33, UI_COL.inkSoft); }
+      if (ready) ui.text('Ready! Go back to ' + NPCS[q.npc].name, x + (q.n > 1 ? 104 : 8), cy + 33, '#3a7a2a');
+      cy += 52;
     }
-    if (done.length && cy < y + h - 20) { ui.text('Done: ' + done.map((q) => q.title).join(' · '), x + 6, cy, UI_COL.muted); }
+    ui.text('Completed: ' + done.length + ' of ' + QUESTS.length + ' requests', x + 6, y + h - 12, UI_COL.muted);
     // landmarks
     const lx = x + colW + 6, lw = w - colW - 8;
     const found = Object.keys(S.found || {});
@@ -11966,6 +12969,52 @@ class JournalScreen {
     ui.wrap('Explore the whole valley — each landmark you find earns ' + LANDMARK_REWARD + ' coins.', lx, ly + 4, lw, UI_COL.muted);
   }
 
+  drawProgress(ui, x, y, w, h) {
+    const S = G.state, me = S.prog || { xp: 0, lvl: 1, fr: {} };
+    // rank
+    const need = xpForLevel(me.lvl), top = me.lvl >= MAX_LEVEL;
+    ui.text('★ Rank ' + me.lvl + ': ' + RANKS[me.lvl - 1], x + 4, y + 2, UI_COL.ink);
+    ui.bar(x + 4, y + 13, 170, 7, top ? 1 : me.xp / need, '#7ac05a');
+    ui.text(top ? 'Top rank!' : me.xp + ' / ' + need + ' XP', x + 180, y + 12, UI_COL.inkSoft);
+    const next = !top && LEVEL_REWARDS[me.lvl + 1];
+    if (next) {
+      const bits = [];
+      if (next.coins) bits.push(next.coins + ' coins');
+      for (const k in next.items || {}) bits.push(ITEMS[k].name);
+      if (next.recipe) bits.push('recipe: ' + ITEMS[next.recipe].name);
+      if (next.perk) bits.push(next.perk === 'binoculars' ? 'better binoculars' : 'quiet steps');
+      ui.text('Next rank: ' + bits.join(', '), x + 4, y + 23, UI_COL.muted);
+    }
+    // badges
+    const colW = Math.floor((w - 8) / 2);
+    ui.text('Badges ' + Object.keys(S.badges || {}).length + '/' + BADGES.length, x + 4, y + 36, UI_COL.ink);
+    let i = 0;
+    for (const b of BADGES) {
+      const bx = x + 4 + (i % 2) * colW, by = y + 47 + Math.floor(i / 2) * 15;
+      const got = S.badges && S.badges[b.id] != null;
+      const goal = badgeGoal(b), have = Math.min(goal, statValueClient(S, b.s));
+      ui.icon(SPR.ui(got ? 'star' : 'lock'), bx, by - 3, 0.75);
+      ui.text(b.name, bx + 14, by, got ? UI_COL.ink : UI_COL.inkSoft);
+      if (!got) { ui.bar(bx + 104, by + 1, 40, 5, have / goal, '#e8b830'); ui.text(have + '/' + goal, bx + 148, by - 1, UI_COL.muted); }
+      else ui.text('earned!', bx + 104, by, '#3a7a2a');
+      const st = ui.widget('bd:' + b.id, bx, by - 2, colW - 4, 12);
+      if (st.over || st.focused) ui.tip = b.desc;
+      i++;
+      if (by > y + h - 60) break;
+    }
+    // friends
+    const fy = y + 47 + Math.ceil(Math.min(i, BADGES.length) / 2) * 15 + 4;
+    ui.text('Friends', x + 4, fy, UI_COL.ink);
+    let k = 0;
+    for (const npc in NPCS) {
+      const fx = x + 4 + (k % 3) * Math.floor((w - 8) / 3), fyy = fy + 11 + Math.floor(k / 3) * 11;
+      const pts = (me.fr && me.fr[npc]) || 0, hearts = Math.min(MAX_HEARTS, Math.floor(pts / HEART));
+      ui.text(NPCS[npc].name, fx, fyy, UI_COL.inkSoft);
+      for (let hh = 0; hh < MAX_HEARTS; hh++) ui.text(hh < hearts ? '♥' : '♡', fx + 62 + hh * 7, fyy, hh < hearts ? '#d8485a' : '#b8a888');
+      k++;
+    }
+  }
+
   drawValley(ui, x, y, w, h) {
     const S = G.state;
     const n = nestedCount(S);
@@ -11978,6 +13027,15 @@ class JournalScreen {
     ui.text(next != null ? 'New birds arrive when ' + next + ' species have nested.' : 'Every bird of the valley has been reported!', x + 4, y + 58, UI_COL.inkSoft);
     const st = S.stats || {};
     ui.text('Broods fledged: ' + (st.fledged || 0) + '   Nests built: ' + (st.built || 0) + '   Days: ' + (st.days || 1), x + 4, y + 70, UI_COL.inkSoft);
+    // rare visitors: a little collection of its own
+    const rx = x + w - 150, seen = S.rareLog || {};
+    const ry = y + 16;
+    ui.panel('note', rx - 6, ry, 152, 22 + RARE.length * 10);
+    ui.text('Rare visitors ' + Object.keys(seen).length + '/' + RARE.length, rx, ry + 6, UI_COL.ink);
+    RARE.forEach((r, k) => {
+      const got = seen[r.id];
+      ui.text(got ? '★ ' + r.name : '? ??? (' + r.present.map((q) => SEASON_NAMES[q]).join('/') + ')', rx, ry + 18 + k * 10, got ? '#a8761a' : UI_COL.muted);
+    });
     ui.text('Active nests', x + 4, y + 86, UI_COL.ink);
     let cy = y + 97;
     const nests = Array.from(S.objs.values()).filter((o) => o.type === 'nest' && o.st !== 'old');
@@ -12110,13 +13168,14 @@ class CraftScreen {
     const lx = x + 8, ly = y + 22, colW = 108;
     RECIPES.forEach((r, i) => {
       const cx = lx + (i % 2) * (colW + 2), cy = ly + Math.floor(i / 2) * 22;
-      const can = Object.keys(r.mats).every((k) => (S.mats[k] || 0) >= r.mats[k]);
+      const locked = r.lvl && (S.prog.lvl || 1) < r.lvl;
+      const can = !locked && Object.keys(r.mats).every((k) => (S.mats[k] || 0) >= r.mats[k]);
       const st = ui.widget('cfr:' + i, cx, cy, colW, 20);
       ui.panel(this.sel === i ? 'slotsel' : (st.over || st.focused) ? 'slothot' : 'slot', cx, cy, colW, 20);
       ui.icon(SPR.itemIcon(r.id), cx + 2, cy + 2);
       const nm = ITEMS[r.id].name;
       ui.text(nm.length > 15 ? nm.slice(0, 14) + '…' : nm, cx + 20, cy + 3, UI_COL.ink);
-      ui.text(can ? 'ready' : 'need materials', cx + 20, cy + 11, can ? '#3a7a2a' : UI_COL.muted);
+      ui.text(locked ? 'birder rank ' + r.lvl : can ? 'ready' : 'need materials', cx + 20, cy + 11, locked ? '#a8761a' : can ? '#3a7a2a' : UI_COL.muted);
       if (st.focused) ui.focusRing(cx, cy, colW, 20);
       if (st.clicked || st.focused) this.sel = i;
     });
@@ -12134,7 +13193,9 @@ class CraftScreen {
       const users = SPECIES.filter((s) => s.site === site && S.journal[s.id].h >= 2);
       if (users.length) cy += ui.wrap('Used by: ' + users.map((s) => s.name).join(', '), dx + 6, cy, dw - 12, '#3a6ab0');
     }
-    const can = Object.keys(r.mats).every((k) => (S.mats[k] || 0) >= r.mats[k]);
+    const locked = r.lvl && (S.prog.lvl || 1) < r.lvl;
+    if (locked) cy += ui.wrap('Unlocks at birder rank ' + r.lvl + ' (' + RANKS[r.lvl - 1] + ').', dx + 6, cy, dw - 12, '#a8761a');
+    const can = !locked && Object.keys(r.mats).every((k) => (S.mats[k] || 0) >= r.mats[k]);
     if (ui.button('cf:go', 'Craft', dx + 6, ly + h - 50, dw - 12, 15, { disabled: !can, icon: SPR.ui('hammer') })) { G.autoSelect = r.id; G.send({ t: 'act', a: 'craft', r: r.id }); }
   }
 }
@@ -12338,6 +13399,8 @@ class DialogueScreen {
     const npc = NPCS[this.d.npc];
     ui.text(npc.name, x + 32, y + 46, UI_COL.ink, { align: 'center' });
     ui.text(npc.role, x + 32, y + 56, UI_COL.muted, { align: 'center' });
+    const fr = (G.state.prog && G.state.prog.fr && G.state.prog.fr[this.d.npc]) || 0, hearts = Math.min(MAX_HEARTS, Math.floor(fr / HEART));
+    for (let hh = 0; hh < MAX_HEARTS; hh++) ui.text(hh < hearts ? '♥' : '♡', x + 16 + hh * 7, y + 64, hh < hearts ? '#d8485a' : '#c8b898');
     const text = this.d.lines[this.line] || '';
     this.chars = Math.min(text.length, this.chars + dt * 0.06);
     const shown = text.slice(0, Math.floor(this.chars));
@@ -12373,6 +13436,54 @@ class DialogueScreen {
     if (id === 'bye') { G.closeModal(); return; }
     if (id === 'shop') { G.closeModal(); G.openModal(new ShopScreen()); return; }
     G.send({ t: 'act', a: 'opt', npc: this.d.npc, o: id });
+  }
+}
+
+// ===================================================================== rank up
+class LevelUpScreen {
+  constructor(lvl, got) { this.lvl = lvl; this.got = got || []; this.pause = true; this.t = 0; this.defaultFocus = 'lu:ok'; Audio2.sfx('fanfare'); this.burst = false; }
+  draw(ui, dt) {
+    this.t += dt;
+    if (!this.burst && G.me) { this.burst = true; G.fx.burst('confetti', G.me.x, G.me.y - 30, 24); }
+    const v = ui.view;
+    ui.rect(0, 0, v.w, v.h, 'rgba(20,18,32,0.4)');
+    const lines = this.got.length ? this.got : ['Keep watching and helping the birds!'];
+    const hgt = 66 + lines.reduce((a, l) => a + ui.wrapHeight('• ' + l, 220), 0);
+    const [x, y, w, h] = centered(v, 250, hgt);
+    ui.panel('note', x, y, w, h);
+    const sc = this.t < 250 ? 1 : 1;
+    ui.text('★ New birder rank! ★', x + w / 2, y + 8, '#c8961a', { align: 'center', scale: sc });
+    ui.text('Rank ' + this.lvl + ': ' + RANKS[this.lvl - 1], x + w / 2, y + 20, UI_COL.ink, { align: 'center' });
+    let cy = y + 34;
+    for (const l of lines) cy += ui.wrap('• ' + l, x + 15, cy, 220, UI_COL.inkSoft);
+    if (ui.button('lu:ok', 'Wonderful!', x + w / 2 - 40, y + h - 21, 80, 15, { key: Input.keyLabel('ok') }) || (this.t > 400 && wantClose())) G.closeModal();
+  }
+}
+
+// ===================================================================== notice board
+class BoardScreen {
+  constructor() { this.pause = true; this.defaultFocus = 'nb:x'; Audio2.sfx('page'); }
+  draw(ui) {
+    const S = G.state;
+    const [x, y, w, h] = centered(ui.view, 300, 150);
+    ui.panel('wood', x, y, w, h);
+    ui.text('Notice Board', x + w / 2, y + 6, '#fff4d8', { align: 'center' });
+    if (ui.closeX('nb:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const tasks = S.board || [];
+    if (!tasks.length) ui.wrap('No notices today. Check back tomorrow morning!', x + 12, y + 30, w - 24, '#fff4d8');
+    tasks.forEach((t, i) => {
+      const cy = y + 22 + i * 58;
+      ui.panel('note', x + 8, cy, w - 16, 52);
+      ui.icon(SPR.portrait(t.npc), x + 12, cy + 4, 0.7);
+      ui.text(NPCS[t.npc].name + ': "' + t.text + '"', x + 40, cy + 6, UI_COL.ink);
+      ui.icon(SPR.matIcon(t.mat), x + 40, cy + 16);
+      const have = S.mats[t.mat] || 0;
+      ui.text(t.n + ' ' + MATS[t.mat].name + ' (you have ' + have + ')', x + 58, cy + 20, have >= t.n ? '#3a7a2a' : UI_COL.inkSoft);
+      ui.text('Reward: ' + (15 + t.n * 6) + ' coins · friendship', x + 40, cy + 32, UI_COL.muted);
+      if (t.done) ui.text('Done by ' + t.done + ' ✓', x + w - 20, cy + 32, '#3a7a2a', { align: 'right' });
+      else if (ui.button('nb:' + i, 'Hand in', x + w - 74, cy + 30, 58, 14, { disabled: have < t.n })) G.send({ t: 'act', a: 'board', i });
+    });
+    ui.text('New notices every morning. They\'re optional — help when you like!', x + w / 2, y + h - 12, '#e8d8b8', { align: 'center' });
   }
 }
 
@@ -12607,6 +13718,17 @@ const HUD = {
     ui.panel('wood', 3, 34, 60, 16);
     ui.icon(SPR.ui('coin'), 4, 34);
     ui.text(String(S.coins), 21, 38, '#fff4d8');
+    // ---------------- birder rank: always-visible progress toward the next rank
+    const mine = S.prog || { xp: 0, lvl: 1 };
+    const need = xpForLevel(mine.lvl), frac = mine.lvl >= MAX_LEVEL ? 1 : mine.xp / need;
+    const rw = ui.widget('hud:rank', 3, 51, 96, 18);
+    ui.panel('wood', 3, 51, 96, 18);
+    ui.text('★' + mine.lvl, 7, 54, '#f6d860');
+    ui.text(RANKS[mine.lvl - 1], 22, 54, '#fff4d8');
+    ui.rect(7, 63, 88, 3, '#3a2614');
+    ui.rect(7, 63, Math.round(88 * clamp(frac, 0, 1)), 3, '#9ae07a');
+    if (rw.over || rw.focused) ui.tip = mine.lvl >= MAX_LEVEL ? 'Top birder rank!' : 'Birder rank ' + mine.lvl + ': ' + mine.xp + '/' + need + ' XP to the next rank. Earn XP by watching birds, building nests, finding clues and helping villagers.';
+    if (rw.clicked) game.openModal(new JournalScreen(4));
     // ---------------- buttons (journal, bag, map, mail, menu)
     let bx = v.w - 23;
     const by = 3;
@@ -12725,7 +13847,9 @@ const HUD = {
         const st = S.side && S.side[q.id];
         if (!st || st.st !== 'on' || lines.length >= 2) continue;
         const ready = questReady(S, q);
-        lines.push(['★ ' + q.title + (ready ? ' — back to ' + NPCS[q.npc].name : q.n > 1 ? ' ' + questProgress(S, q) + '/' + q.n : ''), ready ? '#3a7a2a' : '#8a5a1a']);
+        const more = ready ? ' — back to ' + NPCS[q.npc].name : q.kind === 'deliver' ? ' → ' + NPCS[q.to].name
+          : q.n > 1 ? ' ' + questProgress(S, q) + '/' + q.n : q.night ? ' (after 9 pm)' : q.early ? ' (before 8 am)' : '';
+        lines.push(['★ ' + q.title + more, ready ? '#3a7a2a' : '#8a5a1a']);
       }
       for (const id of S.featured || []) {
         const sp = SPECIES_BY_ID[id], j = S.journal[id];
@@ -13023,6 +14147,9 @@ class Game {
     if (m.day) {
       this.closeAll();
       this.observe = null;
+      // rank-ups from the night show up after the morning summary
+      const ups = (this.state.prog && this.state.prog.lvlUps) || [];
+      for (let i = ups.length - 1; i >= 0; i--) this.openModal(new LevelUpScreen(ups[i].lvl, ups[i].got));
       this.openModal(new DayScreen(m.day));
       this.fx = new FX();
     } else if (first && this.state.quest === 0) {
@@ -13115,6 +14242,22 @@ class Game {
     else this.openModal(new DialogueScreen(d));
   }
   onLore(kind, first) { this.openModal(new LoreScreen(kind, first)); }
+  // a small "+XP" float: feedback without fuss
+  onXP(n, why) {
+    const me = this.me;
+    if (me && n > 0) this.fx.text('+' + n + ' XP', me.x, me.y - 34, '#9ae07a');
+  }
+  onLevel(lvl, got) {
+    const scr = new LevelUpScreen(lvl, got);
+    if (this.modal instanceof DialogueScreen) this.modals.splice(this.modals.length - 1, 0, scr);
+    else this.openModal(scr);
+  }
+  // perks from birder rank
+  perk(name) {
+    const lvl = (this.state && this.state.prog && this.state.prog.lvl) || 1;
+    for (const l in LEVEL_REWARDS) if (LEVEL_REWARDS[l].perk === name && lvl >= +l) return true;
+    return false;
+  }
   onFact(sp, text) { this.toast(SPECIES_BY_ID[sp].name + ': ' + text, 'star'); }
   onInv() {
     const S = this.state;
@@ -13146,7 +14289,8 @@ class Game {
   questMarkers() {
     const S = this.state, out = [];
     const step = TUTORIAL[S.quest] ? TUTORIAL[S.quest].id : '';
-    const b = (kind) => Array.from(S.objs.values()).find((o) => o.type === 'building' && o.kind === kind);
+    const b2 = (type, kind) => Array.from(S.objs.values()).find((o) => o.type === type && o.kind === kind);
+    const b = (kind) => b2('building', kind);
     const mb = b('mailbox');
     if (mb && (step === 'mail' || S.mail.some((m) => !m.read))) out.push([mb.x * TS + 8, mb.y * TS - 14]);
     if (step === 'ada') { const n = npcPos('ada', S.clock()); out.push([n.x * TS, n.y * TS - 30]); }
@@ -13156,6 +14300,13 @@ class Game {
       if (!nq || nq.state === 'active') continue;
       const n = npcPos(k, S.clock());
       if (!n.away) out.push([n.x * TS, n.y * TS - (NPCS[k].kid ? 24 : 30), nq.state === 'ready' ? '?' : '!']);
+    }
+    // deliveries waiting at their recipient, and landmarks a quest sends you to
+    for (const q of QUESTS) {
+      const st = S.side && S.side[q.id];
+      if (!st || st.st !== 'on') continue;
+      if (q.kind === 'deliver') { const n = npcPos(q.to, S.clock()); if (!n.away) out.push([n.x * TS, n.y * TS - (NPCS[q.to].kid ? 24 : 30), '?']); }
+      if (q.kind === 'trip' && !st.n) { const l = b2('landmark', q.lm); if (l) out.push([l.x * TS + (LANDMARKS[q.lm].w || 1) * 8, l.y * TS - 26, '!']); }
     }
     if (step === 'craft') { const be = b('bench'); if (be) out.push([be.x * TS + 16, be.y * TS - 14]); }
     if (step === 'sleep') { const c = b('cottage'); if (c) out.push([(c.x + 2) * TS + 8, (c.y + 2) * TS - 4]); }
@@ -13328,7 +14479,7 @@ class Game {
 
   // ---------------------------------------------------------------- observing birds
   startObserve(agent) {
-    this.observe = { agent, t: 0, need: 1300 };
+    this.observe = { agent, t: 0, need: this.perk('binoculars') ? 850 : 1300 };
     agent.observed = true;
     Audio2.sfx('open');
   }
@@ -13392,7 +14543,10 @@ class Game {
       if (n.away) continue;
       const nx = n.x * TS, ny = n.y * TS;
       if (dist2(nx, ny - 6, ipx, ipy) < 18 * 18 || dist2(nx, ny, me.x, me.y) < 16 * 16) {
-        return { label: 'Talk to ' + NPCS[k].name, anchor: [nx, ny - 30], box: [nx - 8, ny - 26, nx + 7, ny], exec: () => this.send({ t: 'act', a: 'talk', npc: k }) };
+        const t = { label: 'Talk to ' + NPCS[k].name, anchor: [nx, ny - 30], box: [nx - 8, ny - 26, nx + 7, ny], exec: () => this.send({ t: 'act', a: 'talk', npc: k }) };
+        const held = this.holding(), it = held && ITEMS[held];
+        if (it && it.cat !== 'struct') { const slot = this.selSlot; t.alt = 'Give ' + it.name; t.altExec = () => this.send({ t: 'act', a: 'gift', npc: k, slot }); }
+        return t;
       }
     }
     // 3. farm animals
@@ -13434,11 +14588,12 @@ class Game {
       return t;
     }
     // 6. birds to observe
-    const a = this.birds.observable(me.x, me.y - 10, 80);
+    const a = this.birds.observable(me.x, me.y - 10, this.perk('binoculars') ? 112 : 80);
     if (a) {
-      const j = S.journal[a.sp];
-      const name = a.ambient || (j && j.h > 0) ? SPECIES_BY_ID[a.sp].name : 'bird';
-      return { label: 'Observe ' + (a.ambient || (j && j.h > 0) ? name : 'the ' + name), anchor: [a.x, a.y - a.z - 14], box: [a.x - 6, a.y - a.z - 12, a.x + 6, a.y - a.z], exec: () => this.startObserve(a) };
+      const sp = SPECIES_BY_ID[a.sp], j = S.journal[a.sp];
+      const known = a.ambient || (j && j.h > 0) || (sp.rare && S.rareLog && S.rareLog[a.sp]);
+      const label = sp.rare && !known ? 'Observe the rare bird!' : 'Observe ' + (known ? sp.name : 'the bird');
+      return { label, anchor: [a.x, a.y - a.z - 14], box: [a.x - 6, a.y - a.z - 12, a.x + 6, a.y - a.z], exec: () => this.startObserve(a) };
     }
     return null;
   }
@@ -13451,6 +14606,11 @@ class Game {
     const t = { box, anchor };
     const q = quickOp(S, o);
     if (q) { t.label = q.label; t.exec = () => this.send({ t: 'act', a: 'use', id: o.id, op: q.op }); }
+    if (o.type === 'struct' && o.kind === 'gardenbench') {
+      if (S.players.size === 1 && S.clock() < 19 * 60) { t.label = 'Sit and rest until evening'; t.exec = () => this.openModal(new ConfirmScreen('Sit on the bench and watch the day go by until 7 pm?', () => this.send({ t: 'act', a: 'rest' }), 'Rest', 'Not now', true)); }
+      else { t.label = 'Sit for a while'; t.exec = () => this.toast('A lovely spot to listen to the birds.', 'heart'); }
+      return t;
+    }
     // nests & nest sites
     if (o.type === 'nest') {
       t.label = 'View nest'; t.exec = () => this.openModal(new NestScreen(o.id));
@@ -13460,12 +14620,18 @@ class Game {
       const b = BUILDINGS[o.kind];
       if (o.kind === 'bench') { t.label = 'Craft at workbench'; t.exec = () => this.openModal(new CraftScreen()); return t; }
       if (o.kind === 'mailbox') { t.label = 'Read letters'; t.exec = () => this.openModal(new MailScreen()); return t; }
+      if (o.kind === 'board') { t.label = 'Read the notice board'; t.exec = () => this.openModal(new BoardScreen()); return t; }
       if (o.kind === 'well' || o.kind === 'coop') { t.label = o.kind === 'well' ? 'An old well' : 'Mabel\'s hens live here'; t.exec = () => this.toast(o.kind === 'well' ? 'The water smells fresh and cold.' : 'Feathers! Check around the coop each morning.', ''); return t; }
       const doorX = b.door ? (o.x + b.door[0]) * TS + 8 : -999;
       const atDoor = Math.abs(ipx - doorX) < 12 && ipy > (o.y + b.h - 1) * TS;
       if (o.kind === 'cottage' && atDoor) {
         t.label = 'Go to bed';
         t.exec = () => this.openModal(new ConfirmScreen(S.players.size > 1 ? 'Go to bed? The day ends when everyone is asleep.' : 'Go to bed and end the day?', () => { this.send({ t: 'act', a: 'sleep', v: true }); Audio2.sfx('sleep'); }, 'Sleep', 'Not yet', true));
+        if (S.players.size === 1 && S.clock() < 19 * 60) {
+          t.alt = 'Rest until evening';
+          t.altExec = () => this.openModal(new ConfirmScreen('Put the kettle on and rest until 7 pm? The birds of the night come out after dusk.', () => this.send({ t: 'act', a: 'rest' }), 'Rest', 'Not now', true));
+          return t;
+        }
       }
       if (o.kind === 'shop' && atDoor) {
         const open = !npcPos('basil', S.clock()).away;

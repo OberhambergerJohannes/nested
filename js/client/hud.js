@@ -19,6 +19,17 @@ const HUD = {
     ui.panel('wood', 3, 34, 60, 16);
     ui.icon(SPR.ui('coin'), 4, 34);
     ui.text(String(S.coins), 21, 38, '#fff4d8');
+    // ---------------- birder rank: always-visible progress toward the next rank
+    const mine = S.prog || { xp: 0, lvl: 1 };
+    const need = xpForLevel(mine.lvl), frac = mine.lvl >= MAX_LEVEL ? 1 : mine.xp / need;
+    const rw = ui.widget('hud:rank', 3, 51, 96, 18);
+    ui.panel('wood', 3, 51, 96, 18);
+    ui.text('★' + mine.lvl, 7, 54, '#f6d860');
+    ui.text(RANKS[mine.lvl - 1], 22, 54, '#fff4d8');
+    ui.rect(7, 63, 88, 3, '#3a2614');
+    ui.rect(7, 63, Math.round(88 * clamp(frac, 0, 1)), 3, '#9ae07a');
+    if (rw.over || rw.focused) ui.tip = mine.lvl >= MAX_LEVEL ? 'Top birder rank!' : 'Birder rank ' + mine.lvl + ': ' + mine.xp + '/' + need + ' XP to the next rank. Earn XP by watching birds, building nests, finding clues and helping villagers.';
+    if (rw.clicked) game.openModal(new JournalScreen(4));
     // ---------------- buttons (journal, bag, map, mail, menu)
     let bx = v.w - 23;
     const by = 3;
@@ -137,7 +148,9 @@ const HUD = {
         const st = S.side && S.side[q.id];
         if (!st || st.st !== 'on' || lines.length >= 2) continue;
         const ready = questReady(S, q);
-        lines.push(['★ ' + q.title + (ready ? ' — back to ' + NPCS[q.npc].name : q.n > 1 ? ' ' + questProgress(S, q) + '/' + q.n : ''), ready ? '#3a7a2a' : '#8a5a1a']);
+        const more = ready ? ' — back to ' + NPCS[q.npc].name : q.kind === 'deliver' ? ' → ' + NPCS[q.to].name
+          : q.n > 1 ? ' ' + questProgress(S, q) + '/' + q.n : q.night ? ' (after 9 pm)' : q.early ? ' (before 8 am)' : '';
+        lines.push(['★ ' + q.title + more, ready ? '#3a7a2a' : '#8a5a1a']);
       }
       for (const id of S.featured || []) {
         const sp = SPECIES_BY_ID[id], j = S.journal[id];

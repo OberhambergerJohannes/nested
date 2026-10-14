@@ -1,5 +1,5 @@
 'use strict';
-// The 37 nesting birds of Featherbrook Valley. Birds with night: true only show themselves
+// The 45 nesting birds of Featherbrook Valley. Birds with night: true only show themselves
 // from dusk until dawn.
 //
 //  site     – where the nest goes (see SITES)
@@ -929,6 +929,204 @@ const SPECIES = [
       'Pairs often use the same rock ledge year after year, laying their eggs in late winter.',
     ],
   },
+  // ---------------------------------------------------------------- added in the third update
+  {
+    id: 'goldcrest', name: 'Goldcrest', latin: 'Regulus regulus', tier: 2,
+    zone: 'pines', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'pine', mats: { moss: 3, silk: 2, lichen: 1, feather: 2 },
+    hab: [{ k: 'pines', n: 3, r: 4, why: 'Conifers — goldcrests live almost only in them' }],
+    terr: 4, clutch: [6, 9], incub: 2, nestling: 2, nest: 'cupfine',
+    body: 'small', song: 'goldcrest', beak: 'thin',
+    col: { o: '#1e2414', c: '#f2c41a', n: '#8a9a5a', f: '#c8cca0', m: '#2a2a1e', i: '#e8ecd8', b: '#3a3a2e', t: '#d8dcb8',
+      r: '#c8cca0', s: '#c8cca0', z: '#c8cca0', y: '#dcdcc0', k: '#7a8a4a', w: '#5a6a3a', x: '#f4f4e8', p: '#3a4428',
+      a: '#4a5432', u: '#8a9a5a', l: '#8a6a4a', g: '#2a2a1e' },
+    egg: { c: '#f4ecd8', s: '#c8a888', p: 'fine' },
+    real: { clutch: '7–12 eggs', incub: '15–17 days', fledge: '17–22 days' },
+    hints: [
+      'In the pine grove, a tiny olive-green bird flits restlessly through the needles, flashing a golden stripe on its crown. Its song is so high that some people can\'t hear it at all.',
+      'Goldcrests hang their nest beneath the tip of a conifer branch — a pine with more pines close by.',
+      'A deep little cup of moss and lichen, bound together with spider silk and lined with soft feathers.',
+    ],
+    facts: [
+      'Weighing about as much as a 20-cent coin, the Goldcrest is one of Europe\'s smallest birds.',
+      'Its nest hangs like a hammock beneath a conifer branch, held together with spider silk.',
+      'Tiny as they are, many goldcrests cross the North Sea on migration every autumn.',
+      'Its song is so high-pitched that many people stop being able to hear it as they get older.',
+    ],
+  },
+  {
+    id: 'treecreeper', name: 'Eurasian Treecreeper', latin: 'Certhia familiaris', tier: 2,
+    zone: 'forest', present: [0, 1, 2, 3], breed: [SPRING],
+    site: 'snag', mats: { twig: 2, moss: 2, feather: 1 },
+    hab: [{ k: 'trees', n: 6, r: 4, why: 'Woodland with plenty of trunks to search for insects' }],
+    terr: 5, clutch: [5, 6], incub: 2, nestling: 2, nest: 'hole',
+    body: 'small', song: 'treecreeper', beak: 'thin',
+    col: { o: '#24180e', c: '#7a5a3a', n: '#7a5a3a', f: '#b89a74', m: '#4a3220', i: '#f0e8d8', b: '#4a3a2a', t: '#f4f0e6',
+      r: '#f0ece2', s: '#f0ece2', z: '#f0ece2', y: '#ece4d4', k: '#8a6a44', w: '#6a4a2a', x: '#d8c49c', p: '#4a3420',
+      a: '#7a5a3a', u: '#a07a4a', l: '#c8a888', g: '#4a3220' },
+    egg: { c: '#f6f2ec', s: '#a84a3a', p: 'fine' },
+    real: { clutch: '5–6 eggs', incub: '13–17 days', fledge: '14–16 days' },
+    hints: [
+      'A little brown bird creeps up a tree trunk like a mouse, spiralling upwards and probing the bark with a thin, curved bill — then flutters down to the foot of the next tree.',
+      'Treecreepers tuck their nest behind a flap of loose bark. A standing dead tree is perfect, in woodland with plenty of trunks around.',
+      'A loose base of twigs and moss wedged behind the bark, lined with soft feathers.',
+    ],
+    facts: [
+      'Treecreepers climb trees in spirals, always upwards, then fly down to the base of the next tree to start again.',
+      'Stiff, pointed tail feathers prop it against the trunk, just like a woodpecker\'s.',
+      'On freezing winter nights, several treecreepers may huddle together in a sheltered crevice to keep warm.',
+      'It usually builds its nest behind a loose flap of bark or in a crack in a tree.',
+    ],
+  },
+  {
+    id: 'bullfinch', name: 'Eurasian Bullfinch', latin: 'Pyrrhula pyrrhula', tier: 2,
+    zone: 'orchard', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'thorny', mats: { twig: 3, hair: 1 },
+    hab: [{ k: 'shrubs', n: 3, r: 3, why: 'Thick hedges and bushes for cover' },
+          { k: 'trees', n: 2, r: 5, why: 'Trees with buds and seeds nearby' }],
+    terr: 4, clutch: [4, 5], incub: 2, nestling: 2, nest: 'cup',
+    body: 'small', song: 'bullfinch', beak: 'finch',
+    col: { o: '#1e1418', c: '#141418', n: '#7a7a84', f: '#e8645a', m: '#141418', i: '#141418', b: '#1a1a1e', t: '#e8645a',
+      r: '#ea6a5e', s: '#ea6a5e', z: '#ea6a5e', y: '#f0a8a0', k: '#8a8a94', w: '#1e1e24', x: '#d8d8dc', p: '#141418',
+      a: '#141418', u: '#f4f4f4', l: '#6a5a5a', g: '#141418' },
+    egg: { c: '#b8d0d8', s: '#5a3a3a', p: 'spots' },
+    real: { clutch: '4–5 eggs', incub: '12–14 days', fledge: '15–17 days' },
+    hints: [
+      'A plump finch with a glossy black cap and a breast as rosy as a sunset sits quietly in the orchard hedge, nibbling buds. It whistles a soft, sad "peu".',
+      'Bullfinches hide their nest deep inside a thorny shrub, with more bushes and a few trees around.',
+      'A flimsy platform of fine twigs, with a neat cup of rootlets and hair inside.',
+    ],
+    facts: [
+      'Bullfinch pairs stay together all year and are often seen feeding side by side.',
+      'In spring they nibble the buds of fruit trees, which once made them unpopular with orchard owners.',
+      'When feeding chicks, the parents carry seeds in little pouches inside their mouths.',
+      'Its quiet, piping call is easy to miss — bullfinches are shy birds of thick cover.',
+    ],
+  },
+  {
+    id: 'yellowhammer', name: 'Yellowhammer', latin: 'Emberiza citrinella', tier: 3,
+    zone: 'farm', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'shrub', mats: { grass: 3, hair: 1 },
+    hab: [{ k: 'longgrass', n: 6, r: 3, why: 'Rough grass growing at the foot of the hedge' },
+          { k: 'shrubs', n: 3, r: 4, why: 'A hedgerow to sing from' }],
+    terr: 5, clutch: [3, 5], incub: 2, nestling: 2, nest: 'groundcup',
+    body: 'small', song: 'yellowhammer', beak: 'finch',
+    col: { o: '#2a2010', c: '#f6dc2a', n: '#d8c040', f: '#f6dc2a', m: '#8a7a3a', i: '#f6dc2a', b: '#8a8a8a', t: '#f8e030',
+      r: '#f2d42a', s: '#c8783a', z: '#b8783a', y: '#f6e04a', k: '#a8783a', w: '#8a5a2a', x: '#d8b060', p: '#5a3a1e',
+      a: '#5a3a1e', u: '#c8683a', l: '#c8a080', g: '#8a7a3a' },
+    egg: { c: '#e8dce8', s: '#5a3a4a', p: 'scribble' },
+    real: { clutch: '3–5 eggs', incub: '12–14 days', fledge: '11–13 days' },
+    hints: [
+      'On top of a farm hedge sits a bird as yellow as a buttercup, singing over and over: "a little bit of bread and no cheeeese!"',
+      'Yellowhammers nest on or near the ground at the foot of a shrub, where rough long grass grows along a hedgerow.',
+      'A cup of dry grass hidden in the grass under the hedge, lined with fine hair.',
+    ],
+    facts: [
+      'Its song is famously remembered as "a little bit of bread and no cheese".',
+      'An old country name is "scribble lark": its eggs are covered in fine, scribbly lines.',
+      'Yellowhammers need hedgerows with grassy margins and winter seeds, and have declined on modern farmland.',
+      'Males sing from the top of a hedge or a post all summer long, from dawn until dusk.',
+    ],
+  },
+  {
+    id: 'kestrel', name: 'Common Kestrel', latin: 'Falco tinnunculus', tier: 3,
+    zone: 'hills', present: [0, 1, 2, 3], breed: [SPRING],
+    site: 'ledge', mats: {},
+    hab: [{ k: 'rock', n: 8, r: 3, why: 'A crag or cliff to nest on' },
+          { k: 'longgrass', n: 6, r: 10, why: 'Rough grassland nearby, full of voles' }],
+    terr: 12, clutch: [4, 5], incub: 3, nestling: 3, nest: 'scrape',
+    body: 'cuckoo', song: 'kestrel',
+    col: { o: '#2a1a12', c: '#8a96a4', n: '#8a96a4', f: '#c8ccd0', m: '#3a3a44', i: '#f2c830', b: '#5a5a62', t: '#f4e8d0',
+      r: '#e8c890', s: '#e8c890', z: '#4a3020', y: '#f0dcb0', k: '#b86a3a', w: '#c0703a', x: '#3a2418', p: '#2e2420',
+      a: '#8a96a4', u: '#8a96a4', l: '#f2c830', g: '#3a3a44' },
+    egg: { c: '#d8a080', s: '#8a3a2a', p: 'blotch' },
+    real: { clutch: '4–6 eggs', incub: '27–29 days', fledge: '27–32 days' },
+    hints: [
+      'A small falcon hangs perfectly still in the wind above the grassland, tail fanned and head motionless — then drops onto a vole. "Kee-kee-kee!" it calls from the crags.',
+      'Kestrels build no nest. They lay their eggs on a bare rock ledge up in the hills, with rough, vole-rich grassland within easy reach.',
+      'No nest materials at all: a shallow scrape on the bare ledge is enough.',
+    ],
+    facts: [
+      'The kestrel is the bird that hovers: it flies into the wind at just the right speed to hang still over one spot.',
+      'Kestrels can see ultraviolet light, which may help them spot the scent trails that voles leave in the grass.',
+      'They build no nest of their own, using ledges, holes in trees and buildings, or the old nests of crows.',
+      'In winter, kestrels often hunt from a post or branch instead of hovering, to save energy.',
+    ],
+  },
+  {
+    id: 'lapwing', name: 'Northern Lapwing', latin: 'Vanellus vanellus', tier: 4,
+    zone: 'eastmeadow', present: [0, 1, 2, 3], breed: [SPRING],
+    site: 'ground', mats: { grass: 1 },
+    hab: [{ k: 'open', n: 0, r: 4, why: 'Wide open ground — no trees near the nest' },
+          { k: 'water', n: 3, r: 4, why: 'Wet ground and shallow pools for the chicks to feed in' }],
+    terr: 5, clutch: [4, 4], incub: 3, nestling: 1, nest: 'scrape', precocial: true,
+    body: 'thrush', crest: 'wisp', song: 'lapwing',
+    col: { o: '#141814', c: '#141418', n: '#2a3a2a', f: '#f4f4f0', m: '#141418', i: '#f4f4f0', b: '#141418', t: '#141418',
+      r: '#141418', s: '#141418', z: '#f4f4f0', y: '#f8f8f4', k: '#2e5a3e', w: '#2a4a34', x: '#6a3a6a', p: '#141418',
+      a: '#1e1e22', u: '#e8945a', l: '#d89090', g: '#141418' },
+    egg: { c: '#a89a6a', s: '#2a2018', p: 'blotch' },
+    real: { clutch: '4 eggs', incub: '26–28 days', fledge: 'chicks leave the nest within hours; they fly at 35–40 days' },
+    hints: [
+      'Over the wet meadow, a black-and-white bird with a long, wispy crest tumbles through the sky in a wild display flight, calling "pee-wit! pee-wit!"',
+      'Lapwings nest on the ground in wet meadows: grass or marsh close to water, with no trees nearby.',
+      'Hardly a nest at all: a shallow scrape in the ground with a few bits of grass.',
+    ],
+    facts: [
+      'Its old country name "peewit" copies its call.',
+      'In spring, males perform wild, tumbling display flights, and their broad wings make a throbbing sound.',
+      'Lapwing chicks can run about and feed themselves within hours of hatching.',
+      'Seen up close, its "black" back shines green and purple.',
+    ],
+  },
+  {
+    id: 'waterrail', name: 'Water Rail', latin: 'Rallus aquaticus', tier: 3, night: true,
+    zone: 'pond', present: [0, 1, 2, 3], breed: [SPRING, SUMMER],
+    site: 'reeds', mats: { leaves: 2, grass: 2 },
+    hab: [{ k: 'reeds', n: 8, r: 3, why: 'A big, dense reed bed to hide in' }],
+    terr: 5, clutch: [6, 8], incub: 3, nestling: 1, nest: 'reedcup', precocial: true,
+    body: 'thrush', song: 'waterrail',
+    col: { o: '#1e1814', c: '#6a4a2a', n: '#6a4a2a', f: '#7a8494', m: '#5a6474', i: '#c83a2a', b: '#d8342a', t: '#8a94a4',
+      r: '#7a8494', s: '#7a8494', z: '#f4f4f0', y: '#2a2a2e', k: '#7a5a34', w: '#6a4a2a', x: '#3a2a1a', p: '#4a3420',
+      a: '#4a3420', u: '#f4f0e6', l: '#c87a6a', g: '#5a6474' },
+    egg: { c: '#f0e6d4', s: '#a87a5a', p: 'spots' },
+    real: { clutch: '6–11 eggs', incub: '19–22 days', fledge: 'chicks leave the nest within days; they fly at 20–30 days' },
+    hints: [
+      'After dark, an awful squealing like a piglet comes from deep in the reed bed. Whatever makes it is slim, secretive and hardly ever seen.',
+      'Water Rails hide their nest deep inside a big, dense reed bed.',
+      'A cup of dead leaves and dry grass, hidden low among the reed stems.',
+    ],
+    facts: [
+      'Its squealing, grunting calls — known as "sharming" — sound more like a piglet than a bird.',
+      'A body flattened from side to side lets it slip between dense reed stems.',
+      'Water Rails are heard far more often than seen, especially at dusk and after dark.',
+      'Its long red bill probes the mud for insects, snails and worms.',
+    ],
+  },
+  {
+    id: 'scopsowl', name: 'Eurasian Scops Owl', latin: 'Otus scops', tier: 4, night: true,
+    zone: 'orchard', present: [SPRING, SUMMER], breed: [SPRING, SUMMER],
+    site: 'tree', mats: {},
+    hab: [{ k: 'trees', n: 4, r: 4, why: 'Old orchard trees with hollows' },
+          { k: 'flowers', n: 4, r: 5, why: 'Flowers full of moths and crickets — its food' }],
+    terr: 8, clutch: [4, 5], incub: 3, nestling: 3, nest: 'hole',
+    body: 'owl', tufts: true, song: 'scopsowl',
+    col: { o: '#2a2018', c: '#8a7a68', n: '#8a7a68', f: '#a8988a', m: '#5a4a3a', i: '#f2c41a', b: '#3a3430', t: '#a8988a',
+      r: '#9a8a78', s: '#9a8a78', z: '#4a3a2c', y: '#b8a894', k: '#7a6a58', w: '#8a7a68', x: '#d8ccb8', p: '#5a4a3a',
+      a: '#7a6a58', u: '#8a7a68', l: '#9a8a78' },
+    egg: { c: '#f8f6f2', s: '#f8f6f2', p: 'none' },
+    real: { clutch: '4–5 eggs', incub: '24–25 days', fledge: '21–29 days' },
+    hints: [
+      'On warm nights in the orchard, a soft whistled "tyuu… tyuu…" repeats every few seconds, as steady as a metronome. The singer is a tiny owl, hardly bigger than a starling.',
+      'Scops Owls nest in a hollow in a broadleaf tree — an old orchard is ideal — with flowers nearby that buzz with moths and crickets.',
+      'No nest material: the eggs are laid on the bare floor of the hollow. It is a summer visitor.',
+    ],
+    facts: [
+      'The Scops Owl is a migrant: it spends the winter in Africa and returns to Europe in spring.',
+      'It feeds mostly on large insects such as moths, crickets and beetles.',
+      'Its grey-brown, bark-patterned feathers make it almost invisible against a tree trunk by day.',
+      'Its call is a single soft whistle, "tyuu", repeated every two or three seconds for hours on end.',
+    ],
+  },
 ];
 
 // Common birds that live in the valley all year. They make it feel alive but are not part of
@@ -990,9 +1188,41 @@ AMBIENT.push({
     'Its frowning look comes from pale "eyebrows" above its bright yellow eyes.'],
 });
 
+// Rare visitors: they nest elsewhere, but now and then one turns up for a day. Spotting one is a treat.
+const RARE = [
+  { id: 'hoopoe', name: 'Eurasian Hoopoe', latin: 'Upupa epops', rare: true, present: [SPRING, SUMMER], zone: 'orchard', body: 'small', beak: 'thin', crest: 'fan', song: 'hoopoe',
+    col: { o: '#2a1a12', c: '#e8a070', n: '#d89060', f: '#e8b088', m: '#c8805a', g: '#141414', h: '#e8b088', i: '#e8a070', b: '#3a3030', t: '#e8b088', r: '#e0a078', s: '#e0a078', z: '#e0a078', y: '#f0d8c0', k: '#c88a5a', w: '#1a1a1a', x: '#f4f0e6', p: '#1a1a1a', a: '#1a1a1a', u: '#f4f0e6', l: '#4a4040' },
+    egg: { c: '#d8d0b8', s: '#d8d0b8', p: 'none' },
+    facts: ['Its soft "oop-oop-oop" call gives the Hoopoe its name.', 'A nesting female and her chicks can squirt a foul-smelling liquid to keep predators away.', 'It probes the ground for insect larvae with its long, curved bill.'] },
+  { id: 'oriole', name: 'Eurasian Golden Oriole', latin: 'Oriolus oriolus', rare: true, present: [SUMMER], zone: 'forest', body: 'thrush', song: 'oriole',
+    col: { o: '#2a2208', c: '#f2c81a', n: '#f2c81a', f: '#f2c81a', m: '#141414', i: '#f2c81a', b: '#c8604a', t: '#f4d030', r: '#f2c81a', s: '#f2c81a', z: '#f2c81a', y: '#f6d840', k: '#f2c81a', w: '#1a1a1a', x: '#f2d84a', p: '#141414', a: '#1a1a1a', u: '#f2c81a', l: '#5a5a5a' },
+    egg: { c: '#f4ece4', s: '#4a2a2a', p: 'spots' },
+    facts: ['Despite its brilliant yellow, it is surprisingly hard to spot among sunlit leaves high in the canopy.', 'Its fluting "weela-weeo" song sounds almost tropical.', 'It hangs its cup-shaped nest in a fork near the end of a branch.'] },
+  { id: 'waxwing', name: 'Bohemian Waxwing', latin: 'Bombycilla garrulus', rare: true, present: [WINTER], zone: 'garden', body: 'small', crest: 'swept', song: 'waxwing',
+    col: { o: '#2a1a14', c: '#c89a8a', n: '#b88a7a', f: '#c89a8a', m: '#141414', i: '#141414', b: '#1a1a1a', t: '#141414', r: '#c8a090', s: '#c8a090', z: '#c8a090', y: '#d8b8a8', k: '#a88070', w: '#5a5050', x: '#e8c840', p: '#3a3434', a: '#4a4040', u: '#8a8080', l: '#2a2a2a', g: '#141414' },
+    egg: { c: '#c8d0d8', s: '#3a3a3a', p: 'spots' },
+    facts: ['In some winters, flocks sweep south from the far north when the berries run out there.', 'The red, wax-like tips on its wing feathers gave the waxwing its name.', 'A waxwing can eat several times its own body weight in berries in a single day.'] },
+  { id: 'osprey', name: 'Western Osprey', latin: 'Pandion haliaetus', rare: true, present: [SPRING, AUTUMN], zone: 'river', body: 'cuckoo', song: 'osprey',
+    col: { o: '#1e1814', c: '#f4f0e8', n: '#5a4030', f: '#f4f0e8', m: '#3a2a20', i: '#f2c830', b: '#1a1a1a', t: '#f4f0e8', r: '#f0ece4', s: '#c8a888', z: '#8a6a50', y: '#f4f0e8', k: '#5a4030', w: '#5a4030', x: '#6a5040', p: '#3a2a20', a: '#5a4030', u: '#5a4030', l: '#c8c8c0' },
+    egg: { c: '#e8dcc8', s: '#8a4a2a', p: 'blotch' },
+    facts: ['It dives feet-first into the water to catch fish.', 'Ospreys stop at rivers and lakes on their long journeys between Africa and northern Europe.', 'Spiny pads on its feet help it grip slippery fish.'] },
+  { id: 'bluethroat', name: 'Bluethroat', latin: 'Luscinia svecica', rare: true, present: [SPRING], zone: 'pond', body: 'small', beak: 'thin', song: 'bluethroat',
+    col: { o: '#2a1e14', c: '#7a6048', n: '#7a6048', f: '#8a7058', m: '#f0e8d8', i: '#7a6048', b: '#2a2420', t: '#2a5ab8', r: '#c83a2a', s: '#2a5ab8', z: '#e88a3a', y: '#efe6d8', k: '#7a6048', w: '#6e5640', x: '#7a6048', p: '#5a4634', a: '#b8643a', u: '#a0603a', l: '#5a4a3a' },
+    egg: { c: '#a8b898', s: '#a8b898', p: 'none' },
+    facts: ['The male\'s throat is bright blue with a red or white spot in the middle.', 'On migration it skulks low in reed beds and wet scrub.', 'It is a close relative of the robin and the nightingale.'] },
+  { id: 'hawfinch', name: 'Hawfinch', latin: 'Coccothraustes coccothraustes', rare: true, present: [WINTER, SPRING], zone: 'forest', body: 'small', beak: 'finch', song: 'hawfinch',
+    col: { o: '#2a1a12', c: '#b8763a', n: '#8a8a92', f: '#c8864a', m: '#141414', i: '#c8864a', b: '#b8b0a0', t: '#141414', r: '#c89a7a', s: '#c89a7a', z: '#c89a7a', y: '#d8b098', k: '#6a4a30', w: '#2a2a3a', x: '#f0ece4', p: '#2a2a3a', a: '#6a4a30', u: '#8a6a4a', l: '#c89a8a', g: '#141414' },
+    egg: { c: '#c8d0b8', s: '#5a4a3a', p: 'spots' },
+    facts: ['Its huge bill is strong enough to crack cherry and olive stones.', 'Shy and easily overlooked, it spends most of its time high in the treetops.', 'It is the largest finch in Britain.'] },
+];
+
+// Journal order: by tier, so new arrivals sit next to the birds you meet at the same time
+const SPECIES_BY_TIER = SPECIES.slice().sort((a, b) => a.tier - b.tier);
+
 const SPECIES_BY_ID = {};
 for (const s of SPECIES) SPECIES_BY_ID[s.id] = s;
 for (const s of AMBIENT) SPECIES_BY_ID[s.id] = s;
+for (const s of RARE) { s.breed = []; SPECIES_BY_ID[s.id] = s; }
 
 // Number of species nested needed to unlock each tier of new leads.
 const TIER_UNLOCK = [0, 1, 3, 7, 13, 20];

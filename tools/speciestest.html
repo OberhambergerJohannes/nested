@@ -6,6 +6,7 @@
 <script src="../js/data/species.js"></script>
 <script src="../js/data/npcs.js"></script>
 <script src="../js/data/quests.js"></script>
+<script src="../js/data/progress.js"></script>
 <script src="../js/sim/rules.js"></script>
 <script src="../js/sim/mapgen.js"></script>
 <script src="../js/sim/world.js"></script>
@@ -49,6 +50,7 @@ function prepare(sp) {
     if (sh) flowersAround(sh.x, sh.y, 7);
   }
   if (sp.id === 'beeeater') flowersAround(70, 62, 10);
+  if (sp.id === 'scopsowl') { const ap = objs().filter(o=>o.type==='tree'&&o.kind==='apple'&&o.st===2&&!nestsOfHost(w,o.id).length)[1]; if (ap) flowersAround(ap.x, ap.y, 6); }
   if (sp.id === 'longeared') {
     // a small clump of pines right by the hay meadow
     let k = 0;
@@ -65,8 +67,8 @@ function prepare(sp) {
       if (xy && placeItem('anvil', xy[0], xy[1]) && findHost(sp)) break;
     }
   }
-  if (sp.id === 'goldfinch') { const ap = objs().find(o=>o.type==='tree'&&o.kind==='apple'&&o.st===2); for (let i=0;i<4;i++){ const xy=freeSpot([ap.x-4,ap.y-4,ap.x+4,ap.y+4],(x,y,t)=>t===T.GRASS); const q=placeItem('seed_thistle', xy[0], xy[1]); if(q){q.st=2;} } }
-  if (sp.id === 'reedwarbler' || sp.id === 'penduline') {
+  if (sp.id === 'goldfinch') { const ap = objs().find(o=>o.type==='tree'&&o.kind==='apple'&&o.st===2&&!nestsOfHost(w,o.id).length); for (let i=0;i<4;i++){ const xy=freeSpot([ap.x-4,ap.y-4,ap.x+4,ap.y+4],(x,y,t)=>t===T.GRASS); const q=placeItem('seed_thistle', xy[0], xy[1]); if(q){q.st=2;} } }
+  if (sp.id === 'reedwarbler' || sp.id === 'penduline' || sp.id === 'waterrail') {
     // a compact reed bed: the shallow tile with the most shallow neighbours, filled within 2 tiles
     let best = null, bn = -1;
     for (let y = 51; y <= 65; y++) for (let x = 15; x <= 33; x++) {
@@ -92,10 +94,10 @@ function prepare(sp) {
       // wren: two brush piles near a log
       let a = null, b = null;
       for (const lg of objs().filter(o=>o.type==='log')) {
-        a = freeSpot([lg.x-5,lg.y-4,lg.x+5,lg.y+4],(x,y,t)=>t===T.FOREST||t===T.GRASS);
+        a = freeSpot([lg.x-5,lg.y-4,lg.x+5,lg.y+4],(x,y,t)=>(t===T.FOREST||t===T.GRASS) && canPlace(w, 'brushpile', x, y, []).ok);
         if (!a) continue;
         placeItem('brushpile', a[0], a[1]);
-        b = freeSpot([a[0]-6,a[1]-6,a[0]+6,a[1]+6],(x,y,t)=>(t===T.FOREST||t===T.GRASS) && evalNest(w, sp, x, y, 0).checks.filter(c=>!c.label.startsWith('Nesting')).every(c=>c.ok));
+        b = freeSpot([a[0]-6,a[1]-6,a[0]+6,a[1]+6],(x,y,t)=>(t===T.FOREST||t===T.GRASS) && canPlace(w, 'brushpile', x, y, []).ok && evalNest(w, sp, x, y, 0).checks.filter(c=>!c.label.startsWith('Nesting')).every(c=>c.ok));
         if (b) { placeItem('brushpile', b[0], b[1]); break; }
       }
       return;

@@ -63,6 +63,9 @@ class World {
     w.visitors = [];
     w.side = {};
     w.found = {};
+    w.badges = {};
+    w.board = [];
+    w.rareLog = {};
     w.sendMail(LETTERS.welcome);
     w._makeAnimals();
     w.bulk = true;
@@ -91,6 +94,7 @@ class World {
     w.dug = d.dug || {};
     w.featured = d.featured || []; w.visitors = d.visitors || [];
     w.side = d.side || {}; w.found = d.found || {};
+    w.badges = d.badges || {}; w.board = d.board || []; w.rareLog = d.rareLog || {}; w.rare = d.rare || null;
     w.saved = d.players || {};
     w._addNewBuildings(m);
     w._makeAnimals();
@@ -153,7 +157,7 @@ class World {
       quest: this.quest, tierSent: this.tierSent, adaDay: this.adaDay, allDone: this.allDone, stats: this.stats,
       tiles: b64encode(this.tiles), grass: b64encode(this.grass), objs: Array.from(this.objs.values()), nextId: this.nextId,
       dug: this._todayDug(), featured: this.featured, visitors: this.visitors, players: this.saved, savedAt: Date.now(),
-      side: this.side, found: this.found,
+      side: this.side, found: this.found, badges: this.badges, board: this.board, rareLog: this.rareLog, rare: this.rare,
     };
   }
 
@@ -226,6 +230,8 @@ class World {
       d: 0, m: 0, a: '',
       inv: rec && rec.inv ? rec.inv : starterInventory(),
       sleep: false,
+      xp: (rec && rec.xp) || 0, lvl: (rec && rec.lvl) || 1, fr: (rec && rec.fr) || {}, hev: (rec && rec.hev) || {},
+      talkD: (rec && rec.talkD) || {}, giftD: (rec && rec.giftD) || {}, obsD: {}, lvlUps: [],
     };
     if (feetBlocked(this, p.x, p.y)) { p.x = HOME_SPAWN[0]; p.y = HOME_SPAWN[1]; }
     this.players.set(pid, p);
@@ -252,7 +258,16 @@ class World {
     this._maybeSleep();
   }
 
-  _storePlayer(p) { this.saved[p.token] = { name: p.name, look: p.look, inv: p.inv, x: p.x, y: p.y }; }
+  _storePlayer(p) {
+    this.saved[p.token] = { name: p.name, look: p.look, inv: p.inv, x: p.x, y: p.y, xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, talkD: p.talkD, giftD: p.giftD };
+  }
+  // A player's own progress (rank, friendships). lvlUps lists rank-ups that happened overnight.
+  _meData(p, flush) {
+    const d = { xp: p.xp, lvl: p.lvl, fr: p.fr, hev: p.hev, gift: p.giftD, lvlUps: p.lvlUps || [] };
+    if (flush) p.lvlUps = [];
+    return d;
+  }
+  _sendMe(p) { this.evTo(p.pid, 'prog', this._meData(p, false)); }
 
   snapshotFor(pid) {
     const p = this.players.get(pid);
@@ -264,6 +279,7 @@ class World {
       players: Array.from(this.players.values()).map(publicPlayer),
       animals: this.animals.map(publicAnimal), dug: this._todayDug(),
       inv: p ? p.inv : [], stats: this.stats, allDone: this.allDone, side: this.side, found: this.found,
+      badges: this.badges, board: this.board, rareLog: this.rareLog, prog: p ? this._meData(p, true) : null,
     };
   }
 
@@ -356,6 +372,10 @@ class World {
     const before = this.mats[k] || 0;
     this.mats[k] = Math.min(MAT_MAX, before + n);
     this.ev('mats', { [k]: this.mats[k] });
+    const g0 = this.stats.gathered || 0;
+    this.stats.gathered = g0 + n;
+    if (Math.floor(g0 / 10) !== Math.floor(this.stats.gathered / 10)) this.ev('stats', this.stats);
+    if (this.stats.gathered >= 500 && this.badges && this.badges.gatherer == null) this.checkBadges();
     if (p && src) this.ev('gain', p.pid, src[0], src[1], [['m', k, n]]);
     this.questCheck();
   }
@@ -442,6 +462,9 @@ class World {
       case 'look': return this.actLook(p, m);
       case 'pause': if (m.v) this.pauseSet.add(p.pid); else this.pauseSet.delete(p.pid); return;
       case 'brush': return this.actBrush(p, m);
+      case 'gift': return this.actGift(p, m);
+      case 'board': return this.actBoard(p, m);
+      case 'rest': return this.actRest(p, m);
     }
   }
 
@@ -496,8 +519,20 @@ class World {
           this.coins += LANDMARK_REWARD; this.ev('coins', this.coins);
           this.ev('found', this.found);
           this.toastAll((p.name ? p.name + ' discovered ' : 'Discovered ') + 'the ' + l.name + '! (+' + LANDMARK_REWARD + ' coins)', 'star');
+          this.addXP(p, XP.landmark, 'landmark');
+          this.checkBadges();
         }
         this.evTo(p.pid, 'lore', o.kind, first);
+        for (const q of QUESTS) {
+          const st = this.side[q.id];
+          if (q.kind !== 'trip' || q.lm !== o.kind || !st || st.st !== 'on' || st.n) continue;
+          const mm = this.time.min;
+          if (q.night && mm < 21 * 60) { this.toast(p, q.title + ': come back after 9 pm, when it\'s dark.', 'moon'); continue; }
+          if (q.early && mm >= 8 * 60) { this.toast(p, q.title + ': come back before 8 in the morning.', 'sun'); continue; }
+          st.n = 1; this.ev('side', this.side);
+          this.toast(p, q.title + ': done — tell ' + NPCS[q.npc].name + '!', 'star');
+          this.ev('snd', 'clue');
+        }
         break;
       }
       case 'bark': o.bk = today; this.gainMat(p, 'bark', 2, src); this.touch(o, ['bk']); this.ev('fx', 'scrape', o.id, 0, 0); break;
@@ -592,6 +627,7 @@ class World {
         this.addObj({ type: 'struct', kind: it.struct, x, y, pl: 1, by: p.name });
         this.ev('fx', 'place', 0, x * TS + 8, y * TS + 12);
       }
+      this._bumpQuests((q) => q.kind === 'place' && q.struct === it.struct, p);
     } else {
       const f = FLORA[it.plant];
       const o = { type: f.type, kind: it.plant, x, y, st: 0, g: 0, pl: 1, by: p.name, d: today };
@@ -600,9 +636,10 @@ class World {
       if (this.grass[tIdx(x, y)]) this.setGrass(tIdx(x, y), 0);
       this.addObj(o);
       this.ev('fx', 'plant', 0, x * TS + 8, y * TS + 12);
+      this.bumpStat('planted');
       for (const q of QUESTS) {
         const st = this.side[q.id];
-        if (q.kind === 'plant' && q.plant === it.plant && st && st.st === 'on' && (st.n || 0) < q.n) {
+        if (q.kind === 'plant' && [].concat(q.plant).includes(it.plant) && st && st.st === 'on' && (st.n || 0) < q.n) {
           st.n = (st.n || 0) + 1; this.ev('side', this.side);
           this.toast(p, q.title + ': ' + st.n + '/' + q.n + (st.n >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : ''), 'star');
         }
@@ -638,7 +675,8 @@ class World {
     };
     if (!host && (this.tiles[tIdx(cx, cy)] === T.GRASS || this.tiles[tIdx(cx, cy)] === T.MARSH)) this.setGrass(tIdx(cx, cy), 2);
     this.addObj(n);
-    this.stats.built++;
+    this.addXP(p, XP.build, 'nest');
+    this.bumpStat('built');
     this.toastAll(p.name + ' built a ' + sp.name + (sp.id === 'wren' ? ' cock nest!' : ' nest!'), 'nest');
     this.ev('fx', 'build', n.id, cx * TS + 8, cy * TS + 8);
     if (sp.id === 'wren') this.toast(p, 'Wren males build several cock nests. Build another one nearby!', 'nest');
@@ -658,6 +696,7 @@ class World {
     this.touch(n, ['st', 'cl']);
     this.toastAll('The Wren nest is lined with feathers — the pair has moved in!', 'heart');
     this.ev('fx', 'hearts', n.id, 0, 0);
+    this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), p);
   }
 
   actNestClear(p, m) {
@@ -699,6 +738,7 @@ class World {
   actCraft(p, m) {
     const r = RECIPES.find((x) => x.id === m.r);
     if (!r) return;
+    if (r.lvl && p.lvl < r.lvl) return this.fail(p, 'Reach birder rank ' + r.lvl + ' to craft this.');
     if (!this.hasMats(r.mats)) return this.fail(p, 'Not enough materials.');
     if (!this.hasRoom(p, r.id)) return this.fail(p, 'Your bag is full!');
     this.takeMats(r.mats);
@@ -749,18 +789,30 @@ class World {
 
   actObserve(p, m) {
     const sp = SPECIES_BY_ID[m.sp];
-    if (!sp || !this.visitors.some((v) => v.sp === sp.id)) return;
-    const j = this.journal[sp.id];
-    if (!j.seen) { j.seen = true; this.ev('jr', sp.id, j); }
+    if (!sp) return;
+    const visiting = this.visitors.some((v) => v.sp === sp.id);
+    if (!visiting && !sp.ambient && !sp.rare) return;
+    const today = dayIdx(this.time);
+    // experience for watching birds: once per species per day, plus a bonus for a first sighting
+    const firstEver = sp.ambient || sp.rare ? !this.stats['seen_' + sp.id] : !this.journal[sp.id].seen;
+    if (p.obsD[sp.id] !== today) { p.obsD[sp.id] = today; this.addXP(p, XP.observe + (firstEver ? XP.firstSight : 0), 'observe'); }
+    if (sp.ambient || sp.rare) this.stats['seen_' + sp.id] = 1;
+    if (this.time.min < 7 * 60) this.stats.early = 1;
+    if (sp.night) { const nl = this.stats.nightList || (this.stats.nightList = []); if (!nl.includes(sp.id)) nl.push(sp.id); }
+    this.bumpStat('observed');
+    if (sp.rare) return this._observeRare(p, sp);
     for (const q of QUESTS) {
       const st = this.side[q.id];
-      if (q.kind !== 'observe' || !st || st.st !== 'on' || (q.night && !sp.night)) continue;
+      if (q.kind !== 'observe' || !st || st.st !== 'on' || (q.night && !sp.night) || (q.early && this.time.min >= 8 * 60)) continue;
       st.seen = st.seen || [];
       if (!st.seen.includes(sp.id) && st.seen.length < q.n) {
         st.seen.push(sp.id); this.ev('side', this.side);
         this.toast(p, q.title + ': ' + st.seen.length + '/' + q.n + ' species' + (st.seen.length >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : ''), 'star');
       }
     }
+    if (sp.ambient) return;
+    const j = this.journal[sp.id];
+    if (!j.seen) { j.seen = true; this.ev('jr', sp.id, j); }
     if (this.featured.includes(sp.id) && j.h < 3 && !this.observed[sp.id]) {
       this.observed[sp.id] = 1;
       this.giveHint(sp.id, 'obs', p);
@@ -785,15 +837,194 @@ class World {
     this.ev('clue', spId, i, src, p ? p.pid : '', p ? p.name : '');
     if (j.h === 3) this.toastAll('Nest blueprint learned: ' + SPECIES_BY_ID[spId].name + '!', 'star');
     this.questCheck();
+    if (p) { this.addXP(p, XP.clue + (j.h === 3 ? XP.blueprint : 0), 'clue'); }
+    this.bumpStat('clues');
     return true;
   }
 
   dlg(p, npc, lines, opts) { this.evTo(p.pid, 'dlg', { npc, lines, opts }); }
 
+  // ---------------------------------------------------------------- rank, badges, friendship
+  addXP(p, n, why) {
+    if (!p || !n) return;
+    p.xp = (p.xp || 0) + n;
+    while (p.lvl < MAX_LEVEL && p.xp >= xpForLevel(p.lvl)) { p.xp -= xpForLevel(p.lvl); p.lvl++; this._levelUp(p); }
+    if (p.lvl >= MAX_LEVEL) p.xp = Math.min(p.xp, xpForLevel(p.lvl));
+    this.evTo(p.pid, 'xp', n, why || '');
+    this._sendMe(p);
+    this._storePlayer(p);
+  }
+  teamXP(n, why) { for (const p of this.players.values()) this.addXP(p, n, why); }
+  _levelUp(p) {
+    const lvl = p.lvl, r = LEVEL_REWARDS[lvl] || {}, got = [];
+    if (r.coins) { this.coins += r.coins; this.ev('coins', this.coins); got.push(r.coins + ' coins'); }
+    for (const k in r.items || {}) { this.gainItem(p, k, r.items[k]); got.push(r.items[k] + '× ' + ITEMS[k].name); }
+    for (const k in r.mats || {}) { this.gainMat(p, k, r.mats[k]); got.push(r.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+    if (r.recipe) got.push('New workbench recipe: ' + ITEMS[r.recipe].name);
+    if (r.perk) got.push(PERK_TEXT[r.perk]);
+    if (this.bulk) p.lvlUps.push({ lvl, got });
+    else this.evTo(p.pid, 'lvl', lvl, got);
+    for (const q of this.players.values()) if (q !== p) this.toast(q, p.name + ' is now a ' + RANKS[lvl - 1] + '!', 'star');
+  }
+  bumpStat(k, n) {
+    this.stats[k] = (this.stats[k] || 0) + (n == null ? 1 : n);
+    this.ev('stats', this.stats);
+    this.checkBadges();
+  }
+  statValue(k) {
+    if (k === 'species') return nestedCount(this);
+    if (k === 'landmarks') return Object.keys(this.found || {}).length;
+    if (k === 'nightSpecies') return (this.stats.nightList || []).length;
+    if (k === 'bestFriends') {
+      let best = 0;
+      for (const rec of Object.values(this.saved)) for (const npc in (rec.fr || {})) if (rec.fr[npc] >= HEART * MAX_HEARTS) best = 1;
+      for (const p of this.players.values()) for (const npc in (p.fr || {})) if (p.fr[npc] >= HEART * MAX_HEARTS) best = 1;
+      return best;
+    }
+    return this.stats[k] || 0;
+  }
+  checkBadges() {
+    if (!this.badges) this.badges = {};
+    for (const b of BADGES) {
+      if (this.badges[b.id] != null || this.statValue(b.s) < badgeGoal(b)) continue;
+      this.badges[b.id] = dayIdx(this.time);
+      this.ev('badges', this.badges);
+      this.toastAll('Badge earned: ' + b.name + '! (' + b.desc + ')', 'star');
+      this.ev('snd', 'fanfare');
+      this.teamXP(XP.badge, 'badge');
+    }
+  }
+  hearts(p, npc) { return Math.min(MAX_HEARTS, Math.floor(((p.fr && p.fr[npc]) || 0) / HEART)); }
+  addFriend(p, npc, pts) {
+    if (!p || !NPCS[npc]) return;
+    const before = this.hearts(p, npc);
+    p.fr[npc] = clamp((p.fr[npc] || 0) + pts, 0, HEART * MAX_HEARTS);
+    const after = this.hearts(p, npc);
+    if (after > before) {
+      this.toast(p, NPCS[npc].name + ' likes you more! (' + after + '/' + MAX_HEARTS + ' hearts)', 'heart');
+      this.addXP(p, XP.heart, 'friend');
+      if (after >= MAX_HEARTS) this.checkBadges();
+    }
+    this._sendMe(p);
+    this._storePlayer(p);
+  }
+  // A story the villager wants to share now that you're closer friends (once per heart level)
+  _heartStory(p, npc) {
+    const st = HEART_STORIES[npc];
+    if (!st) return false;
+    const h = this.hearts(p, npc), seen = p.hev[npc] || 0;
+    for (const lv of [2, 4, 5]) {
+      if (h < lv || seen >= lv || !st[lv]) continue;
+      p.hev[npc] = lv;
+      if (lv === 5) {
+        const g = st[5], got = [];
+        if (g.coins) { this.coins += g.coins; this.ev('coins', this.coins); got.push(g.coins + ' coins'); }
+        for (const k in g.items || {}) { this.gainItem(p, k, g.items[k], [p.x, p.y - 20]); got.push(g.items[k] + '× ' + ITEMS[k].name); }
+        for (const k in g.mats || {}) { this.gainMat(p, k, g.mats[k], [p.x, p.y - 20]); got.push(g.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+        this.dlg(p, npc, ['You know… you\'ve become one of my dearest friends.'].concat(g.lines, got.length ? ['(You received ' + got.join(', ') + '.)'] : []), [{ id: 'bye', label: 'Thank you, friend!' }]);
+      } else this.dlg(p, npc, st[lv], [{ id: 'bye', label: 'Thanks for telling me.' }]);
+      this._sendMe(p); this._storePlayer(p);
+      return true;
+    }
+    return false;
+  }
+
+  actGift(p, m) {
+    const id = String(m.npc), slot = m.slot | 0, s = p.inv[slot];
+    if (!NPCS[id] || !this._nearNpc(p, id) || !s) return;
+    const it = ITEMS[s.k];
+    if (!it || it.cat === 'struct') return this.fail(p, 'That\'s not really a gift.');
+    const today = dayIdx(this.time);
+    if (p.giftD[id] === today) return this.dlg(p, id, ['You\'ve already brought me something today — you\'re too kind! Come back tomorrow.'], [{ id: 'bye', label: 'Bye' }]);
+    p.giftD[id] = today;
+    const taste = NPC_GIFTS[id] || { love: [], like: [] };
+    const kind = taste.love.includes(s.k) ? 'love' : taste.like.includes(s.k) ? 'like' : 'ok';
+    this.takeSlot(p, slot, 1);
+    this.dlg(p, id, [pick(GIFT_LINES[kind])], [{ id: 'bye', label: 'You\'re welcome!' }]);
+    this.ev('fx', 'hearts', 0, p.x, p.y - 26);
+    this.addFriend(p, id, kind === 'love' ? 40 : kind === 'like' ? 25 : 10);
+    this.addXP(p, XP.gift, 'gift');
+  }
+
+  // ---------------------------------------------------------------- notice board
+  _postBoard() {
+    const day = dayIdx(this.time), out = [], used = new Set();
+    for (let k = 0; k < 40 && out.length < 2; k++) {
+      const t = BOARD_TASKS[hash32(day, k, this.seed) % BOARD_TASKS.length];
+      if (used.has(t.npc)) continue;
+      used.add(t.npc);
+      out.push({ npc: t.npc, mat: t.mat, n: t.n, text: t.text, done: '' });
+    }
+    this.board = out;
+    this.ev('board', this.board);
+  }
+  actBoard(p, m) {
+    const b = Array.from(this.objs.values()).find((o) => o.type === 'building' && o.kind === 'board');
+    if (!b || !this.reachObj(p, b, 12)) return;
+    const t = this.board[m.i | 0];
+    if (!t || t.done) return;
+    if (!this.hasMats({ [t.mat]: t.n })) return this.fail(p, 'You need ' + t.n + ' ' + MATS[t.mat].name.toLowerCase() + ' in the pouch.');
+    this.takeMats({ [t.mat]: t.n });
+    t.done = p.name;
+    const coins = 15 + t.n * 6;
+    this.coins += coins; this.ev('coins', this.coins);
+    this.ev('board', this.board);
+    this.toastAll(p.name + ' helped ' + NPCS[t.npc].name + ': ' + t.text.toLowerCase() + ' (+' + coins + ' coins)', 'heart');
+    this.ev('snd', 'coin');
+    this.addFriend(p, t.npc, 15);
+    this.addXP(p, XP.board, 'board');
+    this.bumpStat('board');
+  }
+
+  // A rare visitor turns up about one day in five; a villager mentions it in the morning
+  _pickRare(today) {
+    this.rare = null; this.rareMsg = null;
+    const opts = RARE.filter((r) => r.present.includes(this.time.season));
+    if (!opts.length || today < 2 || hashf(today, 404, this.seed) > 0.22) return;
+    const sp = opts[hash32(today, 405, this.seed) % opts.length];
+    this.rare = sp.id;
+    this.visitors.push({ sp: sp.id, role: 'rare' });
+    const who = ['finn', 'tom', 'rosie', 'ada', 'edith'][hash32(today, 406, this.seed) % 5];
+    this.rareMsg = NPCS[who].name + ' says a rare ' + sp.name + ' was seen around ' + ZONES_LABEL[sp.zone] + ' — today only!';
+    if (!this.bulk) { this.ev('vis', this.visitors, this.featured); this.toastAll(this.rareMsg, 'binoculars'); }
+  }
+  _observeRare(p, sp) {
+    if (!this.rareLog[sp.id]) {
+      this.rareLog[sp.id] = dateStr(this.time);
+      this.ev('rare', this.rareLog);
+      this.coins += 50; this.ev('coins', this.coins);
+      this.toastAll(p.name + ' spotted a rare ' + sp.name + '! (+50 coins)', 'star');
+      this.ev('snd', 'fanfare');
+      this.addXP(p, XP.rare, 'rare');
+      this.bumpStat('rare');
+    }
+    this.evTo(p.pid, 'fact', sp.id, pick(sp.facts));
+  }
+
+  // Rest until the evening (solo only): a gentle way to meet the birds of the night
+  actRest(p) {
+    const c = Array.from(this.objs.values()).find((o) => o.type === 'building' && o.kind === 'cottage');
+    const benches = Array.from(this.objs.values()).filter((o) => o.type === 'struct' && o.kind === 'gardenbench');
+    const near = (c && dist2(p.x, p.y, (c.x + 2.5) * TS, (c.y + 3) * TS) < 48 * 48) || benches.some((o) => dist2(p.x, p.y, o.x * TS + 8, o.y * TS + 12) < 32 * 32);
+    if (!near) return;
+    if (this.players.size > 1) return this.fail(p, 'In co-op the day keeps everyone\'s pace — resting only works when you play alone.');
+    if (this.time.min >= 19 * 60) return this.fail(p, 'It\'s already evening!');
+    if (this.time.min < 11 * 60) for (const o of Array.from(this.objs.values())) if (o.type === 'web') this.removeObj(o);
+    this.time.min = 19 * 60; this.msAcc = 0;
+    this.ev('time', this.time, this.weather);
+    this.checkArrivals();
+    this.toast(p, 'You rest with a cup of tea until the evening light. The birds of the night will soon be out!', 'moon');
+  }
+
   actTalk(p, m) {
     const id = String(m.npc);
     if (!NPCS[id] || !this._nearNpc(p, id)) return;
     const step = TUTORIAL[this.quest] ? TUTORIAL[this.quest].id : '';
+    const today = dayIdx(this.time);
+    if (p.talkD[id] !== today) { p.talkD[id] = today; this.addFriend(p, id, 8); }
+    const dq = QUESTS.find((q) => q.kind === 'deliver' && q.to === id && this.side[q.id] && this.side[q.id].st === 'on');
+    if (dq) return this.completeQuest(p, dq);
+    if (!(id === 'ada' && (step === 'mail' || step === 'ada')) && this._heartStory(p, id)) return;
     const nq = npcQuest(this, id);
     const questOpt = nq ? [{ id: 'q', label: nq.state === 'offer' ? 'Need a hand?' : 'About ' + nq.q.title + '…' }] : [];
     if (id === 'ada') {
@@ -834,6 +1065,7 @@ class World {
     const q = nq.q;
     if (nq.state === 'offer') return this.dlg(p, npc, q.ask, [{ id: 'qa', label: 'I\'ll help!' }, { id: 'bye', label: 'Not now' }]);
     if (nq.state === 'active') {
+      if (q.kind === 'find') this._respawnQuestItems(q);
       const prog = q.n > 1 ? ' (' + questProgress(this, q) + '/' + q.n + ')' : '';
       return this.dlg(p, npc, ['Any luck? ' + q.hint + prog], [{ id: 'bye', label: 'I\'m on it!' }]);
     }
@@ -850,18 +1082,63 @@ class World {
     this.ev('snd', 'clue');
   }
 
-  _spawnQuestItems(q) {
-    const left = q.n - (this.side[q.id].n || 0);
+  _spawnQuestItems(q, count) {
+    const left = count != null ? count : q.n - (this.side[q.id].n || 0);
+    if (left <= 0) return;
+    const reach = this._reachable();
+    const ok = (x, y) => reach[tIdx(x, y)] === 1;
+    const base = q.shore ? (x, y, t) => t !== T.PATH && nearWater(this, x, y, 1) : (x, y, t) => t !== T.PATH;
     for (let k = 0; k < left; k++) {
-      const test = q.shore ? (x, y, t) => t !== T.PATH && nearWater(this, x, y, 1) : (x, y, t) => t !== T.PATH;
-      const xy = this._randIn(q.area, test, 400) || this._randIn(q.area, null, 400);
+      const xy = this._randIn(q.area, (x, y, t) => base(x, y, t) && ok(x, y), 800) || this._randIn(q.area, (x, y) => ok(x, y), 800) || this._randIn(q.area, null, 400);
       if (xy) this.addObj({ type: 'qitem', kind: q.item, q: q.id, x: xy[0], y: xy[1] });
+    }
+  }
+  // Items can be lost (a spot built over, an old save): top them up when the player asks about the quest
+  _respawnQuestItems(q) {
+    const st = this.side[q.id];
+    let have = 0;
+    for (const o of this.objs.values()) if (o.type === 'qitem' && o.q === q.id) have++;
+    this._spawnQuestItems(q, q.n - (st.n || 0) - have);
+  }
+  // Tiles a player can walk to from the cottage
+  _reachable() {
+    const seen = new Uint8Array(MAP_W * MAP_H);
+    const start = tIdx(Math.floor(HOME_SPAWN[0] / TS), Math.floor(HOME_SPAWN[1] / TS));
+    const stack = [start];
+    seen[start] = 1;
+    while (stack.length) {
+      const i = stack.pop(), x = i % MAP_W, y = (i - x) / MAP_W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (!inBounds(nx, ny)) continue;
+        const j = tIdx(nx, ny);
+        if (seen[j] || feetBlocked(this, nx * TS + 8, ny * TS + 10)) continue;
+        seen[j] = 1;
+        stack.push(j);
+      }
+    }
+    return seen;
+  }
+
+  // Progress on active quests matching pred: a toast for p (or everyone), or a line in the morning summary
+  _bumpQuests(pred, p, sum) {
+    for (const q of QUESTS) {
+      const st = this.side[q.id];
+      if (!st || st.st !== 'on' || !pred(q) || (st.n || 0) >= q.n) continue;
+      st.n = (st.n || 0) + 1;
+      this.ev('side', this.side);
+      const msg = q.title + ': ' + (q.n > 1 ? st.n + '/' + q.n : 'done') + (st.n >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : '');
+      if (sum) sum.push(['star', msg]);
+      else if (p) this.toast(p, msg, 'star');
+      else this.toastAll(msg, 'star');
     }
   }
 
   completeQuest(p, q) {
     const st = this.side[q.id];
-    if (!st || st.st !== 'on' || !questReady(this, q)) return;
+    if (!st || st.st !== 'on') return;
+    if (q.kind === 'deliver') st.n = 1;
+    if (!questReady(this, q)) return;
     if (q.kind === 'bring') { if (!this.hasMats({ [q.mat]: q.n })) return; this.takeMats({ [q.mat]: q.n }); }
     st.st = 'done';
     this.ev('side', this.side);
@@ -870,7 +1147,9 @@ class World {
     if (r.coins) { this.coins += r.coins; this.ev('coins', this.coins); got.push(r.coins + ' coins'); }
     for (const k in r.items || {}) { this.gainItem(p, k, r.items[k], src); got.push(r.items[k] + '× ' + ITEMS[k].name); }
     for (const k in r.mats || {}) { this.gainMat(p, k, r.mats[k], src); got.push(r.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
-    this.dlg(p, q.npc, q.thanks.concat(got.length ? ['(You received ' + got.join(', ') + '.)'] : []), [{ id: 'bye', label: 'You\'re welcome!' }]);
+    const who = q.kind === 'deliver' ? q.to : q.npc;
+    const lines = (q.kind === 'deliver' ? ['(You hand over ' + QITEMS[q.item].name + ' from ' + NPCS[q.npc].name + '.)'] : []).concat(q.thanks);
+    this.dlg(p, who, lines.concat(got.length ? ['(You received ' + got.join(', ') + '.)'] : []), [{ id: 'bye', label: 'You\'re welcome!' }]);
     if (r.clue) {
       const ut = unlockedTier(this);
       const cands = SPECIES.filter((s) => s.tier <= ut && this.journal[s.id].h < 3 && s.site !== 'parasite' && (r.clue !== 'night' || s.night));
@@ -879,6 +1158,10 @@ class World {
     }
     this.toastAll('Quest complete: ' + q.title + '!', 'star');
     this.ev('snd', 'fanfare');
+    this.addXP(p, XP.quest, 'quest');
+    this.addFriend(p, q.npc, 30);
+    if (who !== q.npc) this.addFriend(p, who, 20);
+    this.bumpStat('quests');
   }
 
   actOpt(p, m) {
@@ -997,6 +1280,7 @@ class World {
       this.quest++;
       changed = true;
       if (s.id === 'build') this.toastAll('Now wait for the birds — they\'re checking it out.', 'heart');
+      if (s.id === 'arrive') this.sendMail(LETTERS.neighbours);
     }
     if (changed) {
       this.ev('quest', this.quest);
@@ -1043,6 +1327,7 @@ class World {
     this.toastAll('A pair of ' + sp.name + 's moved into the nest!', 'heart');
     this.ev('fx', 'hearts', n.id, 0, 0);
     this.ev('snd', 'arrive', 0, 0);
+    this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), null, this.bulk ? [] : null);
     this.questCheck();
   }
 
@@ -1076,6 +1361,7 @@ class World {
           if (evalNest(this, sp, cx, cy, n.id).ok) {
             n.st = 'pair'; n.arr = 0; n.cl = randInt(Math.random, sp.clutch[0], sp.clutch[1]);
             sum.push(['heart', 'A pair of ' + sp.name + 's moved into a nest at dawn.']);
+            this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), null, sum);
           }
           break;
         }
@@ -1093,6 +1379,7 @@ class World {
             } else {
               n.ch = n.cl || n.eggs; n.eggs = 0;
               sum.push(['chick', n.ch + ' ' + sp.name + ' chicks hatched!']);
+              this.teamXP(XP.hatch, 'hatch');
             }
           } else if (n.t === 1) {
             n.eggs = n.cl || n.eggs;
@@ -1131,6 +1418,8 @@ class World {
     const j = this.journal[id];
     j.n++;
     this.stats.fledged++;
+    this._bumpQuests((q) => q.kind === 'fledge' && (!q.sp || q.sp.includes(id)), null, sum);
+    this.teamXP(XP.fledge + (j.n === 1 ? XP.newSpecies : 0), 'fledge');
     if (j.n === 1) {
       j.first = dateStr(this.time);
       if (j.h < 3) j.h = 3;
@@ -1216,6 +1505,8 @@ class World {
     if (seasonChanged) this.sendMail(LETTERS[SEASONS[season]]);
     this._checkTier();
     this.startDay();
+    if (this.rareMsg) sum.push(['star', this.rareMsg]);
+    for (const p of this.players.values()) for (const u of p.lvlUps || []) sum.push(['star', p.name + ' is now a ' + RANKS[u.lvl - 1] + '!']);
     // wake everyone at home
     let k = 0;
     for (const p of this.players.values()) {
@@ -1245,6 +1536,9 @@ class World {
     this.observed = {};
     this._spawnForage(today);
     this.pickFeatured();
+    this._postBoard();
+    this._pickRare(today);
+    this.checkBadges();
   }
 
   _freeLand(x, y) {

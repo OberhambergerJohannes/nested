@@ -142,6 +142,24 @@ function genQItem(kind) {
     case 'litter': px.rect(3, 4, 6, 6, '#b8bcc4'); px.hline(3, 8, 4, '#e0e4ea'); px.rect(3, 6, 6, 2, '#c83a3a'); px.set(4, 5, '#ffffff'); px.line(8, 10, 10, 11, '#8a8e96'); break;
     case 'pellet': px.ellipse(6, 7, 4, 2.4, '#7a7470'); px.ellipse(5, 6.5, 2.5, 1.2, '#948e88'); px.set(4, 7, '#f4f0e6'); px.set(7, 8, '#f4f0e6'); px.set(8, 6, '#e8e4dc'); break;
     case 'orchid': px.vline(6, 3, 11, '#5a8a4a'); px.ellipse(6, 3, 1.6, 2.4, '#a88a5a'); px.set(4, 7, '#b86ad0'); px.set(5, 6, '#d08ae8'); px.set(3, 8, '#5a8a4a'); px.set(8, 9, '#5a8a4a'); break;
+    case 'bell':
+      px.rect(5, 2, 2, 2, '#5a3a22');
+      px.poly([[3, 10], [9, 10], [8, 4], [4, 4]], '#c8962a');
+      px.vline(4, 5, 9, '#f0c85a'); px.set(5, 4, '#f6dc8a'); px.hline(2, 9, 10, '#a8761a'); px.set(6, 11, '#5a4a3a');
+      px.set(10, 3, '#f8f0c0');
+      break;
+    case 'map':
+      px.rect(1, 3, 10, 7, '#e8dcb8'); px.vline(4, 3, 9, '#c8b890'); px.vline(8, 3, 9, '#c8b890');
+      px.line(2, 8, 5, 5, '#5a9ad8'); px.line(5, 5, 9, 6, '#5a9ad8'); px.set(6, 7, '#d8342a'); px.set(3, 4, '#5aa03a'); px.set(9, 4, '#5aa03a');
+      break;
+    case 'carving':
+      px.ellipse(5, 7, 3.2, 2.2, '#2a8ac8'); px.ellipse(5, 8, 2.4, 1.2, '#e88a3a'); px.disc(8, 5, 1.8, '#2a8ac8');
+      px.hline(9, 11, 5, '#3a3a3a'); px.set(8, 4, '#ffffff'); px.line(1, 8, 2, 7, '#1e6a9a'); px.hline(3, 8, 10, '#a87a4a');
+      break;
+    case 'jam':
+      px.rect(3, 4, 6, 7, '#6a1a3a'); px.rect(4, 5, 1, 4, '#a83a6a'); px.rect(3, 2, 6, 2, '#e8dcc8');
+      px.hline(3, 8, 2, '#c84a4a'); px.set(5, 3, '#c84a4a'); px.set(7, 3, '#c84a4a'); px.rect(4, 7, 4, 2, '#f4ecd8');
+      break;
   }
   px.outline('#1e1612');
   return { px, ax: 6, ay: 10 };

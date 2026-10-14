@@ -4,8 +4,15 @@
 // kind:  find    – pick up n quest items hidden in an area (spawned when the quest is accepted)
 //        bring   – hand over n of a nest material from the shared pouch
 //        visit   – discover n landmarks
-//        observe – observe n different bird species (night: only birds of the night count)
-//        plant   – plant n of a plant
+//        trip    – go and look at one landmark (night: after 9 pm, early: before 8 am)
+//        observe – observe n different bird species (night: only birds of the night count,
+//                  early: only before 8 am)
+//        plant   – plant n of a plant (or any of a list)
+//        place   – put up n structures of a kind
+//        nest    – n pairs of the listed species move into nests
+//        fledge  – n broods fledge (any species)
+//        deliver – carry something to another villager (to); they finish the quest
+// Each villager's quests form a chain: the next one is offered when the previous is done.
 // reward: coins, items (to the bag), mats (to the pouch), clue (a clue for a bird you don't know
 //         yet; 'night' picks a bird of the night)
 
@@ -17,6 +24,10 @@ const QITEMS = {
   pellet: { name: 'an owl pellet' },
   hen:    { name: 'Henrietta the hen' },
   orchid: { name: 'a wild orchid seed pod' },
+  bell:   { name: 'the lost sheep bell' },
+  map:    { name: 'Ada\'s survey map' },
+  carving: { name: 'a wooden kingfisher' },
+  jam:    { name: 'a jar of bramble jelly' },
 };
 
 const QUESTS = [
@@ -96,6 +107,112 @@ const QUESTS = [
     thanks: ['Smell that? The moths will find it tonight.', 'Here — a bird of the night I\'ve been hearing lately.'],
     reward: { coins: 90, clue: 'night' } },
 ];
+// ---- the second and third rounds: deliveries, night trips, building and nesting goals
+QUESTS.push(
+  { id: 'map', npc: 'ada', after: 'survey', title: 'Ada\'s map', kind: 'deliver', to: 'juniper', item: 'map', n: 1,
+    ask: ['Could you take this map to Juniper in the forest?', 'I\'ve marked every spot where I heard a woodpecker drumming this spring.'],
+    hint: 'Bring Ada\'s survey map to Juniper in the forest.',
+    thanks: ['Ada\'s drumming map! Woodpeckers drum on dead branches to claim a territory — like a song, but louder.', 'Tell her thanks. Here, take some timber for your trouble.'],
+    reward: { coins: 60, mats: { wood: 3 } } },
+  { id: 'dawn', npc: 'ada', after: 'map', title: 'The dawn chorus', kind: 'observe', early: true, n: 4,
+    ask: ['Have you ever listened to the dawn chorus? Birds sing their hearts out at first light.', 'Get up early and observe four different birds before 8 in the morning.'],
+    hint: 'Observe 4 different bird species before 8 am.',
+    thanks: ['An early riser — splendid! Scientists think birds sing most at dawn because the calm air carries song far, and it\'s still too dark to find food.', 'Here\'s a little something from the Fund.'],
+    reward: { coins: 140, clue: true } },
+  { id: 'ringing', npc: 'ada', after: 'dawn', title: 'Ringing season', kind: 'fledge', n: 3,
+    ask: ['Every brood that fledges here goes into the national records.', 'Help three broods of chicks fledge — any species at all.'],
+    hint: 'Help 3 broods of chicks fledge (any species).',
+    thanks: ['Three broods! Thanks to bird rings we know that swallows from northern Europe spend the winter as far away as South Africa.', 'The Conservation Fund sent this along for you.'],
+    reward: { coins: 180, items: { box_medium: 1 } } },
+
+  { id: 'hedgerow', npc: 'basil', after: 'orchids', title: 'A new hedgerow', kind: 'plant', plant: ['hawthorn', 'blackthorn', 'hazel', 'elder', 'bramble'], n: 3,
+    ask: ['Hedgerows are like roads for wildlife: food, shelter and nest sites all in one line.', 'Would you plant three native shrubs? Hawthorn, blackthorn, hazel, elder or bramble.'],
+    hint: 'Plant 3 native shrubs (hawthorn, blackthorn, hazel, elder or bramble).',
+    thanks: ['Smashing. In a few years that\'ll be buzzing with insects and full of nests.', 'Have a couple of whips on the house.'],
+    reward: { coins: 80, items: { cut_blackthorn: 1, cut_hazel: 1 } } },
+  { id: 'feeder', npc: 'basil', after: 'hedgerow', title: 'Winter feeding', kind: 'place', struct: 'feeder', n: 1,
+    ask: ['In a hard winter a bird feeder can save a small bird\'s life.', 'Would you put one up? The workbench recipe unlocks at birder rank 3.'],
+    hint: 'Craft a Bird Feeder at the workbench (birder rank 3) and put it up anywhere.',
+    thanks: ['Look at them come! Keep it clean, mind — dirty feeders spread disease between birds.', 'Here, some seed money. Ha!'],
+    reward: { coins: 90, items: { seed_thistle: 2 } } },
+
+  { id: 'bell', npc: 'mabel', after: 'henrietta', title: 'The lost bell', kind: 'find', item: 'bell', n: 1, area: [73, 2, 92, 20],
+    ask: ['One of my ewes came home without her bell. It must be up on the hills.', 'It\'s brass, about so big. Would you have a look?'],
+    hint: 'Search the rocky hills in the north-east for the sheep bell.',
+    thanks: ['That\'s it — dented, but it still rings!', 'Have some wool for your nests. A long-tailed tit lines its nest with up to two thousand feathers, you know.'],
+    reward: { coins: 70, mats: { wool: 5 } } },
+  { id: 'swallows', npc: 'mabel', after: 'bell', title: 'Life in the barn', kind: 'nest', sp: ['swallow', 'martin', 'swift', 'barnowl', 'jackdaw'], n: 1,
+    ask: ['When I was a girl, swallows swooped in and out of this barn all summer long.', 'Could you help some birds make a home on the farm or in the village again?'],
+    hint: 'Help a Barn Swallow, House Martin, Swift, Jackdaw or Barn Owl move into a nest.',
+    thanks: ['Listen to that! Swallows come back to the same barn year after year — all the way from Africa.', 'Thank you, dear. Here\'s a bit of wool and some coins.'],
+    reward: { coins: 120, mats: { wool: 4, hair: 3 } } },
+
+  { id: 'carving', npc: 'tom', after: 'stones', title: 'A gift for Rosie', kind: 'deliver', to: 'rosie', item: 'carving', n: 1,
+    ask: ['I\'ve whittled a little wooden kingfisher for Rosie.', 'Would you take it to her? My knees aren\'t what they were.'],
+    hint: 'Bring Tom\'s wooden kingfisher to Rosie in the village.',
+    thanks: ['A kingfisher! It\'s even got an orange tummy!', 'Tell Tom it\'s the BEST. He said to give you this for helping.'],
+    reward: { coins: 60, mats: { feather: 2 } } },
+  { id: 'riverbirds', npc: 'tom', after: 'carving', title: 'River life', kind: 'nest', sp: ['mallard', 'dipper', 'kingfisher', 'sandmartin', 'plover', 'heron'], n: 1,
+    ask: ['The river\'s clean again, but it\'s still too quiet.', 'Help a river bird nest — a dipper, a kingfisher, sand martins, anything!'],
+    hint: 'Help a river bird move in (Mallard, Dipper, Kingfisher, Sand Martin, Little Ringed Plover or Grey Heron).',
+    thanks: ['I saw them at first light! The river\'s alive again.', 'Here — my best driftwood, and a bit of money for your boxes.'],
+    reward: { coins: 150, mats: { wood: 6 } } },
+
+  { id: 'birdbath', npc: 'edith', after: 'oldbox', title: 'Bath time', kind: 'place', struct: 'birdbath', n: 1,
+    ask: ['Arthur always kept a bird bath full of fresh water. Birds need to drink and bathe every day, even in winter.', 'Would you put one up? It needn\'t be by my cottage.'],
+    hint: 'Craft a Bird Bath at the workbench and put it up anywhere.',
+    thanks: ['A blackbird is splashing in it already! Bathing keeps their feathers clean and in good shape for flying.', 'Here, Arthur\'s old seed tin. Still full!'],
+    reward: { coins: 80, items: { seed_wildflower: 3, seed_herbs: 1 } } },
+  { id: 'jam', npc: 'edith', after: 'birdbath', title: 'Bramble jelly', kind: 'deliver', to: 'luna', item: 'jam', n: 1,
+    ask: ['Luna works such long nights, poor thing. Would you take her a jar of my bramble jelly?', 'You\'ll only find her after dark — she walks the meadows from about half past seven.'],
+    hint: 'Bring Edith\'s bramble jelly to Luna (she\'s out after 7:30 pm).',
+    thanks: ['Edith\'s bramble jelly! That woman is an angel.', 'Tell her I\'ll bring her some moth photos. And take these, for your nests.'],
+    reward: { coins: 60, mats: { feather: 3, moss: 3 } } },
+
+  { id: 'owlnight', npc: 'rosie', after: 'feathers', title: 'The ghost in the willow', kind: 'trip', lm: 'willow', night: true, n: 1,
+    ask: ['Grandma says a GHOST lives in the Hollow Willow! It screeches at night!', 'I\'m not allowed out after dark… Will you go and look at the Hollow Willow at night? Please?'],
+    hint: 'Look at the Hollow Willow by the big pond after 9 pm.',
+    thanks: ['An owl? Not a ghost? Phew!', 'Grandma says barn owls screech instead of hooting — that\'s why people used to think they were ghosts!', 'You\'re so brave. Here, I heard a funny noise too…'],
+    reward: { coins: 60, clue: 'night' } },
+  { id: 'diary', npc: 'rosie', after: 'owlnight', title: 'Rosie\'s bird diary', kind: 'observe', n: 8,
+    ask: ['My bird diary needs more birds! I\'ve only drawn robins and sparrows.', 'Can you observe eight different kinds? Then I can draw them all!'],
+    hint: 'Observe 8 different bird species.',
+    thanks: ['EIGHT! My diary is going to be the best in the whole school!', 'Here\'s my piggy-bank money. Don\'t tell Grandma.'],
+    reward: { coins: 100, items: { seed_wildflower: 2 } } },
+
+  { id: 'sunrise', npc: 'finn', after: 'spotter', title: 'Sunrise shot', kind: 'trip', lm: 'cairn', early: true, n: 1,
+    ask: ['Sunrise from the Hilltop Cairn — that\'s the cover of my photo book.', 'Could you scout it out? You\'d have to be up there before 8 in the morning.'],
+    hint: 'Look at the Hilltop Cairn in the north-east before 8 am.',
+    thanks: ['Before breakfast! Proper dedication.', 'Kestrels hunt over those slopes in the morning, hovering on the wind to spot voles. Did you see one?'],
+    reward: { coins: 120, mats: { stone: 4 } } },
+  { id: 'nightshoot', npc: 'finn', after: 'sunrise', title: 'Night shoot', kind: 'observe', night: true, n: 2,
+    ask: ['Night photography is my next challenge — owls, woodcocks, nightjars.', 'Observe two different birds of the night for me? Then I\'ll know where to set up.'],
+    hint: 'Observe 2 different birds of the night (after dark).',
+    thanks: ['Brilliant. Owls\' feathers have soft, comb-like edges so they fly almost silently. Good luck to my microphone!', 'Here\'s some money from the photo club.'],
+    reward: { coins: 160, clue: 'night' } },
+
+  { id: 'deadwood', npc: 'juniper', after: 'brush', title: 'Dead wood is alive', kind: 'place', struct: 'snag', n: 2,
+    ask: ['Too-tidy forests are poor forests. Thousands of beetles, fungi and birds depend on dead wood.', 'Could you stand up two dead trunks? Woodpeckers and nuthatches will thank you.'],
+    hint: 'Craft 2 Deadwood Trunks at the workbench and stand them anywhere.',
+    thanks: ['Beetles will move in first, then the woodpeckers that eat them.', 'Here\'s a little something from the forestry budget.'],
+    reward: { coins: 120, items: { box_large: 1 } } },
+  { id: 'forestbirds', npc: 'juniper', after: 'deadwood', title: 'Forest homes', kind: 'nest', sp: ['woodpecker', 'nuthatch', 'flycatcher', 'crossbill', 'tawny', 'longeared', 'wren', 'longtailed'], n: 1,
+    ask: ['The old forest has lost a lot of its birds over the years.', 'Help a forest bird nest — a woodpecker, nuthatch, flycatcher, wren, owl…'],
+    hint: 'Help a forest bird move in (woodpecker, nuthatch, flycatcher, crossbill, wren, long-tailed tit or a forest owl).',
+    thanks: ['I heard them from the path this morning. The forest\'s getting its voice back.', 'Take this — you\'ve earned it, ranger.'],
+    reward: { coins: 150, mats: { wood: 6, moss: 4 } } },
+
+  { id: 'stars', npc: 'luna', after: 'moths', title: 'Stars over the stones', kind: 'trip', lm: 'stones', night: true, n: 1,
+    ask: ['The sky above the Standing Stones is the darkest in the whole valley.', 'Go and look at the stones after 9 pm, on any night. You\'ll see what I mean.'],
+    hint: 'Look at the Standing Stones in the south-east after 9 pm.',
+    thanks: ['Did you see the Milky Way? Most Europeans can\'t, any more — too much light.', 'Many songbirds migrate at night and steer by the stars. Isn\'t that wonderful?'],
+    reward: { coins: 120, mats: { feather: 4 } } },
+  { id: 'owlbox', npc: 'luna', after: 'stars', title: 'A home for owls', kind: 'place', struct: 'owlbox', n: 1,
+    ask: ['Old barns and hollow trees are disappearing, and owls are running out of places to nest.', 'Could you put up an owl box? Somewhere quiet, near open grassland or woods.'],
+    hint: 'Craft an Owl Box at the workbench and put it up.',
+    thanks: ['Perfect. Barn owls and tawny owls both take to boxes.', 'Here — I heard this one last night…'],
+    reward: { coins: 100, clue: 'night' } },
+);
 const QUESTS_BY_ID = {};
 for (const q of QUESTS) QUESTS_BY_ID[q.id] = q;
 

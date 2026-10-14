@@ -101,6 +101,12 @@ const ITEMS = {
     desc: 'A big, deep box on a tall pole. In open meadows or in the woods — different owls, different homes.' },
   platform:   { name: 'Stork Platform', cat: 'struct', struct: 'platform',
     desc: 'An old cartwheel on a tall pole. Put it up in open country.' },
+  feeder:     { name: 'Bird Feeder', cat: 'struct', struct: 'feeder',
+    desc: 'Seeds for garden birds — they\'ll gather round it. Keep feeders clean: dirty ones can spread disease.' },
+  lamppost:   { name: 'Lamp Post', cat: 'struct', struct: 'lamppost',
+    desc: 'A warm light for evening birdwatching. Moths gather round it on summer nights.' },
+  gardenbench: { name: 'Garden Bench', cat: 'struct', struct: 'gardenbench',
+    desc: 'Sit and watch the day go by. (When you play alone, you can rest here until the evening.)' },
   bank:       { name: 'Earth Bank', cat: 'struct', struct: 'bank',
     desc: 'A steep wall of packed sand and clay for birds that dig nest tunnels. Some want it at the water\'s edge.' },
   snag:       { name: 'Deadwood Trunk', cat: 'struct', struct: 'snag',
@@ -131,6 +137,9 @@ const RECIPES = [
   { id: 'bank',       mats: { sand: 6, clay: 4 } },
   { id: 'owlbox',     mats: { wood: 8 } },
   { id: 'platform',   mats: { wood: 6, stick: 4 } },
+  { id: 'feeder',     mats: { wood: 2, stone: 1 }, lvl: 3 },
+  { id: 'lamppost',   mats: { wood: 2, stone: 2 }, lvl: 5 },
+  { id: 'gardenbench', mats: { wood: 4 }, lvl: 7 },
 ];
 
 // Basil's shop. 'mat:wood' sells a pouch material.

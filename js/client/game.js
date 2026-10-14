@@ -217,6 +217,9 @@ class Game {
     if (m.day) {
       this.closeAll();
       this.observe = null;
+      // rank-ups from the night show up after the morning summary
+      const ups = (this.state.prog && this.state.prog.lvlUps) || [];
+      for (let i = ups.length - 1; i >= 0; i--) this.openModal(new LevelUpScreen(ups[i].lvl, ups[i].got));
       this.openModal(new DayScreen(m.day));
       this.fx = new FX();
     } else if (first && this.state.quest === 0) {
@@ -309,6 +312,22 @@ class Game {
     else this.openModal(new DialogueScreen(d));
   }
   onLore(kind, first) { this.openModal(new LoreScreen(kind, first)); }
+  // a small "+XP" float: feedback without fuss
+  onXP(n, why) {
+    const me = this.me;
+    if (me && n > 0) this.fx.text('+' + n + ' XP', me.x, me.y - 34, '#9ae07a');
+  }
+  onLevel(lvl, got) {
+    const scr = new LevelUpScreen(lvl, got);
+    if (this.modal instanceof DialogueScreen) this.modals.splice(this.modals.length - 1, 0, scr);
+    else this.openModal(scr);
+  }
+  // perks from birder rank
+  perk(name) {
+    const lvl = (this.state && this.state.prog && this.state.prog.lvl) || 1;
+    for (const l in LEVEL_REWARDS) if (LEVEL_REWARDS[l].perk === name && lvl >= +l) return true;
+    return false;
+  }
   onFact(sp, text) { this.toast(SPECIES_BY_ID[sp].name + ': ' + text, 'star'); }
   onInv() {
     const S = this.state;
@@ -340,7 +359,8 @@ class Game {
   questMarkers() {
     const S = this.state, out = [];
     const step = TUTORIAL[S.quest] ? TUTORIAL[S.quest].id : '';
-    const b = (kind) => Array.from(S.objs.values()).find((o) => o.type === 'building' && o.kind === kind);
+    const b2 = (type, kind) => Array.from(S.objs.values()).find((o) => o.type === type && o.kind === kind);
+    const b = (kind) => b2('building', kind);
     const mb = b('mailbox');
     if (mb && (step === 'mail' || S.mail.some((m) => !m.read))) out.push([mb.x * TS + 8, mb.y * TS - 14]);
     if (step === 'ada') { const n = npcPos('ada', S.clock()); out.push([n.x * TS, n.y * TS - 30]); }
@@ -350,6 +370,13 @@ class Game {
       if (!nq || nq.state === 'active') continue;
       const n = npcPos(k, S.clock());
       if (!n.away) out.push([n.x * TS, n.y * TS - (NPCS[k].kid ? 24 : 30), nq.state === 'ready' ? '?' : '!']);
+    }
+    // deliveries waiting at their recipient, and landmarks a quest sends you to
+    for (const q of QUESTS) {
+      const st = S.side && S.side[q.id];
+      if (!st || st.st !== 'on') continue;
+      if (q.kind === 'deliver') { const n = npcPos(q.to, S.clock()); if (!n.away) out.push([n.x * TS, n.y * TS - (NPCS[q.to].kid ? 24 : 30), '?']); }
+      if (q.kind === 'trip' && !st.n) { const l = b2('landmark', q.lm); if (l) out.push([l.x * TS + (LANDMARKS[q.lm].w || 1) * 8, l.y * TS - 26, '!']); }
     }
     if (step === 'craft') { const be = b('bench'); if (be) out.push([be.x * TS + 16, be.y * TS - 14]); }
     if (step === 'sleep') { const c = b('cottage'); if (c) out.push([(c.x + 2) * TS + 8, (c.y + 2) * TS - 4]); }
@@ -522,7 +549,7 @@ class Game {
 
   // ---------------------------------------------------------------- observing birds
   startObserve(agent) {
-    this.observe = { agent, t: 0, need: 1300 };
+    this.observe = { agent, t: 0, need: this.perk('binoculars') ? 850 : 1300 };
     agent.observed = true;
     Audio2.sfx('open');
   }
@@ -586,7 +613,10 @@ class Game {
       if (n.away) continue;
       const nx = n.x * TS, ny = n.y * TS;
       if (dist2(nx, ny - 6, ipx, ipy) < 18 * 18 || dist2(nx, ny, me.x, me.y) < 16 * 16) {
-        return { label: 'Talk to ' + NPCS[k].name, anchor: [nx, ny - 30], box: [nx - 8, ny - 26, nx + 7, ny], exec: () => this.send({ t: 'act', a: 'talk', npc: k }) };
+        const t = { label: 'Talk to ' + NPCS[k].name, anchor: [nx, ny - 30], box: [nx - 8, ny - 26, nx + 7, ny], exec: () => this.send({ t: 'act', a: 'talk', npc: k }) };
+        const held = this.holding(), it = held && ITEMS[held];
+        if (it && it.cat !== 'struct') { const slot = this.selSlot; t.alt = 'Give ' + it.name; t.altExec = () => this.send({ t: 'act', a: 'gift', npc: k, slot }); }
+        return t;
       }
     }
     // 3. farm animals
@@ -628,11 +658,12 @@ class Game {
       return t;
     }
     // 6. birds to observe
-    const a = this.birds.observable(me.x, me.y - 10, 80);
+    const a = this.birds.observable(me.x, me.y - 10, this.perk('binoculars') ? 112 : 80);
     if (a) {
-      const j = S.journal[a.sp];
-      const name = a.ambient || (j && j.h > 0) ? SPECIES_BY_ID[a.sp].name : 'bird';
-      return { label: 'Observe ' + (a.ambient || (j && j.h > 0) ? name : 'the ' + name), anchor: [a.x, a.y - a.z - 14], box: [a.x - 6, a.y - a.z - 12, a.x + 6, a.y - a.z], exec: () => this.startObserve(a) };
+      const sp = SPECIES_BY_ID[a.sp], j = S.journal[a.sp];
+      const known = a.ambient || (j && j.h > 0) || (sp.rare && S.rareLog && S.rareLog[a.sp]);
+      const label = sp.rare && !known ? 'Observe the rare bird!' : 'Observe ' + (known ? sp.name : 'the bird');
+      return { label, anchor: [a.x, a.y - a.z - 14], box: [a.x - 6, a.y - a.z - 12, a.x + 6, a.y - a.z], exec: () => this.startObserve(a) };
     }
     return null;
   }
@@ -645,6 +676,11 @@ class Game {
     const t = { box, anchor };
     const q = quickOp(S, o);
     if (q) { t.label = q.label; t.exec = () => this.send({ t: 'act', a: 'use', id: o.id, op: q.op }); }
+    if (o.type === 'struct' && o.kind === 'gardenbench') {
+      if (S.players.size === 1 && S.clock() < 19 * 60) { t.label = 'Sit and rest until evening'; t.exec = () => this.openModal(new ConfirmScreen('Sit on the bench and watch the day go by until 7 pm?', () => this.send({ t: 'act', a: 'rest' }), 'Rest', 'Not now', true)); }
+      else { t.label = 'Sit for a while'; t.exec = () => this.toast('A lovely spot to listen to the birds.', 'heart'); }
+      return t;
+    }
     // nests & nest sites
     if (o.type === 'nest') {
       t.label = 'View nest'; t.exec = () => this.openModal(new NestScreen(o.id));
@@ -654,12 +690,18 @@ class Game {
       const b = BUILDINGS[o.kind];
       if (o.kind === 'bench') { t.label = 'Craft at workbench'; t.exec = () => this.openModal(new CraftScreen()); return t; }
       if (o.kind === 'mailbox') { t.label = 'Read letters'; t.exec = () => this.openModal(new MailScreen()); return t; }
+      if (o.kind === 'board') { t.label = 'Read the notice board'; t.exec = () => this.openModal(new BoardScreen()); return t; }
       if (o.kind === 'well' || o.kind === 'coop') { t.label = o.kind === 'well' ? 'An old well' : 'Mabel\'s hens live here'; t.exec = () => this.toast(o.kind === 'well' ? 'The water smells fresh and cold.' : 'Feathers! Check around the coop each morning.', ''); return t; }
       const doorX = b.door ? (o.x + b.door[0]) * TS + 8 : -999;
       const atDoor = Math.abs(ipx - doorX) < 12 && ipy > (o.y + b.h - 1) * TS;
       if (o.kind === 'cottage' && atDoor) {
         t.label = 'Go to bed';
         t.exec = () => this.openModal(new ConfirmScreen(S.players.size > 1 ? 'Go to bed? The day ends when everyone is asleep.' : 'Go to bed and end the day?', () => { this.send({ t: 'act', a: 'sleep', v: true }); Audio2.sfx('sleep'); }, 'Sleep', 'Not yet', true));
+        if (S.players.size === 1 && S.clock() < 19 * 60) {
+          t.alt = 'Rest until evening';
+          t.altExec = () => this.openModal(new ConfirmScreen('Put the kettle on and rest until 7 pm? The birds of the night come out after dusk.', () => this.send({ t: 'act', a: 'rest' }), 'Rest', 'Not now', true));
+          return t;
+        }
       }
       if (o.kind === 'shop' && atDoor) {
         const open = !npcPos('basil', S.clock()).away;

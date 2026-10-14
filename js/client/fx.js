@@ -30,6 +30,7 @@ class FX {
         case 'zzz': p.c = '#e8eef8'; p.vx = 4; p.vy = -10; p.g = 0; p.life = 2; break;
         case 'smoke': p.c = pick(['#d8d4d0', '#c8c4c0', '#e8e4e0']); p.vx = 3 + R() * 4; p.vy = -10 - R() * 5; p.g = 0; p.life = 2.5 + R(); p.size = 2 + (R() < 0.5 ? 1 : 0); break;
         case 'drip': p.c = '#8cd2ea'; p.vx = 0; p.vy = 0; p.g = 160; p.life = 0.5; break;
+        case 'confetti': p.c = pick(['#f6d860', '#e8485a', '#5ac05a', '#5a9ae8', '#f08ac8', '#ffffff']); p.vx = (R() - 0.5) * 130; p.vy = -60 - R() * 70; p.g = 150; p.life = 1.1 + R() * 0.7; p.size = 2; p.sway = 4; break;
         case 'ripple': p.c = '#d6f0f6'; p.vx = 0; p.vy = 0; p.g = 0; p.life = 0.8; break;
       }
       this.parts.push(p);

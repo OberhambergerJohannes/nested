@@ -37,6 +37,9 @@ const STRUCTS = {
   bank:       { name: 'Earth Bank', site: 'bank', solid: true },
   brushpile:  { name: 'Brush Pile', site: 'brushpile', deadwood: true, solid: true },
   anvil:      { name: 'Anvil Stone' },
+  feeder:     { name: 'Bird Feeder' },
+  lamppost:   { name: 'Lamp Post', solid: true },
+  gardenbench: { name: 'Garden Bench', solid: true },
   birdbath:   { name: 'Bird Bath', solid: true },
 };
 

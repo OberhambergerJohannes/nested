@@ -1030,6 +1030,26 @@ function birdPalette(sp) {
   return pal;
 }
 
+// Crests drawn above the crown, relative to the back of the crown's top row: [dx, dy, region]
+const CRESTS = {
+  wisp: [[0, -1, 'c'], [-1, -2, 'c'], [-2, -2, 'c'], [-3, -3, 'c']],                                    // lapwing
+  fan: [[-1, -1, 'c'], [0, -1, 'c'], [1, -1, 'c'], [2, -1, 'c'], [-1, -2, 'g'], [1, -2, 'g'], [3, -2, 'g'], [0, -2, 'c'], [2, -2, 'c']], // hoopoe
+  swept: [[0, -1, 'c'], [-1, -1, 'c'], [-2, 0, 'c'], [-1, -2, 'c']],                                    // waxwing
+};
+function applyCrest(rows, kind) {
+  const shape = CRESTS[kind];
+  if (!shape) return rows;
+  const g = rows.map((r) => r.split(''));
+  const top = g.findIndex((r) => r.includes('c'));
+  if (top < 0) return rows;
+  const l = g[top].indexOf('c');
+  for (const [dx, dy, ch] of shape) {
+    const x = l + dx, y = top + dy;
+    if (y >= 0 && x >= 0 && x < g[0].length && g[y][x] === '.') g[y][x] = ch;
+  }
+  return g.map((r) => r.join(''));
+}
+
 // Build all frames for one species: {perch, peck, fly1, fly2, hop} plus mirrored *_L
 function buildBirdSprites(sp) {
   const T = BIRD_T[sp.body];
@@ -1038,6 +1058,7 @@ function buildBirdSprites(sp) {
   for (const name of ['perch', 'peck', 'fly1', 'fly2']) {
     let rows = T[name];
     if (sp.body === 'small' || sp.body === 'longtail') rows = applyBeak(rows, sp.beak);
+    if (sp.crest && name !== 'fly2') rows = applyCrest(rows, sp.crest);
     if (sp.tufts && sp.body === 'owl' && (name === 'perch' || name === 'peck')) {
       // ear tufts above the head
       const g = rows.map((r) => r.split(''));
@@ -1104,7 +1125,13 @@ function buildEgg(e, big) {
   const mask = big ? EGG_MASK_BIG : EGG_MASK;
   const px = Pix.rows(mask, { '#': e.c }).pad(1, 1, 1, 1);
   const rnd = artRng('egg' + e.c + e.s + e.p);
-  if (e.p !== 'none') {
+  if (e.p === 'scribble') {
+    // fine, wandering hairlines (yellowhammers were called "scribble larks")
+    for (let i = 0; i < 3; i++) {
+      let x = 1 + Math.floor(rnd() * (px.w - 3)), y = 2 + Math.floor(rnd() * (px.h - 4));
+      for (let k = 0; k < 3; k++) { if (px.op(x, y)) px.set(x, y, e.s); x += 1; y += rnd() < 0.5 ? 1 : -1; }
+    }
+  } else if (e.p !== 'none') {
     const n = e.p === 'fine' ? 6 : e.p === 'spots' ? 4 : 3;
     for (let i = 0; i < n; i++) {
       const x = 1 + Math.floor(rnd() * (px.w - 2)), y = 2 + Math.floor(rnd() * (px.h - 3));

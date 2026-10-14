@@ -3,17 +3,17 @@
 // simulated on each client; only "observe" is sent to the host.
 
 const BIRD_PREFS = {
-  blackbird: { ground: 6, shrub: 3, tree: 2 },
-  robin: { ground: 5, shrub: 3, post: 2 },
-  greattit: { tree: 7, shrub: 3 },
-  bluetit: { tree: 7, shrub: 3 },
-  songthrush: { ground: 6, tree: 3 },
-  woodpigeon: { tree: 6, ground: 4 },
+  blackbird: { ground: 6, shrub: 3, tree: 2, bath: 3 },
+  robin: { ground: 5, shrub: 3, post: 2, feeder: 2, bath: 2 },
+  greattit: { tree: 7, shrub: 3, feeder: 8, bath: 1 },
+  bluetit: { tree: 7, shrub: 3, feeder: 6, bath: 1 },
+  songthrush: { ground: 6, tree: 3, bath: 2 },
+  woodpigeon: { tree: 6, ground: 4, bath: 1 },
   wren: { shrub: 5, ground: 4, post: 1 },
   swallow: { air: 7, post: 2, roof: 1 },
   martin: { air: 7, roof: 3 },
   mallard: { water: 8, ground: 2 },
-  goldfinch: { thistle: 5, tree: 4, shrub: 1 },
+  goldfinch: { thistle: 5, tree: 4, shrub: 1, feeder: 4 },
   longtailed: { shrub: 5, tree: 5 },
   woodpecker: { trunk: 9, tree: 1 },
   reedwarbler: { reed: 9, shrub: 1 },
@@ -23,7 +23,7 @@ const BIRD_PREFS = {
   penduline: { willow: 6, reed: 4 },
   cuckoo: { tree: 6, post: 4 },
   stork: { ground: 7, roof: 3 },
-  nuthatch: { trunk: 7, tree: 3 },
+  nuthatch: { trunk: 7, tree: 3, feeder: 3 },
   skylark: { ground: 6, air: 4 },
   plover: { shore: 10, ground: 1 },
   swift: { air: 10 },
@@ -40,10 +40,24 @@ const BIRD_PREFS = {
   longeared: { pine: 8, tree: 2 },
   corncrake: { ground: 10 },
   eagleowl: { ground: 7, tree: 3 },
+  goldcrest: { pine: 10 },
+  treecreeper: { trunk: 10 },
+  bullfinch: { shrub: 7, tree: 3, feeder: 3 },
+  yellowhammer: { shrub: 5, post: 3, ground: 2, feeder: 2 },
+  kestrel: { air: 7, post: 3 },
+  lapwing: { ground: 7, shore: 3 },
+  waterrail: { reed: 8, shore: 2 },
+  scopsowl: { tree: 9, post: 1 },
+  hoopoe: { ground: 7, tree: 3 },
+  oriole: { tree: 10 },
+  waxwing: { shrub: 6, tree: 4 },
+  osprey: { air: 6, waterperch: 2, tree: 2 },
+  bluethroat: { reed: 5, shore: 3, shrub: 2 },
+  hawfinch: { tree: 9, ground: 1, feeder: 2 },
   woodcock: { air: 6, ground: 4 },
   littleowl: { roof: 5, post: 5 },
-  sparrow: { ground: 6, roof: 2, shrub: 2, post: 1 },
-  starling: { ground: 8, tree: 1, post: 1 },
+  sparrow: { ground: 6, roof: 2, shrub: 2, post: 1, feeder: 14, bath: 3 },
+  starling: { ground: 8, tree: 1, post: 1, feeder: 3, bath: 3 },
   magpie: { ground: 5, tree: 4, roof: 1 },
 };
 
@@ -126,7 +140,7 @@ class Birds {
     if (c) return c;
     const S = this.S;
     const r = this.zoneRect(zone);
-    c = { ground: [], shrub: [], tree: [], post: [], roof: [], water: [], thistle: [], trunk: [], reed: [], pine: [], waterperch: [], willow: [], air: [], shore: [] };
+    c = { ground: [], shrub: [], tree: [], post: [], roof: [], water: [], thistle: [], trunk: [], reed: [], pine: [], waterperch: [], willow: [], air: [], shore: [], feeder: [], bath: [] };
     const inZ = (x, y) => x >= r[0] - 1 && y >= r[1] - 1 && x <= r[2] + 1 && y <= r[3] + 1;
     const river = zone === 'river';
     for (const o of S.objs.values()) {
@@ -150,10 +164,14 @@ class Birds {
       } else if (o.type === 'plant' && o.st >= 1) {
         if (o.kind === 'thistle') c.thistle.push({ kind: 'thistle', x: bx, y: by, z: 15, sortY: by + 1, spread: 2, zs: 1 });
         if (o.kind === 'reed' || o.kind === 'cattail') { const p = { kind: 'reed', x: bx, y: by, z: 13, sortY: by + 1, spread: 3, zs: 4 }; c.reed.push(p); c.waterperch.push(p); }
-      } else if (o.type === 'fence' || (o.type === 'struct' && o.kind !== 'anvil' && o.kind !== 'birdbath')) {
-        const z = o.type === 'fence' ? 11 : o.kind === 'platform' ? 50 : o.kind === 'owlbox' ? 40 : o.kind.startsWith('box') ? 28 : 10;
-        const p = { kind: 'post', x: bx, y: by, z, sortY: by + 1, spread: 1, zs: 0 };
+      } else if (o.type === 'struct' && o.kind === 'birdbath') {
+        c.bath.push({ kind: 'bath', x: bx, y: by, z: 13, sortY: by + 1, spread: 4, zs: 0 });
+      } else if (o.type === 'fence' || (o.type === 'struct' && o.kind !== 'anvil')) {
+        const z = o.type === 'fence' ? 11 : o.kind === 'platform' ? 50 : o.kind === 'owlbox' ? 40 : o.kind.startsWith('box') ? 28
+          : o.kind === 'feeder' ? 21 : o.kind === 'lamppost' ? 36 : o.kind === 'gardenbench' ? 15 : 10;
+        const p = { kind: 'post', x: bx, y: by, z, sortY: by + 1, spread: o.kind === 'feeder' ? 4 : 1, zs: 0 };
         c.post.push(p);
+        if (o.kind === 'feeder') c.feeder.push(Object.assign({}, p, { kind: 'feeder' }));
         if (nearW) c.waterperch.push(p);
       } else if (o.type === 'building' && o.kind !== 'bench' && o.kind !== 'mailbox' && o.kind !== 'well') {
         const b = BUILDINGS[o.kind];
@@ -365,7 +383,8 @@ class Birds {
       if (a.state === 'idle' || a.state === 'swim') {
         for (const p of S.players.values()) {
           if (p.sleep) continue;
-          const close = dist2(p.x, p.y, a.x, a.y) < (p.m ? 26 * 26 : 12 * 12);
+          const r = p.m ? (p.pid === S.me && this.game.perk('quiet') ? 15 : 26) : 12;
+          const close = dist2(p.x, p.y, a.x, a.y) < r * r;
           if (close && !a.observed && a.job !== 'sit') {
             const np = a.nest ? this._nearPerch(S.objs.get(a.nest) || { kind: a.sp }, a.anchor, 0) : this.pickPerch(a.sp, a.zone);
             this.flyTo(a, np, 95);
@@ -460,6 +479,8 @@ class Birds {
           else a.frame = (a.anim % 5000) < 200 ? 'peck' : 'perch';
           if (a.perch && a.perch.cling) a.frame = (a.anim % 900) < 120 ? 'peck' : 'perch';
           if (Math.random() < dt / 6000) a.face = -a.face;
+          if (a.perch && a.perch.kind === 'bath' && Math.random() < dt / 2200) { a.frame = 'peck'; this.game.fx.burst('splash', a.x, a.y - a.z, 3); }
+          if (a.perch && a.perch.kind === 'feeder') a.frame = (a.anim % 1200) < 300 ? 'peck' : 'perch';
           if (ground && Math.random() < dt / 2500) {
             // hop
             const nx = a.x + a.face * (3 + Math.random() * 6);
