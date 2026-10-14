@@ -11,11 +11,16 @@ class ClientState {
     this.players = new Map();
     this.animals = new Map();
     this.dirtyTiles = new Set();
+    this.grassDirty = new Set();  // tiles whose grass tufts must be redrawn
     this.allDirty = true;
     this.clockMs = 0;
+    this.objVer = 0;              // bumps whenever an object is added or removed
+    this.nestVer = 0;             // bumps whenever a nest changes
   }
 
   loadSnap(s) {
+    // remember the old terrain, so a new morning only repaints what actually changed
+    const prev = this.tiles ? { tiles: this.tiles, grass: this.grass, occ: this.occ, season: this.time && this.time.season, key: this.seed + '|' + this.name } : null;
     this.name = s.name; this.seed = s.seed; this.me = s.you;
     this.tiles = b64decode(s.tiles);
     this.grass = b64decode(s.grass);
@@ -23,6 +28,7 @@ class ClientState {
     this.occ = new Int32Array(MAP_W * MAP_H);
     this.byTile = new Map();
     for (const o of s.objs) idxAdd(this, o);
+    this.objVer++;
     this.time = s.time; this.weather = s.weather; this.coins = s.coins; this.mats = s.mats;
     this.journal = s.journal; this.log = s.log || []; this.mail = s.mail || []; this.quest = s.quest;
     this.visitors = s.visitors || []; this.featured = s.featured || [];
@@ -45,7 +51,13 @@ class ClientState {
     this.animals = new Map();
     for (const a of s.animals || []) this._animal(a);
     this.sleepN = 0; this.sleepTotal = this.players.size;
-    this.allDirty = true;
+    const same = prev && !this.allDirty && prev.key === this.seed + '|' + this.name && prev.season === this.time.season && prev.tiles.length === this.tiles.length;
+    if (same) {
+      for (let i = 0; i < this.tiles.length; i++) {
+        if (prev.tiles[i] !== this.tiles[i]) this.markTile(i);
+        else if (prev.grass[i] !== this.grass[i] || !prev.occ[i] !== !this.occ[i]) this.markDecal(i);
+      }
+    } else this.allDirty = true;
     this.clockMs = 0;
   }
 
@@ -69,7 +81,35 @@ class ClientState {
     if (msg.a) for (const a of msg.a) this._animal(a);
   }
 
-  markTile(i) { this.dirtyTiles.add(i); }
+  markTile(i) { this.dirtyTiles.add(i); this.markDecal(i); }
+  markDecal(i) { this.grassDirty.add(i); }
+  _markObj(o) {
+    const [w, h] = footprint(o);
+    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (inBounds(o.x + dx, o.y + dy)) this.markDecal(tIdx(o.x + dx, o.y + dy));
+  }
+  // Nests that aren't old yet (cached until objects or nests change)
+  activeNests() {
+    const key = this.objVer + ':' + this.nestVer;
+    if (this._anKey !== key) {
+      this._an = []; this._anKinds = new Set();
+      for (const o of this.objs.values()) if (o.type === 'nest' && o.st !== 'old') { this._an.push(o); this._anKinds.add(o.kind); }
+      this._anKey = key;
+    }
+    return this._an;
+  }
+  hasActiveNest(kind) { this.activeNests(); return this._anKinds.has(kind); }
+  // First object of a type & kind (cached until objects change)
+  first(type, kind) {
+    if (this._fiVer !== this.objVer) { this._fi = new Map(); this._fiVer = this.objVer; }
+    const k = type + ':' + kind;
+    let o = this._fi.get(k);
+    if (o === undefined) {
+      o = null;
+      for (const q of this.objs.values()) if (q.type === type && q.kind === kind) { o = q; break; }
+      this._fi.set(k, o);
+    }
+    return o;
+  }
 
   // Returns a list of "notes" the game layer reacts to (sounds, popups, ...)
   apply(evs, game) {
@@ -78,8 +118,10 @@ class ClientState {
         case 'oa': {
           const o = e[1];
           const old = this.objs.get(o.id);
-          if (old) idxRemove(this, old);
+          if (old) { idxRemove(this, old); this._markObj(old); }
           idxAdd(this, o);
+          this._markObj(o);
+          this.objVer++;
           game.onObjAdded(o);
           break;
         }
@@ -88,16 +130,17 @@ class ClientState {
           if (!o) break;
           const prevSt = o.st;
           Object.assign(o, e[2]);
+          if (o.type === 'nest') this.nestVer++;
           game.onObjUpdated(o, e[2], prevSt);
           break;
         }
         case 'or': {
           const o = this.objs.get(e[1]);
-          if (o) { idxRemove(this, o); game.onObjRemoved(o); }
+          if (o) { idxRemove(this, o); this._markObj(o); this.objVer++; game.onObjRemoved(o); }
           break;
         }
         case 'tile': this.tiles[e[1]] = e[2]; this.markTile(e[1]); break;
-        case 'gr': this.grass[e[1]] = e[2]; break;
+        case 'gr': this.grass[e[1]] = e[2]; this.markDecal(e[1]); break;
         case 'dug': this.dug[e[1]] = e[2]; break;
         case 'time': {
           const prevSeason = this.time.season;

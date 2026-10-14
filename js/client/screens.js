@@ -753,7 +753,7 @@ class JournalScreen {
     });
     ui.text('Active nests', x + 4, y + 86, UI_COL.ink);
     let cy = y + 97;
-    const nests = Array.from(S.objs.values()).filter((o) => o.type === 'nest' && o.st !== 'old');
+    const nests = S.activeNests();
     if (!nests.length) ui.text('None yet — build one at a nest site (press ' + Input.keyLabel('alt') + ').', x + 8, cy, UI_COL.muted);
     let i = 0;
     for (const nn of nests) {

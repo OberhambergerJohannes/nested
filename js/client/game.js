@@ -205,7 +205,6 @@ class Game {
     const keep = me && !m.day ? { x: me.x, y: me.y } : null;
     this.state.loadSnap(m.snap);
     if (keep && this.me) { this.me.x = keep.x; this.me.y = keep.y; }
-    this.renderer.invalidateAll();
     this.birds.reset();
     if (this.mode !== 'play') {
       this.mode = 'play';
@@ -359,7 +358,7 @@ class Game {
   questMarkers() {
     const S = this.state, out = [];
     const step = TUTORIAL[S.quest] ? TUTORIAL[S.quest].id : '';
-    const b2 = (type, kind) => Array.from(S.objs.values()).find((o) => o.type === type && o.kind === kind);
+    const b2 = (type, kind) => S.first(type, kind);
     const b = (kind) => b2('building', kind);
     const mb = b('mailbox');
     if (mb && (step === 'mail' || S.mail.some((m) => !m.read))) out.push([mb.x * TS + 8, mb.y * TS - 14]);
@@ -396,7 +395,7 @@ class Game {
     if (this.mode === 'play' && this.state && this.me) {
       this.updatePlay(dt);
       this.renderer.draw(g, v, this.cam, t);
-      if (dt < 25) this.renderer.prewarm(this.state, this.cam, v, 5);
+      if (dt < 25 && this.renderer.budget >= 5) this.renderer.prewarm(this.state, this.cam, v, 4);
       this.ui.lock = !!this.modal;
       HUD.draw(this.ui, this, dt);
       this.ui.lock = false;
@@ -524,12 +523,19 @@ class Game {
     this.fx.update(dt);
     // ---- camera
     const v = this.view;
+    // The camera glides smoothly (cf keeps the exact position) but is drawn at whole pixels that move
+    // in step with the player's own pixel, so the player never wobbles against the screen.
     const tx = clamp(me.x - v.w / 2, 0, MAP_W * TS - v.w), ty = clamp(me.y - 12 - v.h / 2, 0, MAP_H * TS - v.h);
-    this.cam.x += (tx - this.cam.x) * Math.min(1, dt / 120);
-    this.cam.y += (ty - this.cam.y) * Math.min(1, dt / 120);
-    if (MAP_W * TS < v.w) this.cam.x = (MAP_W * TS - v.w) / 2;
-    if (MAP_H * TS < v.h) this.cam.y = (MAP_H * TS - v.h) / 2;
-    this.cam.x = Math.round(this.cam.x); this.cam.y = Math.round(this.cam.y);
+    const cf = this.camF || (this.camF = { x: this.cam.x, y: this.cam.y });
+    if (Math.abs(cf.x - this.cam.x) > 2 || Math.abs(cf.y - this.cam.y) > 2) { cf.x = this.cam.x; cf.y = this.cam.y; } // moved elsewhere (teleport, new day)
+    const kk = Math.min(1, dt / 120);
+    cf.x += (tx - cf.x) * kk;
+    cf.y += (ty - cf.y) * kk;
+    if (MAP_W * TS < v.w) cf.x = (MAP_W * TS - v.w) / 2;
+    if (MAP_H * TS < v.h) cf.y = (MAP_H * TS - v.h) / 2;
+    const px = Math.round(me.x), py = Math.round(me.y);
+    this.cam.x = px - Math.round(px - cf.x);
+    this.cam.y = py - Math.round(py - cf.y);
     // ---- network position
     this.posT -= dt;
     const moved = !this.lastPos || Math.abs(this.lastPos[0] - me.x) > 0.5 || Math.abs(this.lastPos[1] - me.y) > 0.5 || this.lastPos[2] !== me.d || this.lastPos[3] !== me.m || this.lastPos[4] !== me.a;

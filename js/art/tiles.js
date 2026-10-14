@@ -395,6 +395,26 @@ class TileArt {
     return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
   }
 
+  // A rough stand-in for a chunk that isn't rendered yet: plain sample tiles, no edges or depth.
+  quickSet(season) {
+    const set = this.set(season);
+    if (!set.cv) set.cv = set.base.map((vs) => vs.map((p) => p.canvas()));
+    return set;
+  }
+  quickChunk(tiles, cx, cy, size, season) {
+    const set = this.quickSet(season);
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = size * TS;
+    const g = cv.getContext('2d');
+    for (let ty = 0; ty < size; ty++) for (let tx = 0; tx < size; tx++) {
+      const mx = cx * size + tx, my = cy * size + ty;
+      if (mx >= MAP_W || my >= MAP_H) continue;
+      const t = tiles[my * MAP_W + mx], vs = set.cv[t];
+      if (vs && vs.length) g.drawImage(vs[hash32(mx, my, 7) % vs.length], tx * TS, ty * TS);
+    }
+    return cv;
+  }
+
   // Render a chunk of tiles into a Pix (all at once).
   renderChunk(tiles, cx, cy, size, season) {
     const job = this.chunkJob(tiles, cx, cy, size, season);

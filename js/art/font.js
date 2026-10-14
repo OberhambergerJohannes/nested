@@ -144,6 +144,8 @@ class PixelFont {
     }
     this.atlas = new Map();  // colour -> {canvas, pos}
     this.order = Object.keys(this.g);
+    this.strs = new Map();   // whole strings, pre-rendered: one drawImage per line instead of one per letter
+    this.wraps = new Map();  // word-wrapped lines per (width, text)
   }
   glyph(ch) { return this.g[ch] || this.g['?']; }
   charW(ch) { return ch === ' ' ? SPACE_W : this.glyph(ch).w; }
@@ -168,33 +170,62 @@ class PixelFont {
     this.atlas.set(color, a);
     return a;
   }
-  // Draw text at (x, y) = top-left. scale: integer.
-  draw(ctx, text, x, y, color, scale) {
-    scale = scale || 1;
-    const a = this._atlasFor(color || '#ffffff');
-    let cx = Math.round(x);
-    y = Math.round(y);
-    for (const ch of String(text)) {
+  // Letter by letter from the colour atlas (x, y already rounded)
+  _chars(ctx, text, x, y, color, scale) {
+    const a = this._atlasFor(color);
+    let cx = x;
+    for (const ch of text) {
       if (ch === ' ') { cx += (SPACE_W + 1) * scale; continue; }
       const gl = this.g[ch] ? ch : '?';
       const w = this.g[gl].w;
       ctx.drawImage(a.canvas, a.pos[gl], 0, w, FONT_H, cx, y, w * scale, FONT_H * scale);
       cx += (w + 1) * scale;
     }
-    return cx - x;
   }
+  // Horizontal advance of a string (what draw() moves the pen by)
+  advance(text) { return text.length ? this.measure(text) + 1 : 0; }
+  // A string rendered once into its own little canvas (plain, outlined or with a drop shadow)
+  _str(text, color, scale, outline, shadow) {
+    const key = scale + '|' + color + '|' + (outline || '') + '|' + (shadow || '') + '|' + text;
+    let c = this.strs.get(key);
+    if (c) return c;
+    const pad = outline || shadow ? scale : 0;
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, (this.measure(text) + 1) * scale + 2 * pad);
+    cv.height = FONT_H * scale + 2 * pad;
+    const cg = cv.getContext('2d');
+    if (outline) for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) this._chars(cg, text, pad + dx * scale, pad + dy * scale, outline, scale);
+    if (shadow) this._chars(cg, text, pad + scale, pad + scale, shadow, scale);
+    this._chars(cg, text, pad, pad, color, scale);
+    c = { cv, pad };
+    if (this.strs.size >= 600) this.strs.clear();
+    this.strs.set(key, c);
+    return c;
+  }
+  _put(ctx, text, x, y, color, scale, outline, shadow) {
+    scale = scale || 1;
+    text = String(text);
+    const rx = Math.round(x), ry = Math.round(y);
+    if (text.length > 1 || outline || shadow) {
+      const c = this._str(text, color, scale, outline, shadow);
+      ctx.drawImage(c.cv, rx - c.pad, ry - c.pad);
+    } else if (text.length) this._chars(ctx, text, rx, ry, color, scale);
+    return rx + this.advance(text) * scale - x;
+  }
+  // Draw text at (x, y) = top-left. scale: integer.
+  draw(ctx, text, x, y, color, scale) { return this._put(ctx, text, x, y, color || '#ffffff', scale); }
   // Text with a 1px drop shadow
-  drawShadow(ctx, text, x, y, color, shadow, scale) {
-    scale = scale || 1;
-    this.draw(ctx, text, x + scale, y + scale, shadow || '#1d1a2b', scale);
-    return this.draw(ctx, text, x, y, color, scale);
-  }
+  drawShadow(ctx, text, x, y, color, shadow, scale) { return this._put(ctx, text, x, y, color || '#ffffff', scale, null, shadow || '#1d1a2b'); }
   // Text with a full outline
-  drawOutline(ctx, text, x, y, color, outline, scale) {
-    scale = scale || 1;
-    const o = outline || '#1d1a2b';
-    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) this.draw(ctx, text, x + dx * scale, y + dy * scale, o, scale);
-    return this.draw(ctx, text, x, y, color, scale);
+  drawOutline(ctx, text, x, y, color, outline, scale) { return this._put(ctx, text, x, y, color || '#ffffff', scale, outline || '#1d1a2b'); }
+  wrap(text, maxW) {
+    const key = maxW + '|' + text;
+    let w = this.wraps.get(key);
+    if (!w) {
+      w = wrapText(text, maxW, (s) => this.measure(s));
+      if (this.wraps.size >= 400) this.wraps.clear();
+      this.wraps.set(key, w);
+    }
+    return w;
   }
-  wrap(text, maxW) { return wrapText(text, maxW, (s) => this.measure(s)); }
 }

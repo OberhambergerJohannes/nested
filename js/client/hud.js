@@ -157,7 +157,7 @@ const HUD = {
         if (!sp || j.h >= 3) continue;
         lines.push([(j.h ? sp.name : '???') + ' ' + j.h + '/3 · ' + ZONES_LABEL[sp.zone], '#3a2614']);
       }
-      const ready = SPECIES.filter((s) => S.journal[s.id].h >= 3 && S.journal[s.id].n === 0 && s.site !== 'parasite' && !Array.from(S.objs.values()).some((o) => o.type === 'nest' && o.kind === s.id && o.st !== 'old'));
+      const ready = SPECIES.filter((s) => S.journal[s.id].h >= 3 && S.journal[s.id].n === 0 && s.site !== 'parasite' && !S.hasActiveNest(s.id));
       for (const s of ready.slice(0, 2)) lines.push(['Ready to build: ' + s.name, '#3a6ab0']);
       if (!lines.length) lines.push(['Nest more species to attract new birds', '#6e5232']);
     }
