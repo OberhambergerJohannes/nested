@@ -10,6 +10,7 @@ const Audio2 = {
   listener: { x: 0, y: 0 },
   rainNode: null,
   radio: null,
+  amb: null,
 
   loadPrefs() {
     try {
@@ -299,6 +300,100 @@ const Audio2 = {
       r.g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 1.5);
       r.s.stop(this.ctx.currentTime + 1.6);
     }
+  },
+
+  // Background sounds of the place you're standing in: water babbling near the river and ponds,
+  // crickets and frogs on warm nights, wind in winter. Called every frame while playing.
+  updateAmbience(S, me, dt) {
+    if (!this.ctx || !this.noiseBuf || !S || !me) return;
+    const c = this.ctx, now = c.currentTime;
+    const a = this.amb || (this.amb = this._makeAmbience());
+    a.on = true;
+    a.t -= dt;
+    if (a.t <= 0) {
+      a.t = 400;
+      // how much water there is within ~6 tiles, and on which side
+      const tx = Math.floor(me.x / TS), ty = Math.floor(me.y / TS);
+      let w = 0, sx = 0;
+      for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) {
+        const x = tx + dx, y = ty + dy, d = Math.hypot(dx, dy);
+        if (d > 6.5 || !inBounds(x, y) || !isWaterT(S.tiles[tIdx(x, y)])) continue;
+        const k = 1 - d / 6.5;
+        w += k; sx += dx * k;
+      }
+      const winter = S.time.season === WINTER;
+      a.water = clamp(w / 9, 0, 1) * (winter ? 0.6 : 1);   // half-frozen in winter
+      a.pan = w ? clamp(sx / w / 4, -0.7, 0.7) : 0;
+      const m = S.clock();
+      a.night = m >= 21 * 60 || m < 5 * 60 ? 1 : m >= 19 * 60 ? (m - 19 * 60) / 120 : m < 6 * 60 + 30 ? 1 - (m - 5 * 60) / 90 : 0;
+      a.season = S.time.season; a.wet = S.weather === 'rain' || S.weather === 'snow';
+      a.waterG.gain.setTargetAtTime(a.water * 0.09, now, 0.8);
+      a.waterP.pan.setTargetAtTime(a.pan, now, 0.8);
+      a.windG.gain.setTargetAtTime(winter ? 0.035 + 0.035 * a.night + (S.weather === 'snow' ? 0.03 : 0) : 0, now, 2);
+    }
+    // little plips and gurgles over the water's hush
+    if (a.water > 0.08 && now >= a.nextPlip) {
+      a.nextPlip = now + 0.08 + Math.random() * 0.35 / a.water;
+      const d = this._ambOut(a.pan + (Math.random() - 0.5) * 0.4, 1);
+      const f = 900 + Math.random() * 1600;
+      this.tone(d, now + 0.01, f, f * (1.3 + Math.random() * 0.5), 0.03 + Math.random() * 0.03, 0.012 * a.water, 'sine', 0.004);
+    }
+    // crickets on warm, dry nights (late spring to early autumn)
+    const warm = !a.wet && (a.season === SUMMER || (a.season === SPRING && S.time.day > 3) || (a.season === AUTUMN && S.time.day < 4));
+    if (warm && a.night > 0.3 && now >= a.nextCricket) {
+      a.nextCricket = now + 0.35 + Math.random() * 0.9;
+      const d = this._ambOut((Math.random() - 0.5) * 1.4, a.night);
+      const f = 4200 + Math.random() * 500, n = 2 + (Math.random() * 3 | 0);
+      for (let i = 0; i < n; i++) this.tone(d, now + 0.02 + i * 0.045, f, f, 0.022, 0.009, 'sine', 0.003);
+    }
+    // frogs calling from the water on spring and summer evenings
+    if ((a.season === SPRING || a.season === SUMMER) && a.water > 0.15 && a.night > 0.2 && now >= a.nextFrog) {
+      a.nextFrog = now + 1.2 + Math.random() * 3.5;
+      const d = this._ambOut(a.pan + (Math.random() - 0.5) * 0.5, a.water);
+      const f = 230 + Math.random() * 90, n = 3 + (Math.random() * 4 | 0);
+      for (let i = 0; i < n; i++) this.tone(d, now + 0.02 + i * 0.05, f, f * 0.85, 0.035, 0.022, 'sawtooth', 0.004);
+    }
+  },
+  // Fade the background sounds out (back to the title screen)
+  stopAmbience() {
+    const a = this.amb;
+    if (!a || !a.on) return;
+    a.on = false;
+    const now = this.ctx.currentTime;
+    a.waterG.gain.setTargetAtTime(0, now, 0.4);
+    a.windG.gain.setTargetAtTime(0, now, 0.4);
+  },
+  _makeAmbience() {
+    const c = this.ctx;
+    const loop = (rate) => { const s = c.createBufferSource(); s.buffer = this.noiseBuf; s.loop = true; s.playbackRate.value = rate; s.start(); return s; };
+    // water: a soft hiss and a low rush, two loops at different rates so the 1.5 s buffer doesn't repeat audibly
+    const waterG = c.createGain(); waterG.gain.value = 0;
+    const waterP = c.createStereoPanner ? c.createStereoPanner() : c.createGain();
+    if (!waterP.pan) waterP.pan = { setTargetAtTime() {} };
+    const hiss = c.createBiquadFilter(); hiss.type = 'bandpass'; hiss.frequency.value = 1500; hiss.Q.value = 0.8;
+    const rush = c.createBiquadFilter(); rush.type = 'lowpass'; rush.frequency.value = 420;
+    loop(0.93).connect(hiss); loop(1.07).connect(rush);
+    const rushG = c.createGain(); rushG.gain.value = 1.6; rush.connect(rushG);
+    hiss.connect(waterG); rushG.connect(waterG);
+    // a slow swell, like water over stones
+    const lfo = c.createOscillator(); lfo.frequency.value = 0.23;
+    const depth = c.createGain(); depth.gain.value = 350; lfo.connect(depth); depth.connect(hiss.frequency); lfo.start();
+    waterG.connect(waterP); waterP.connect(this.ambGain);
+    // wind: low-passed noise whose pitch drifts
+    const windG = c.createGain(); windG.gain.value = 0;
+    const wf = c.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 380; wf.Q.value = 1.2;
+    loop(0.81).connect(wf); wf.connect(windG); windG.connect(this.ambGain);
+    const wl = c.createOscillator(); wl.frequency.value = 0.06;
+    const wd = c.createGain(); wd.gain.value = 220; wl.connect(wd); wd.connect(wf.frequency); wl.start();
+    return { waterG, waterP, windG, t: 0, water: 0, pan: 0, night: 0, season: 0, wet: false, on: true, nextPlip: 0, nextCricket: 0, nextFrog: 0 };
+  },
+  // A short-lived output for one ambient sound, panned and scaled
+  _ambOut(pan, vol) {
+    const c = this.ctx, g = c.createGain();
+    g.gain.value = vol;
+    if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = clamp(pan, -0.9, 0.9); g.connect(p); p.connect(this.ambGain); }
+    else g.connect(this.ambGain);
+    return g;
   },
 
   // --------------------------------------------------------------- music

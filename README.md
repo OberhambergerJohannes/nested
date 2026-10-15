@@ -157,6 +157,11 @@ for a moment whenever a bird sings nearby:
 | Snow on the Feeder | winter & late nights | C major, 70 bpm, piano arpeggios, brushed drums, music-box kalimba |
 | Moonlit Valley | nights | E♭ major, 64 bpm, half-time beat, piano, guitar and flute |
 
+**Sounds of the valley:** under the music, the place you stand in has its own sound. Water hushes and plips louder the
+closer you get to the river or a pond (and from the side it's on), crickets chirp on warm, dry nights from late spring
+to early autumn, frogs call from the water on spring and summer evenings (rain or not), and in winter a soft wind
+rises, strongest on snowy nights. It all follows the effects volume.
+
 **Make it yours:** the character creator (and the **Wardrobe** in the pause menu) has 12 hairstyles, 14 hair colours,
 9 skin tones, eye colours and four eye shapes, 10 kinds of top, trousers/shorts/skirts, shoes, 8 hats, glasses and
 accessories like binoculars, a camera, a scarf, a backpack or a satchel. Hit **Surprise me** for a random birder.

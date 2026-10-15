@@ -228,6 +228,7 @@ class Game {
     this.modals = [];
     this._paused = false;
     Audio2.setRain(false);
+    Audio2.stopAmbience();
     if (reason) this.toast(reason, 'no');
   }
 
@@ -606,6 +607,7 @@ class Game {
     if (!this.isPausedLocal()) S.clockMs = Math.min(S.clockMs + dt, (S.mpm || MS_PER_MIN) * 12);
     Audio2.listener.x = me.x; Audio2.listener.y = me.y;
     Audio2.setRain(S.weather === 'rain');
+    Audio2.updateAmbience(S, me, dt);
     for (const tt of this.toasts) tt.t += dt;
     this.toasts = this.toasts.filter((tt) => tt.t < tt.life);
     for (const [k, v] of this.shakeT) { if (v - dt <= 0) this.shakeT.delete(k); else this.shakeT.set(k, v - dt); }
