@@ -111,6 +111,14 @@ const ITEMS = {
     desc: 'A steep wall of packed sand and clay for birds that dig nest tunnels. Some want it at the water\'s edge.' },
   snag:       { name: 'Deadwood Trunk', cat: 'struct', struct: 'snag',
     desc: 'A standing dead trunk with soft, rotting wood. Dead trees are full of life!' },
+  birdtable:  { name: 'Bird Table', cat: 'struct', struct: 'birdtable',
+    desc: 'A Dawn Chorus Day keepsake: a little roofed table where garden birds gather to feed.' },
+  bughotel:   { name: 'Bug Hotel', cat: 'struct', struct: 'bughotel',
+    desc: 'A Midsummer Fair keepsake. Hollow stems, cones and bark for solitary bees and beetles — and insects are food for chicks.' },
+  scope:      { name: 'Spotting Scope', cat: 'struct', struct: 'scope',
+    desc: 'A Migration Watch keepsake. Stand next to it to watch birds much faster.' },
+  lantern:    { name: 'Garden Lantern', cat: 'struct', struct: 'lantern',
+    desc: 'A Feeder Day keepsake: a lantern on a shepherd\'s crook that glows warmly at night.' },
   pondpatch:  { name: 'Pond Liner', cat: 'struct', struct: 'pondpatch',
     desc: 'Clay to seal a hollow: turns a grass tile into shallow water. Build ponds anywhere!' },
 
@@ -121,6 +129,7 @@ const ITEMS = {
   apple:      { name: 'Apple', cat: 'forage', sell: 22, desc: 'Windfalls feed thrushes all winter.' },
   hazelnut:   { name: 'Hazelnuts', cat: 'forage', sell: 20, desc: 'A handful of fresh hazelnuts.' },
   sloe:       { name: 'Sloes', cat: 'forage', sell: 16, desc: 'Tart blue blackthorn fruit.' },
+  seedmix:    { name: 'Bird Seed Mix', cat: 'forage', price: 8, desc: 'Sunflower hearts, millet and oats. Bird food for a feeder — or a gift.' },
 };
 
 // Workbench recipes (materials from the shared pouch)
@@ -145,7 +154,7 @@ const RECIPES = [
 // Basil's shop. 'mat:wood' sells a pouch material.
 const SHOP_STOCK = ['seed_wildflower', 'seed_thistle', 'seed_herbs', 'rhizome_reed', 'rhizome_cattail',
   'cut_bramble', 'cut_hawthorn', 'cut_blackthorn', 'cut_elder', 'cut_hazel',
-  'sap_birch', 'sap_willow', 'sap_pine', 'sap_oak', 'sap_apple', 'mat:wood'];
+  'sap_birch', 'sap_willow', 'sap_pine', 'sap_oak', 'sap_apple', 'seedmix', 'mat:wood'];
 const WOOD_PRICE = 12;
 
 function itemSellPrice(k) {

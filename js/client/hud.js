@@ -223,19 +223,20 @@ const HUD = {
     // wrap long lines
     const rows = [];
     for (const [t, c, mk] of lines) {
-      const wrapped = ui.font.wrap(t, maxW - 14 - (mk ? 6 : 0));
+      // material rows get their icon instead of an indent
+      const wrapped = ui.font.wrap(mk ? t.trim() : t, maxW - 14 - (mk ? 12 : 0));
       wrapped.forEach((wl, k) => rows.push([k ? '  ' + wl : wl, c, k ? null : mk]));
     }
-    const w = Math.min(maxW, Math.max(ui.font.measure(title), ...rows.map((l) => ui.font.measure(l[0]) + (l[2] ? 6 : 0))) + 14);
-    const h = 14 + rows.length * 10;
+    const w = Math.min(maxW, Math.max(ui.font.measure(title), ...rows.map((l) => ui.font.measure(l[0]) + (l[2] ? 12 : 0))) + 14);
+    const h = 17 + rows.length * 10;
     const x = v.w - w - 3, y = 26;
     this.trackerRect = [x, y, w, h];
-    if (game.modal && v.w < 520) return;
+    if (game.modal) return; // windows show the same information; don't peek out around them
     ui.panel('paper', x, y, w, h);
     ui.text(title.length > 32 ? title.slice(0, 31) + '…' : title, x + 6, y + 4, '#3a6ab0');
     rows.forEach(([t, c, mk], i) => {
-      if (mk) ui.icon(SPR.matIcon(mk), x + 4, y + 13 + i * 10, 0.5);
-      ui.text(t, x + 6 + (mk ? 6 : 0), y + 14 + i * 10, c);
+      if (mk) ui.icon(SPR.matIcon(mk), x + 8, y + 13 + i * 10, 0.5);
+      ui.text(t, x + 6 + (mk ? 12 : 0), y + 14 + i * 10, c);
     });
   },
 

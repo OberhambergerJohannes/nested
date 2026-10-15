@@ -41,6 +41,10 @@ const STRUCTS = {
   lamppost:   { name: 'Lamp Post', solid: true },
   gardenbench: { name: 'Garden Bench', solid: true },
   birdbath:   { name: 'Bird Bath', solid: true },
+  birdtable:  { name: 'Bird Table' },
+  bughotel:   { name: 'Bug Hotel', solid: true },
+  scope:      { name: 'Spotting Scope' },
+  lantern:    { name: 'Garden Lantern' },
 };
 
 // Where nests can go. Used by journal & nest-site panels.

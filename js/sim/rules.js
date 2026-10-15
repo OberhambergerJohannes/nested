@@ -420,7 +420,7 @@ function harvestInfo(S, o) {
 
 const HARVEST_LABEL = { thistledown: 'Pick thistle down', herbs: 'Pick fragrant herbs', reedplume: 'Cut reed plumes', fluff: 'Pluck cattail fluff' };
 const FORAGE_NAMES = { twig: 'twigs', stick: 'a stick', leaves: 'dead leaves', feather: 'a feather', stone: 'a stone',
-  driftwood: 'driftwood', mushroom: 'a chanterelle', garlic: 'wild garlic', note: 'the Field Note' };
+  driftwood: 'driftwood', mushroom: 'a chanterelle', garlic: 'wild garlic', note: 'the Field Note', paperbird: 'the paper bird' };
 
 // Quick action (E) for an object. Returns {op, label} or null.
 function quickOp(S, o, pid) {
@@ -475,25 +475,156 @@ function tileOp(S, x, y) {
 // ---------- villagers & side quests ----------
 const dirTo = (dx, dy) => (Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 1 : 2) : (dy < 0 ? 3 : 0));
 
-// Where a villager is at a given minute of the day: {x, y (tiles), dir, moving, away}
+// Where a villager is at a given minute of the day: {x, y (tiles), dir, moving, away}.
+// On a festival day they leave their usual round for the village green (see npcFestival).
 function npcPos(id, min) {
+  const f = npcFest;
+  if (!f || min < f.gather[0]) return npcBase(id, min);
+  const r = npcFestRoute(id);
+  if (min < f.gather[1]) return walkPath(r.out, (min - f.gather[0]) * NPC_SPEED, r.spot[2]);
+  if (min >= r.home) return npcBase(id, min);
+  return walkPath(r.back, (min - f.gather[1]) * NPC_SPEED, 0);
+}
+
+// A villager's everyday round
+function npcBase(id, min) {
   const n = NPCS[id];
   let x, y, dir, away;
   if (n.start) { [x, y, dir] = n.start; away = false; } else { [x, y] = n.home; dir = 0; away = true; }
-  for (const [t, pts, edir, flag] of n.sched || []) {
+  const sch = n.sched || [];
+  for (let k = 0; k < sch.length; k++) {
+    const [t, pts, edir, flag] = sch[k];
     if (min < t) break;
-    let budget = (min - t) * NPC_SPEED, cx = x, cy = y;
+    // a walk that the next entry interrupts ends where the villager has got to by then
+    const until = k + 1 < sch.length ? Math.min(min, sch[k + 1][0]) : min;
+    let budget = (until - t) * NPC_SPEED, cx = x, cy = y, done = true;
     for (const [px, py] of pts) {
       const len = Math.hypot(px - cx, py - cy);
       if (budget < len) {
-        const f = budget / len;
-        return { x: cx + (px - cx) * f, y: cy + (py - cy) * f, dir: dirTo(px - cx, py - cy), moving: true, away: false };
+        const f = budget / len, ix = cx + (px - cx) * f, iy = cy + (py - cy) * f, d = dirTo(px - cx, py - cy);
+        if (until === min) return { x: ix, y: iy, dir: d, moving: true, away: false };
+        x = ix; y = iy; dir = d; away = false; done = false;
+        break;
       }
       budget -= len; cx = px; cy = py;
     }
-    x = cx; y = cy; dir = edir; away = flag === 'away';
+    if (done) { x = cx; y = cy; dir = edir; away = flag === 'away'; }
   }
   return { x, y, dir, moving: false, away };
+}
+
+// Walk a list of waypoints for a distance (tiles); standing at the end afterwards
+function walkPath(pts, dist, endDir) {
+  for (let k = 1; k < pts.length; k++) {
+    const [ax, ay] = pts[k - 1], [bx, by] = pts[k], len = Math.hypot(bx - ax, by - ay);
+    if (dist < len) { const f = dist / len; return { x: ax + (bx - ax) * f, y: ay + (by - ay) * f, dir: dirTo(bx - ax, by - ay), moving: true, away: false }; }
+    dist -= len;
+  }
+  const [x, y] = pts[pts.length - 1];
+  return { x, y, dir: endDir, moving: false, away: false };
+}
+function pathLen(pts) { let L = 0; for (let k = 1; k < pts.length; k++) L += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]); return L; }
+
+// ---------- festivals ----------
+// The festival held on a date, or null
+function festivalOn(time) { return time && time.day === FEST_DAY ? FESTIVALS[time.season] : null; }
+// The next festival from a date: {f, days} (days = 0 means today)
+function festivalNext(time) {
+  if (time.day <= FEST_DAY) return { f: FESTIVALS[time.season], days: FEST_DAY - time.day };
+  return { f: FESTIVALS[(time.season + 1) % 4], days: DAYS_PER_SEASON - time.day + FEST_DAY };
+}
+// Is the festival activity running at this minute?
+function festActive(time, min) {
+  const f = festivalOn(time);
+  return f && min >= f.from && min < f.until ? f : null;
+}
+function festTier(f, n) { let t = 0; for (let i = 0; i < 3; i++) if (n >= f.goal[i]) t = i + 1; return t; }
+
+// Villager positions are shared by host and players, so the festival of the day is kept here.
+// Both the world and the client state call this whenever the date may have changed.
+let npcFest = null, npcFestCache = {};
+function npcFestival(time) {
+  const f = festivalOn(time);
+  if (f !== npcFest) { npcFest = f; npcFestCache = {}; }
+}
+function festSpot(f, id) {
+  const others = FEST_ORDER.filter((k) => k !== f.host);
+  return FEST_SLOTS[id === f.host ? 0 : 1 + others.indexOf(id)];
+}
+// Waypoints from where a villager is ({x, y, away}) to their place on the green
+function festPath(id, P, spot) {
+  const pts = [[P.x, P.y]];
+  const onGreen = (x, y) => x > 54.5 && x < 67.5 && y > 30.8 && y < 38.5;
+  let rx = null;
+  if (P.away) {
+    for (const w of FEST_DOOR[id]) pts.push(w);
+    const last = pts[pts.length - 1];
+    if (!onGreen(last[0], last[1])) rx = last[0];
+  } else if (P.x > 63 && P.x < 74 && P.y > 35.5 && P.y < 41.5) {   // by the Field Station
+    pts.push([66.3, 37.4], [65.6, 34.6]);
+  } else if (P.x > 45 && P.x < 58 && P.y > 35 && P.y < 48) {        // the orchard, south of the green
+    pts.push([55.2, 36.4]);
+  } else if (!onGreen(P.x, P.y)) {
+    if (P.x < 45 && P.y > 36) {             // south-west: up the meadow path
+      pts.push([28.5, 40.5], [30.5, FEST_ROAD_Y]); rx = 30.5;
+    } else if (P.x > 77.5) {                       // east of the river: over the bridge
+      if (P.y < 27) pts.push([86.5, 26.5]);
+      pts.push([83.5, FEST_ROAD_Y]); rx = 83.5;
+    } else if (P.y < 24 && P.x > 20 && P.x < 60) {   // in the forest: down the forest path
+      pts.push([36.5, clamp(P.y, 9.5, 30)], [36.5, FEST_ROAD_Y]); rx = 36.5;
+    } else { rx = clamp(P.x, 21.5, 76.5); pts.push([rx, FEST_ROAD_Y]); }
+  }
+  if (rx != null) pts.push([spot[0], FEST_ROAD_Y]);
+  pts.push([spot[0], spot[1]]);
+  return pts;
+}
+// The way there and back (cached for the day): back ends wherever the villager's round has got to
+function npcFestRoute(id) {
+  let r = npcFestCache[id];
+  if (r) return r;
+  const f = npcFest, spot = festSpot(f, id);
+  const out = festPath(id, npcBase(id, f.gather[0]), spot);
+  // arrival time h solves h = end + (length of the way back to where the round is at h) / speed
+  const g1 = f.gather[1], late = (h) => g1 + pathLen(festPath(id, npcBase(id, h), spot)) / NPC_SPEED - h;
+  let lo = g1, hi = g1 + 400;
+  for (let k = 0; k < 24; k++) { const mid = (lo + hi) / 2; if (late(mid) > 0) lo = mid; else hi = mid; }
+  const home = hi, back = festPath(id, npcBase(id, home), spot).reverse();
+  r = npcFestCache[id] = { spot, out, back, home };
+  return r;
+}
+
+// Migrating flocks over the valley in spring (heading north) and autumn (heading south). Like real
+// migrants they follow the river valley, a "leading line". Fixed for each day, so everyone sees the
+// same sky. On Migration Watch there are many more, and they can be counted.
+let skyCache = { key: '', list: [] };
+function skyFlocks(S) {
+  const t = S.time;
+  if (t.season !== SPRING && t.season !== AUTUMN) return [];
+  const di = dayIdx(t), key = di + ':' + S.seed;
+  if (skyCache.key === key) return skyCache.list;
+  const watch = festivalOn(t) && festivalOn(t).id === 'migration';
+  const kinds = MIGRANTS[t.season === SPRING ? 'spring' : 'autumn'];
+  const count = watch ? 14 : 5, m0 = 7 * 60, m1 = watch ? 12 * 60 + 10 : 17 * 60;
+  const list = [];
+  for (let k = 0; k < count; k++) {
+    const h = (j) => hashf(di, k * 7 + j, S.seed ^ 0x5eed);
+    const kind = kinds[hash32(di, k * 7 + 9, S.seed) % kinds.length];
+    list.push({
+      id: k, kind, n: Math.round(kind.n[0] + h(1) * (kind.n[1] - kind.n[0])),
+      t0: Math.round(m0 + (m1 - m0) * (k + 0.15 + 0.7 * h(2)) / count),
+      x0: 56 + h(3) * 30, ph: h(4) * 6.28, v: kind.v * (0.9 + h(5) * 0.2), north: t.season === SPRING,
+    });
+  }
+  skyCache = { key, list };
+  return list;
+}
+// Where a flock is (in pixels) at a minute, or null when it isn't over the valley
+function flockPos(fl, min) {
+  const d = (min - fl.t0) * fl.v;
+  if (d < 0) return null;
+  const ty = fl.north ? MAP_H + 6 - d : d - 6;
+  if (ty < -6 || ty > MAP_H + 6) return null;
+  return { x: (fl.x0 + Math.sin(ty * 0.08 + fl.ph) * 2.5) * TS, y: ty * TS };
 }
 
 // Side quests: state is S.side[id] = {st: 'on'|'done', n, seen}

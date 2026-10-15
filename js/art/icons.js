@@ -63,6 +63,11 @@ const ITEM_ICON = {
   box_open(px) { boxIcon(px, 'open'); },
   feeder(px) { px.vline(8, 9, 15, '#8a5a34'); px.rect(5, 4, 7, 6, '#cfe4ec'); for (let y = 6; y < 10; y++) px.hline(6, 10, y, y % 2 ? '#c8a050' : '#a87a3a'); px.poly([[3, 5], [13, 5], [8, 1]], '#a8483a'); },
   lamppost(px) { px.vline(8, 7, 15, '#3a3a44'); px.rect(6, 15, 5, 1, '#2a2a30'); px.rect(5, 2, 7, 6, '#2a2a30'); px.rect(6, 3, 5, 4, '#ffe08a'); px.set(7, 4, '#fff6c8'); },
+  birdtable(px) { px.vline(8, 9, 15, '#8a5a34'); px.rect(2, 8, 13, 2, '#a8743f'); px.vline(3, 4, 8, '#5a3a22'); px.vline(13, 4, 8, '#5a3a22'); px.poly([[1, 5], [15, 5], [8, 0]], '#a8483a'); px.set(6, 7, '#e0c070'); px.set(10, 7, '#c8a050'); },
+  bughotel(px) { px.rect(3, 6, 10, 9, '#5a3a22'); px.poly([[2, 7], [14, 7], [8, 1]], '#6a4a2e'); px.rect(4, 8, 3, 3, '#d8c080'); px.rect(9, 8, 3, 3, '#a06a38'); px.rect(4, 12, 3, 2, '#a8743f'); px.rect(9, 12, 3, 2, '#7a5a3a'); },
+  scope(px) { px.line(8, 8, 4, 15, '#3a3a44'); px.line(8, 8, 12, 15, '#3a3a44'); px.vline(8, 8, 15, '#5a5a66'); px.thick(2, 4, 13, 7, 3, '#4a5a4a'); px.rect(12, 5, 3, 3, '#2a2a30'); px.set(14, 6, '#9ac8e0'); },
+  lantern(px) { px.vline(4, 3, 15, '#3a3a44'); px.line(4, 3, 7, 1, '#3a3a44'); px.line(7, 1, 10, 2, '#3a3a44'); px.vline(11, 3, 5, '#3a3a44'); px.rect(8, 6, 7, 8, '#2a2a30'); px.rect(9, 7, 5, 6, '#ffd27a'); px.set(10, 8, '#fff4c8'); },
+  seedmix(px) { px.poly([[4, 4], [12, 4], [13, 15], [3, 15]], '#d8c49a'); px.hline(4, 12, 4, '#b8a47a'); px.rect(5, 2, 7, 3, '#c8b48a'); px.ellipse(8, 10, 3, 2.5, '#f6ecd2'); px.set(7, 9, '#a87a3a'); px.set(9, 10, '#3a3a2a'); px.set(8, 11, '#e0c070'); },
   gardenbench(px) { px.rect(2, 5, 12, 2, '#8a5a34'); px.hline(2, 13, 5, '#c89458'); px.rect(2, 9, 12, 2, '#a8743f'); px.hline(2, 13, 9, '#c89458'); px.vline(3, 5, 14, '#3a3a44'); px.vline(12, 5, 14, '#3a3a44'); },
   owlbox(px) { px.rect(3, 4, 10, 10, '#9a6a3a'); px.vline(3, 4, 13, '#b8844e'); px.poly([[2, 5], [14, 5], [12, 1], [4, 1]], '#5a3e26'); px.rect(5, 7, 6, 4, '#1a120c'); px.rect(7, 14, 2, 2, '#8a5a34'); },
   platform(px) { px.ellipse(8, 5, 7, 3, '#5a3a22'); px.ellipse(8, 5, 5.5, 2, '#a8743f'); for (let a = 0; a < 6; a++) { const t = a / 6 * Math.PI * 2; px.line(8, 5, 8 + Math.cos(t) * 5, 5 + Math.sin(t) * 2, '#c89458'); } px.rect(7, 8, 3, 8, '#8a5a34'); },
@@ -128,6 +133,7 @@ const UI_ICON = {
   clue(px) { px.rect(3, 3, 10, 11, '#f6eed8'); px.hline(4, 11, 6, '#b0a080'); px.hline(4, 9, 8, '#b0a080'); px.hline(4, 10, 10, '#b0a080'); px.disc(11, 11, 2.5, '#5aa048'); px.set(11, 11, '#ffffff'); },
   sparkle(px) { px.line(8, 1, 8, 15, '#fff4b0'); px.line(1, 8, 15, 8, '#fff4b0'); px.disc(8, 8, 2, '#ffffff'); },
   no(px) { UI_ICON.cross(px); },
+  note(px) { px.ellipse(5, 12, 2.5, 2, '#3a2614'); px.ellipse(11.5, 11, 2.5, 2, '#3a2614'); px.vline(7, 4, 12, '#3a2614'); px.vline(13, 3, 11, '#3a2614'); px.thick(7, 4, 13, 3, 2, '#3a2614'); px.set(4, 11, '#8a6a4a'); },
 };
 
 function genIcon(kind, key) {

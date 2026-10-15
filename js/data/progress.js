@@ -57,6 +57,8 @@ const BADGES = [
   { id: 'gatherer', name: 'Magpie', desc: 'Gather 500 nest materials.', s: 'gathered', n: 500 },
   { id: 'board', name: 'Helping Hand', desc: 'Fill 10 notice-board requests.', s: 'board', n: 10 },
   { id: 'year', name: 'Four Seasons', desc: 'Spend a whole year in the valley.', s: 'days', n: 28 },
+  { id: 'festive', name: 'Festival Fan', desc: 'Win a ribbon at a village festival.', s: 'ribbons', n: 1 },
+  { id: 'champion', name: 'Village Champion', desc: 'Win a gold ribbon at all four festivals.', s: 'festGold', n: 4 },
 ];
 function badgeGoal(b) {
   if (b.id === 'allbirds') return SPECIES.length;
@@ -70,9 +72,9 @@ const HEART = 50, MAX_HEARTS = 5;
 const NPC_GIFTS = {
   ada:     { love: ['hazelnut', 'garlic'], like: ['apple', 'mushroom', 'elderberry'] },
   basil:   { love: ['mushroom'], like: ['garlic', 'blackberry', 'seed_herbs'] },
-  mabel:   { love: ['apple'], like: ['blackberry', 'elderberry', 'sloe'] },
+  mabel:   { love: ['apple'], like: ['blackberry', 'elderberry', 'sloe', 'seedmix'] },
   tom:     { love: ['sloe'], like: ['apple', 'mushroom', 'hazelnut'] },
-  edith:   { love: ['elderberry', 'seed_wildflower'], like: ['apple', 'blackberry', 'seed_herbs'] },
+  edith:   { love: ['elderberry', 'seed_wildflower'], like: ['apple', 'blackberry', 'seed_herbs', 'seedmix'] },
   rosie:   { love: ['blackberry'], like: ['apple', 'hazelnut', 'seed_wildflower'] },
   finn:    { love: ['garlic'], like: ['apple', 'hazelnut', 'mushroom'] },
   juniper: { love: ['hazelnut'], like: ['mushroom', 'garlic', 'sloe'] },

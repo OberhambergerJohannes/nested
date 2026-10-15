@@ -67,6 +67,8 @@ class World {
     w.badges = {};
     w.board = [];
     w.rareLog = {};
+    w.fest = null;
+    w.festLog = {};
     w.sendMail(LETTERS.welcome);
     w._makeAnimals();
     w.bulk = true;
@@ -97,7 +99,11 @@ class World {
     w.side = d.side || {}; w.found = d.found || {};
     w.badges = d.badges || {}; w.board = d.board || []; w.rareLog = d.rareLog || {}; w.rare = d.rare || null;
     w.saved = d.players || {};
+    w.festLog = d.festLog || {};
+    w.fest = d.fest && d.fest.d === dayIdx(w.time) ? d.fest : null;
     w._addNewBuildings(m);
+    if (!w.fest) { w.bulk = true; w._startFest(); w.bulk = false; w.pendAll = []; }
+    npcFestival(w.time);
     w._makeAnimals();
     if (!w.featured.length) { w.bulk = true; w.pickFeatured(); w.bulk = false; w.pendAll = []; }
     return w;
@@ -159,6 +165,7 @@ class World {
       tiles: b64encode(this.tiles), grass: b64encode(this.grass), objs: Array.from(this.objs.values()), nextId: this.nextId,
       dug: this._todayDug(), featured: this.featured, visitors: this.visitors, players: this.saved, savedAt: Date.now(),
       side: this.side, found: this.found, badges: this.badges, board: this.board, rareLog: this.rareLog, rare: this.rare,
+      fest: this.fest, festLog: this.festLog,
     };
   }
 
@@ -281,6 +288,7 @@ class World {
       animals: this.animals.map(publicAnimal), dug: this._todayDug(),
       inv: p ? p.inv : [], stats: this.stats, allDone: this.allDone, side: this.side, found: this.found,
       badges: this.badges, board: this.board, rareLog: this.rareLog, prog: p ? this._meData(p, true) : null,
+      fest: this.fest, festLog: this.festLog,
     };
   }
 
@@ -325,6 +333,9 @@ class World {
     if (m === 11 * 60) {
       for (const o of Array.from(this.objs.values())) if (o.type === 'web') this.removeObj(o);
     }
+    const f = festivalOn(this.time);
+    if (f && m === f.gather[0]) { this.toastAll(f.name + ': the village is gathering on the green!', 'star'); this.ev('snd', 'fanfare'); }
+    if (f && m === f.until) this._wrapFest(f);
     if (m >= DAY_END) {
       this.toastAll('It\'s 2 am… everyone stumbles home to bed.', 'moon');
       this.newDay();
@@ -453,6 +464,7 @@ class World {
       case 'buy': return this.actBuy(p, m);
       case 'sell': return this.actSell(p, m);
       case 'obs': return this.actObserve(p, m);
+      case 'flock': return this.actFlock(p, m);
       case 'talk': return this.actTalk(p, m);
       case 'opt': return this.actOpt(p, m);
       case 'mail': return this.actMail(p, m);
@@ -573,6 +585,12 @@ class World {
           case 'mushroom': this.gainItem(p, 'mushroom', 1, src); break;
           case 'garlic': this.gainItem(p, 'garlic', 1, src); break;
           case 'note': this.giveHint(o.sp, 'note', p); break;
+          case 'paperbird': {
+            const fa = festActive(this.time, this.time.min);
+            if (fa && fa.id === 'midsummer') this.festCount(p, fa, 'pb' + o.id, 1, 'paper bird');
+            else this.toast(p, 'One of Rosie\'s paper birds. The hunt is over, but it\'s pretty!', '');
+            break;
+          }
         }
         this.ev('fx', 'pickup', 0, src[0], src[1]);
         break;
@@ -810,6 +828,8 @@ class World {
     if (p.obsD[sp.id] !== today) { p.obsD[sp.id] = today; this.addXP(p, XP.observe + (firstEver ? XP.firstSight : 0), 'observe'); }
     if (sp.ambient || sp.rare) this.stats['seen_' + sp.id] = 1;
     if (this.time.min < 7 * 60) this.stats.early = 1;
+    const fa = festActive(this.time, this.time.min);
+    if (fa && fa.id === 'dawn') this.festCount(p, fa, sp.id, 1, sp.name);
     if (sp.night) { const nl = this.stats.nightList || (this.stats.nightList = []); if (!nl.includes(sp.id)) nl.push(sp.id); }
     this.bumpStat('observed');
     if (sp.rare) return this._observeRare(p, sp);
@@ -887,6 +907,7 @@ class World {
     if (k === 'species') return nestedCount(this);
     if (k === 'landmarks') return Object.keys(this.found || {}).length;
     if (k === 'nightSpecies') return (this.stats.nightList || []).length;
+    if (k === 'festGold') return FESTIVALS.filter((f) => this.festLog && this.festLog[f.id] && this.festLog[f.id].best >= 3).length;
     if (k === 'bestFriends') {
       let best = 0;
       for (const rec of Object.values(this.saved)) for (const npc in (rec.fr || {})) if (rec.fr[npc] >= HEART * MAX_HEARTS) best = 1;
@@ -947,6 +968,16 @@ class World {
     const it = ITEMS[s.k];
     if (!it || it.cat === 'struct') return this.fail(p, 'That\'s not really a gift.');
     const today = dayIdx(this.time);
+    const fa = festActive(this.time, this.time.min);
+    if (fa && fa.id === 'feeders' && BIRD_FOOD.includes(s.k) && this.fest && !this.fest.seen.includes(id)) {
+      this.takeSlot(p, slot, 1);
+      const birds = 4 + hash32(today, id.length * 31 + id.charCodeAt(0), this.seed) % 9;
+      this.dlg(p, id, [FEEDER_THANKS[id], '(' + NPCS[id].name + ' fills a feeder and counts ' + birds + ' bird visits.)'], [{ id: 'bye', label: 'Happy counting!' }]);
+      this.ev('fx', 'hearts', 0, p.x, p.y - 26);
+      this.addFriend(p, id, 20);
+      this.festCount(p, fa, id, birds, 'feeder');
+      return;
+    }
     if (p.giftD[id] === today) return this.dlg(p, id, ['You\'ve already brought me something today — you\'re too kind! Come back tomorrow.'], [{ id: 'bye', label: 'Bye' }]);
     p.giftD[id] = today;
     const taste = NPC_GIFTS[id] || { love: [], like: [] };
@@ -959,6 +990,115 @@ class World {
     this.ev('fx', 'hearts', 0, p.x, p.y - 26);
     this.addFriend(p, id, kind === 'love' ? 40 : kind === 'like' ? 25 : 10);
     this.addXP(p, XP.gift, 'gift');
+  }
+
+  // ---------------------------------------------------------------- festivals
+  // Called every morning: today's festival (if any), Rosie's paper birds, and the invitation the day before
+  _startFest() {
+    npcFestival(this.time);
+    const f = festivalOn(this.time), today = dayIdx(this.time);
+    this.festMsg = null;
+    if (!f) {
+      this.fest = null;
+      const next = festivalNext(this.time);
+      if (next.days === 1) this.festMsg = 'Tomorrow is ' + next.f.name + ' on the village green!';
+      this.ev('fest', this.fest);
+      return;
+    }
+    if (!this.fest || this.fest.d !== today) this.fest = { id: f.id, d: today, n: 0, tier: 0, seen: [], b: 0, done: false };
+    this.festMsg = 'Today is ' + f.name + '! ' + f.task + '.';
+    if (f.id === 'midsummer' && !Array.from(this.objs.values()).some((o) => o.type === 'forage' && o.kind === 'paperbird')) {
+      const zones = ['garden', 'village', 'orchard', 'farm', 'meadow', 'pond', 'southmeadow', 'eastmeadow', 'forest', 'garden', 'farm', 'orchard'];
+      const reach = this._reachable();
+      zones.forEach((z, k) => {
+        const xy = this._randIn(ZONES[z], (x, y, t) => t !== T.PATH && t !== T.SAND && reach[tIdx(x, y)] === 1, 300);
+        if (xy) this.addObj({ type: 'forage', kind: 'paperbird', c: k % 4, x: xy[0], y: xy[1], d: today });
+      });
+    }
+    this.ev('fest', this.fest);
+  }
+  _festLetter() {
+    const next = festivalNext(this.time);
+    if (next.days !== 1) return;
+    const f = next.f;
+    this.sendMail({ from: 'Featherbrook Village', title: f.name + ' tomorrow!', body: 'Dear neighbour,\n\n' + f.invite + '\n\nSee you on the green!\n— ' + NPCS[f.host].name + ' & all your neighbours' });
+  }
+  // One more for the festival tally (a bird kind, a paper bird, a flock or a feeder)
+  festCount(p, f, key, birds, what) {
+    const st = this.fest;
+    if (!st || st.id !== f.id || st.seen.includes(key)) return false;
+    st.seen.push(key); st.n++; st.b += birds || 0;
+    const t = festTier(f, st.n);
+    if (t > st.tier) { while (st.tier < t) { st.tier++; this._ribbon(p, f, st.tier); } }
+    else {
+      const next = f.goal.find((g) => g > st.n);
+      this.toast(p, f.name + ': ' + st.n + ' ' + f.unit + (next ? ' (next ribbon at ' + next + ')' : '') + '.', 'star');
+    }
+    this.ev('fest', st);
+    this.ev('snd', 'chime');
+    return true;
+  }
+  _ribbon(p, f, tier) {
+    const pr = RIBBON_PRIZE[tier];
+    this.coins += pr.coins; this.ev('coins', this.coins);
+    const log = this.festLog[f.id] || (this.festLog[f.id] = { best: 0, years: {} });
+    log.best = Math.max(log.best, tier);
+    log.years[this.time.year] = Math.max(log.years[this.time.year] || 0, tier);
+    let keep = '';
+    if (tier === 3 && !log.keep) {
+      if (this.gainItem(p, f.keep, 1, [p.x, p.y - 20])) { log.keep = 1; keep = ' and a ' + ITEMS[f.keep].name; }
+      else { log.owed = 1; keep = ' — make room in your bag and ask ' + NPCS[f.host].name + ' for your ' + ITEMS[f.keep].name; }
+    }
+    this.toastAll(RIBBONS[tier] + ' ribbon at the ' + f.name + '! (+' + pr.coins + ' coins' + keep + ')', 'star');
+    this.ev('snd', 'fanfare');
+    this.ev('festlog', this.festLog);
+    this.teamXP(pr.xp, 'festival');
+    this.bumpStat('ribbons');
+  }
+  _festKeepsake(p, id) {
+    for (const f of FESTIVALS) {
+      const log = this.festLog[f.id];
+      if (f.host !== id || !log || !log.owed || !this.hasRoom(p, f.keep)) continue;
+      log.owed = 0; log.keep = 1;
+      this.gainItem(p, f.keep, 1, [p.x, p.y - 20]);
+      this.ev('festlog', this.festLog);
+      this.dlg(p, id, ['Here you are — your ' + ITEMS[f.keep].name + ' from the ' + f.name + '. You earned it!'], [{ id: 'bye', label: 'Thank you!' }]);
+      return true;
+    }
+    return false;
+  }
+  _wrapFest(f) {
+    const st = this.fest;
+    if (!st || st.id !== f.id || st.done) return;
+    st.done = true;
+    this.toastAll(f.wrap.replace('{n}', st.n).replace('{b}', st.b) + (st.tier ? ' (' + RIBBONS[st.tier] + ' ribbon)' : ''), 'star');
+    this.ev('fest', st);
+  }
+  _festTalk(p, id, f) {
+    const st = this.fest || { n: 0, tier: 0 };
+    const m = this.time.min;
+    const when = m < f.gather[0] ? ' Come to the green at ' + fmtClock(f.gather[0]) + '!' : '';
+    let lines;
+    if (id === f.host) {
+      lines = f.hostLines.slice();
+      if (m < f.until) lines.push('So far: ' + st.n + ' ' + f.unit + '. Ribbons at ' + f.goal.join(', ') + '.' + when);
+      else lines.push(f.wrap.replace('{n}', st.n).replace('{b}', st.b || 0) + ' Thank you for coming!');
+    } else {
+      const k = (hash32(dayIdx(this.time), id.length * 13 + id.charCodeAt(1), this.seed)) % f.lines.length;
+      lines = [f.lines[k] + when];
+      if (m < f.until && st.n < f.goal[2]) lines.push(NPCS[f.host].name + ' is keeping the tally: ' + f.task.toLowerCase() + '.');
+    }
+    this.addFriend(p, id, 5);
+    this.dlg(p, id, lines, [{ id: 'bye', label: m < f.until ? 'Let\'s do this!' : 'Happy ' + f.name + '!' }]);
+  }
+  // Count a migrating flock that is passing over you (Migration Watch)
+  actFlock(p, m) {
+    const fa = festActive(this.time, this.time.min);
+    if (!fa || fa.id !== 'migration') return;
+    const fl = skyFlocks(this).find((x) => x.id === (m.id | 0));
+    const pos = fl && flockPos(fl, this.clockMin());
+    if (!pos || Math.abs(pos.x - p.x) > 170 || Math.abs(pos.y - p.y) > 150) return;
+    if (this.festCount(p, fa, 'f' + fl.id, fl.n, 'flock')) this.toast(p, 'You counted ' + fl.n + ' ' + fl.kind.name + '!', 'binoculars');
   }
 
   // ---------------------------------------------------------------- notice board
@@ -1049,6 +1189,12 @@ class World {
     if (p.talkD[id] !== today) { p.talkD[id] = today; this.addFriend(p, id, 8); }
     const dq = QUESTS.find((q) => q.kind === 'deliver' && q.to === id && this.side[q.id] && this.side[q.id].st === 'on');
     if (dq) return this.completeQuest(p, dq);
+    if (this._festKeepsake(p, id)) return;
+    const fest = festivalOn(this.time);
+    if (fest && step !== 'mail' && step !== 'ada') {
+      p.festTalk = p.festTalk || {};
+      if (p.festTalk[id] !== today) { p.festTalk[id] = today; return this._festTalk(p, id, fest); }
+    }
     if (!(id === 'ada' && (step === 'mail' || step === 'ada')) && this._heartStory(p, id)) return;
     const nq = npcQuest(this, id);
     const questOpt = nq ? [{ id: 'q', label: nq.state === 'offer' ? 'Need a hand?' : 'About ' + nq.q.title + '…' }] : [];
@@ -1260,7 +1406,7 @@ class World {
     let coins = 0, n = 0;
     for (let i = 0; i < BAG_SIZE; i++) {
       const s = p.inv[i];
-      if (!s || ITEMS[s.k].cat !== 'forage') continue;
+      if (!s || ITEMS[s.k].cat !== 'forage' || ITEMS[s.k].price) continue;
       coins += itemSellPrice(s.k) * s.n; n += s.n;
       p.inv[i] = null;
     }
@@ -1563,6 +1709,7 @@ class World {
     if (seasonChanged) this.sendMail(LETTERS[SEASONS[season]]);
     this._checkTier();
     this.startDay();
+    if (this.festMsg) sum.unshift(['star', this.festMsg]);
     if (this.rareMsg) sum.push(['star', this.rareMsg]);
     for (const p of this.players.values()) for (const u of p.lvlUps || []) sum.push(['star', p.name + ' is now a ' + RANKS[u.lvl - 1] + '!']);
     // wake everyone at home
@@ -1588,11 +1735,13 @@ class World {
     for (const o of Array.from(this.objs.values())) {
       if (o.type === 'web') this.removeObj(o);
       else if (o.type === 'puddle' && today - o.d >= 2) this.removeObj(o);
-      else if (o.type === 'forage' && (o.kind === 'note' || today - (o.d || 0) > 4)) this.removeObj(o);
+      else if (o.type === 'forage' && (o.kind === 'note' || o.kind === 'paperbird' || today - (o.d || 0) > 4)) this.removeObj(o);
     }
     for (const k in this.dug) if (this.dug[k] !== today) delete this.dug[k];
     this.observed = {};
     this._spawnForage(today);
+    this._startFest();
+    this._festLetter();
     this.pickFeatured();
     this._postBoard();
     this._pickRare(today);

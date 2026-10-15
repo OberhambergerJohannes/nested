@@ -69,6 +69,13 @@ Prompts above things always tell you what **E** and **F** will do.
 5. When the chicks fledge, the species counts as **nested**, you get a conservation grant, and new birds start visiting.
    Nest all **67 species** to restore the valley.
 
+**Nest cam:** every nest you build has a live camera. Press **F** at a nest site (or pick the nest under *Active nests*
+on the journal's **Valley** page) to watch: the nest woven from that species' real materials in its real place — a hedge, a nest
+box, a reed bed, a tunnel in an earth bank, a chimney, a stork platform — the parents taking turns on the eggs, chicks
+that grow from pink and naked to feathered and gape for food whenever a parent lands, owlets that hiss, ducklings and
+plover chicks running about, and a cuckoo chick that dwarfs its foster parents. At night it switches to infra-red.
+Press **Listen** (there and in the journal) to hear the bird's song — good birders know them by ear.
+
 Sleep in your cottage to end the day: plants grow, eggs hatch and chicks fledge overnight. Seasons last 7 days.
 Most birds nest in spring and summer — but Barn Owls and Wood Pigeons still breed in autumn, Crossbills breed in **winter**,
 and Grey Herons start building in late winter.
@@ -236,7 +243,7 @@ js/data/            species, items, plants, villagers & their routes, side quest
                     ranks, badges, gift tastes and notice-board requests — easy to edit
 js/sim/             map generation, rules and the authoritative World (runs on the solo player / co-op host)
 js/art/             code that draws all pixel art: birds, terrain, trees, buildings, people, icons, font
-js/client/          rendering, input, audio synthesis, UI screens, HUD, game loop
+js/client/          rendering, input, audio synthesis, UI screens, nest cam, HUD, game loop
 js/net/             solo / host / guest links
 assets/             PNG sprite sheets exported from the art code (for viewing/reuse)
 tools/              developer tools (headless-Chrome tests, art export)

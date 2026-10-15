@@ -711,7 +711,11 @@ class Game {
 
   // ---------------------------------------------------------------- observing birds
   startObserve(agent) {
-    this.observe = { agent, t: 0, need: this.perk('binoculars') ? 850 : 1300 };
+    // a spotting scope close by makes watching much quicker
+    const me = this.me, tx = Math.floor(me.x / TS), ty = Math.floor(me.y / TS);
+    let scope = false;
+    for (let dy = -2; dy <= 2 && !scope; dy++) for (let dx = -2; dx <= 2; dx++) { const o = inBounds(tx + dx, ty + dy) && objAt(this.state, tx + dx, ty + dy); if (o && o.type === 'struct' && o.kind === 'scope') { scope = true; break; } }
+    this.observe = { agent, t: 0, need: (this.perk('binoculars') ? 850 : 1300) * (scope ? 0.5 : 1) };
     agent.observed = true;
     Audio2.sfx('open');
   }

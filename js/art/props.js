@@ -8,7 +8,8 @@ const STONE = { o: '#2c2a30', d: '#5a5862', m: '#7e7c86', l: '#a4a2aa', h: '#c8c
 
 // ---------------------------------------------------------------- structures
 function genStruct(kind, season) {
-  const px = new Pix(kind === 'platform' ? 34 : kind === 'owlbox' ? 24 : kind === 'brushpile' ? 26 : kind === 'gardenbench' ? 22 : 18, kind === 'platform' ? 62 : kind === 'owlbox' ? 46 : kind === 'lamppost' ? 38 : 34);
+  const px = new Pix(kind === 'platform' ? 34 : kind === 'owlbox' ? 24 : kind === 'brushpile' ? 26 : kind === 'gardenbench' || kind === 'birdtable' ? 22 : 18,
+    kind === 'platform' ? 62 : kind === 'owlbox' ? 46 : kind === 'lamppost' ? 38 : 34);
   const cx = Math.floor(px.w / 2), base = px.h - 2;
   const pole = (x, top) => { px.rect(x - 1, top, 3, base - top + 1, WOOD.m); px.vline(x - 1, top, base, WOOD.l); px.vline(x + 1, top, base, WOOD.d); px.rect(x - 2, base - 1, 5, 2, '#5a4a3a'); };
   switch (kind) {
@@ -107,6 +108,53 @@ function genStruct(kind, season) {
       if (season === WINTER) px.hline(2, 19, base - 9, '#f4f8fb');
       break;
     }
+    case 'birdtable': {
+      // a little roofed feeding table on a post
+      pole(cx, 18);
+      px.rect(cx - 9, 16, 19, 3, WOOD.m); px.hline(cx - 9, cx + 9, 16, WOOD.h); px.hline(cx - 9, cx + 9, 18, WOOD.d);
+      for (const [x, c] of [[cx - 6, '#c8a050'], [cx - 3, '#a87a3a'], [cx + 2, '#e0c070'], [cx + 5, '#a87a3a'], [cx, '#d8b060']]) px.set(x, 15, c);
+      px.vline(cx - 8, 8, 15, WOOD.d); px.vline(cx + 8, 8, 15, WOOD.d);
+      px.poly([[cx - 11, 9], [cx + 11, 9], [cx, 1]], '#a8483a'); px.line(cx - 10, 8, cx, 0, '#c8604a'); px.hline(cx - 10, cx + 10, 9, '#7a3428');
+      px.line(cx + 1, 1, cx + 10, 8, '#8a3a2c');
+      if (season === WINTER) { px.line(cx - 9, 7, cx - 1, 1, '#f4f8fb'); px.line(cx + 1, 1, cx + 9, 7, '#f4f8fb'); }
+      break;
+    }
+    case 'bughotel': {
+      // a wooden house stacked with hollow stems, cones, bark and drilled logs
+      px.rect(2, 10, 14, base - 9, WOOD.d);
+      px.poly([[0, 11], [17, 11], [9, 3]], '#6a4a2e'); px.line(1, 10, 9, 3, '#8a6a46'); px.hline(1, 16, 11, '#4a3020');
+      const cells = [[3, 12, 'stems'], [10, 12, 'cones'], [3, 18, 'logs'], [10, 18, 'bark'], [3, 24, 'cones'], [10, 24, 'stems']];
+      for (const [x0, y0, k] of cells) {
+        px.rect(x0, y0, 5, 5, '#3a2616');
+        if (k === 'stems') for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { px.set(x0 + i * 2 - (i > 1 ? 1 : 0), y0 + j * 2 - (j > 1 ? 1 : 0), '#d8c080'); }
+        if (k === 'cones') { px.ellipse(x0 + 1.5, y0 + 2, 1.4, 1.6, '#8a5a30'); px.ellipse(x0 + 3.5, y0 + 2.5, 1.4, 1.6, '#a06a38'); px.set(x0 + 1, y0 + 1, '#c08a50'); }
+        if (k === 'logs') { px.rect(x0, y0, 5, 5, '#a8743f'); px.set(x0 + 1, y0 + 1, '#2a1a10'); px.set(x0 + 3, y0 + 2, '#2a1a10'); px.set(x0 + 1, y0 + 3, '#2a1a10'); px.set(x0 + 3, y0 + 4, '#2a1a10'); }
+        if (k === 'bark') for (let j = 0; j < 5; j++) px.hline(x0, x0 + 4, y0 + j, j % 2 ? '#7a5a3a' : '#5a3e26');
+      }
+      px.vline(9, 12, base, WOOD.m); for (const y of [17, 23]) px.hline(3, 14, y, WOOD.m);
+      if (season === WINTER) px.line(1, 10, 9, 3, '#f4f8fb');
+      break;
+    }
+    case 'scope': {
+      // a spotting scope on a tripod
+      const top = 14;
+      px.line(cx, top + 2, cx - 6, base, '#3a3a44'); px.line(cx, top + 2, cx + 6, base, '#3a3a44'); px.line(cx, top + 2, cx, base, '#5a5a66');
+      px.rect(cx - 2, top, 5, 3, '#2a2a30');
+      px.thick(cx - 7, top - 4, cx + 6, top - 1, 3, '#4a5a4a'); px.line(cx - 7, top - 5, cx + 5, top - 2, '#6a7a6a');
+      px.rect(cx + 5, top - 3, 3, 4, '#2a2a30'); px.set(cx + 7, top - 2, '#9ac8e0');
+      px.rect(cx - 9, top - 6, 3, 3, '#2a2a30');
+      break;
+    }
+    case 'lantern': {
+      // a shepherd's crook with a hanging lantern
+      px.rect(cx - 3, 6, 2, base - 5, '#3a3a44'); px.vline(cx - 3, 6, base, '#5a5a66');
+      px.line(cx - 3, 6, cx, 3, '#3a3a44'); px.line(cx, 3, cx + 4, 4, '#3a3a44'); px.vline(cx + 5, 5, 8, '#3a3a44');
+      px.rect(cx + 2, 9, 7, 2, '#2a2a30'); px.rect(cx + 3, 11, 5, 6, '#2a2a30'); px.rect(cx + 4, 12, 3, 4, '#ffd27a'); px.set(cx + 4, 12, '#fff4c8');
+      px.hline(cx + 2, cx + 8, 17, '#2a2a30');
+      px.rect(cx - 5, base - 1, 6, 2, '#2a2a30');
+      if (season === WINTER) px.hline(cx + 2, cx + 8, 8, '#f4f8fb');
+      break;
+    }
     case 'birdbath': {
       px.rect(cx - 2, base - 10, 5, 10, STONE.m); px.vline(cx - 2, base - 10, base, STONE.l);
       px.rect(cx - 4, base - 1, 9, 2, STONE.d);
@@ -118,6 +166,69 @@ function genStruct(kind, season) {
   }
   px.outline('#22180f');
   return { px, ax: cx, ay: base };
+}
+
+// ---------------------------------------------------------------- festival decorations
+// Bunting strung across the village green, a tea table and the midsummer bonfire.
+// kind: 'bunting' | 'buntingL' (with paper lanterns) | 'table' | 'bonfire' | 'flame0..2'
+function genFestDecor(kind, season) {
+  if (kind === 'bunting' || kind === 'buntingL') {
+    const W = 140, px = new Pix(W, 36), base = 34;
+    const post = (x) => { px.rect(x - 1, 6, 3, base - 5, WOOD.m); px.vline(x - 1, 6, base, WOOD.l); px.vline(x + 1, 6, base, WOOD.d); px.set(x, 5, WOOD.h); };
+    post(2); post(W / 2); post(W - 3);
+    const cols = ['#e8485a', '#f0b830', '#3a8ad8', '#5ab84a', '#f6ecd2', '#c070d8'];
+    let k = 0;
+    for (const [x0, x1] of [[2, W / 2], [W / 2, W - 3]]) {
+      const sag = (x) => 7 + Math.round(5 * Math.sin(Math.PI * (x - x0) / (x1 - x0)));
+      for (let x = x0; x <= x1; x++) px.set(x, sag(x), '#5a4a3a');
+      if (kind === 'buntingL') {
+        for (const f of [0.25, 0.5, 0.75]) {
+          const x = Math.round(x0 + (x1 - x0) * f), y = sag(x);
+          px.vline(x, y + 1, y + 2, '#3a3a40'); px.rect(x - 2, y + 3, 5, 5, '#e88a3a'); px.rect(x - 1, y + 4, 3, 3, '#ffd86a'); px.set(x, y + 4, '#fff6c8');
+          px.hline(x - 1, x + 1, y + 8, '#a85a2a');
+        }
+      } else {
+        for (let x = x0 + 4; x < x1 - 3; x += 7) {
+          const y = sag(x), c = cols[k++ % cols.length];
+          px.poly([[x - 2.5, y + 0.5], [x + 3.5, y + 0.5], [x + 0.5, y + 7]], c);
+          px.set(x, y + 1, '#ffffff');
+        }
+      }
+    }
+    if (season === WINTER) { px.set(2, 5, '#f4f8fb'); px.set(W / 2, 5, '#f4f8fb'); px.set(W - 3, 5, '#f4f8fb'); }
+    px.outline('#22180f');
+    return { px, ax: 2, ay: base };
+  }
+  if (kind === 'table') {
+    const px = new Pix(34, 22), base = 20;
+    px.rect(1, 6, 32, 5, '#f6ecd2'); for (let x = 1; x < 33; x += 4) px.rect(x, 6, 2, 5, '#e8485a');
+    px.hline(1, 32, 11, '#c8b49a');
+    for (const x of [4, 29]) { px.rect(x, 11, 2, base - 10, WOOD.d); }
+    // teapot, cups and a cake
+    px.ellipse(9, 3.5, 3.5, 2.6, '#3a8ad8'); px.set(9, 0, '#2a6aa8'); px.line(12, 3, 14, 1, '#3a8ad8'); px.set(7, 2, '#8ac0f0');
+    for (const x of [16, 20]) { px.rect(x, 3, 3, 3, '#ffffff'); px.set(x + 3, 4, '#e8e4d8'); px.set(x + 1, 3, '#a87a3a'); }
+    px.rect(24, 2, 7, 4, '#e8c07a'); px.hline(24, 30, 2, '#f6f2e8'); px.set(27, 1, '#e8485a');
+    px.outline('#22180f');
+    return { px, ax: 17, ay: base };
+  }
+  if (kind === 'bonfire') {
+    const px = new Pix(26, 16), base = 14;
+    px.ellipse(13, base - 1, 11, 3, '#6a6a70'); px.ellipse(13, base - 1, 9, 2, '#3a3a3e');
+    for (const [a, b, c, d] of [[3, base - 1, 15, 3], [23, base - 1, 11, 3], [6, base, 18, 4], [20, base, 9, 5]]) px.thick(a, b, c, d, 2, '#7a5434');
+    px.line(13, 2, 13, base - 2, '#8a6440');
+    px.outline('#22180f');
+    return { px, ax: 13, ay: base };
+  }
+  // flames for the lit bonfire (three frames)
+  const fr = +kind.slice(-1), px = new Pix(20, 22), rnd = artRng('flame' + fr);
+  for (let y = 0; y < 20; y++) {
+    const w = Math.max(0, 7 * Math.sin(Math.PI * (y + 2) / 24) + (rnd() - 0.5) * 2.4) * (y < 6 ? y / 6 : 1);
+    for (let x = Math.round(10 - w + Math.sin(y * 0.7 + fr * 2) * 1.2); x <= 10 + w; x++) {
+      const dx = Math.abs(x - 10) / (w + 0.01);
+      px.set(x, y, y > 14 || dx > 0.7 ? '#e8582a' : dx > 0.35 || y > 9 ? '#f6a82a' : '#ffe27a');
+    }
+  }
+  return { px, ax: 10, ay: 20 };
 }
 
 // ---------------------------------------------------------------- natural props
@@ -268,6 +379,14 @@ function genForage(kind, season) {
     case 'driftwood': px.thick(2, 10, 14, 8, 3, '#c8bca8'); px.line(3, 9, 13, 7, '#e8e0d0'); px.set(14, 7, '#a89c88'); px.line(10, 8, 12, 5, '#c8bca8'); break;
     case 'mushroom': px.rect(7, 8, 2, 4, '#f2e2b0'); px.ellipse(8, 7.5, 4, 2.5, '#f2b02a'); px.ellipse(7, 7, 2, 1, '#f8d060'); px.rect(11, 10, 1, 2, '#f2e2b0'); px.ellipse(11.5, 9.5, 1.8, 1.2, '#f2b02a'); break;
     case 'garlic': for (const [a, b] of [[4, 4], [8, 2], [12, 5]]) px.thick(8, 12, a, b, 2, '#4a9a3a'); px.set(8, 2, '#ffffff'); px.set(7, 1, '#ffffff'); px.set(9, 1, '#ffffff'); px.set(4, 4, '#3a8a2a'); break;
+    case 'paperbird0': case 'paperbird1': case 'paperbird2': case 'paperbird3': {
+      // a folded paper bird: white body with a coloured wing
+      const wing = ['#e8485a', '#3a8ad8', '#f0b830', '#5ab84a'][+kind.slice(-1)];
+      px.poly([[2, 9], [7, 7], [9, 4], [10, 8], [14, 6], [11, 11], [5, 11]], '#fbfaf4');
+      px.poly([[7, 8], [9, 3], [11, 8]], wing); px.line(9, 4, 10, 7, '#ffffff');
+      px.line(5, 11, 11, 11, '#d8d4c8'); px.set(2, 9, '#e8e4d8'); px.set(13, 6, '#2a2018');
+      break;
+    }
     case 'note': px.rect(3, 4, 10, 8, '#f6eed8'); px.hline(4, 11, 6, '#b0a080'); px.hline(4, 9, 8, '#b0a080'); px.poly([[9, 4], [13, 4], [13, 8]], '#e2d6b8'); px.ellipse(5, 10, 1.6, 1.6, '#c83a2a'); break;
   }
   px.outline('#2a2018');

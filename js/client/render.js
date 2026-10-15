@@ -620,10 +620,11 @@ class Renderer {
         break;
       }
       case 'forage': {
-        const spr = SPR.forage(o.kind, season);
-        const bob = o.kind === 'note' ? Math.round(Math.sin(now / 300 + o.id) * 1.5) - 2 : 0;
+        const pb = o.kind === 'paperbird';
+        const spr = SPR.forage(pb ? 'paperbird' + (o.c | 0) : o.kind, season);
+        const bob = o.kind === 'note' || pb ? Math.round(Math.sin(now / 300 + o.id) * 1.5) - 2 : 0;
         g.drawImage(spr.img, bx - spr.ax - cx0, by - spr.ay - 2 + bob - cy0);
-        if (o.kind === 'note' && (now / 250 + o.id) % 6 < 1) { g.fillStyle = '#fff4b0'; g.fillRect(bx + 4 - cx0, by - 14 + bob - cy0, 1, 3); g.fillRect(bx + 3 - cx0, by - 13 + bob - cy0, 3, 1); }
+        if ((o.kind === 'note' || pb) && (now / 250 + o.id) % 6 < 1) { g.fillStyle = '#fff4b0'; g.fillRect(bx + 4 - cx0, by - 14 + bob - cy0, 1, 3); g.fillRect(bx + 3 - cx0, by - 13 + bob - cy0, 3, 1); }
         break;
       }
       case 'qitem': {
@@ -788,6 +789,7 @@ class Renderer {
         const spr = SPR.building(o.kind, S.time.season, true);
         if (spr.lights) for (const [lx, ly, r] of spr.lights) out.push(o.x * TS - spr.ax + lx, o.y * TS - spr.ay + ly, r * 1.2);
       } else if (o.type === 'struct' && o.kind === 'lamppost') out.push(o.x * TS + 8, o.y * TS - 18, 38);
+      else if (o.type === 'struct' && o.kind === 'lantern') out.push(o.x * TS + 12, o.y * TS - 14, 30);
     }
     this.lsKey = key;
     return (this.ls = out);

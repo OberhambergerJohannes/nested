@@ -200,10 +200,12 @@ class Birds {
         c.bath.push({ kind: 'bath', x: bx, y: by, z: 13, sortY: by + 1, spread: 4, zs: 0 });
       } else if (o.type === 'fence' || (o.type === 'struct' && o.kind !== 'anvil')) {
         const z = o.type === 'fence' ? 11 : o.kind === 'platform' ? 50 : o.kind === 'owlbox' ? 40 : o.kind.startsWith('box') ? 28
-          : o.kind === 'feeder' ? 21 : o.kind === 'lamppost' ? 36 : o.kind === 'gardenbench' ? 15 : 10;
-        const p = { kind: 'post', x: bx, y: by, z, sortY: by + 1, spread: o.kind === 'feeder' ? 4 : 1, zs: 0 };
+          : o.kind === 'feeder' ? 21 : o.kind === 'birdtable' ? 19 : o.kind === 'lamppost' ? 36 : o.kind === 'gardenbench' ? 15
+          : o.kind === 'lantern' ? 30 : o.kind === 'bughotel' ? 26 : o.kind === 'scope' ? 18 : 10;
+        const food = o.kind === 'feeder' || o.kind === 'birdtable';
+        const p = { kind: 'post', x: bx, y: by, z, sortY: by + 1, spread: food ? (o.kind === 'birdtable' ? 6 : 4) : 1, zs: 0 };
         c.post.push(p);
-        if (o.kind === 'feeder') c.feeder.push(Object.assign({}, p, { kind: 'feeder' }));
+        if (food) c.feeder.push(Object.assign({}, p, { kind: 'feeder' }));
         if (nearW) c.waterperch.push(p);
       } else if (o.type === 'building' && o.kind !== 'bench' && o.kind !== 'mailbox' && o.kind !== 'well') {
         const b = BUILDINGS[o.kind];

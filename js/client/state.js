@@ -42,6 +42,9 @@ class ClientState {
     this.rareLog = s.rareLog || {};
     this.stats = s.stats || {};
     this.allDone = !!s.allDone;
+    this.fest = s.fest || null;
+    this.festLog = s.festLog || {};
+    npcFestival(this.time);
     const old = this.players;
     this.players = new Map();
     for (const p of s.players) {
@@ -155,6 +158,7 @@ class ClientState {
         case 'time': {
           const prevSeason = this.time.season;
           this.time = e[1]; this.weather = e[2]; this.clockMs = 0;
+          npcFestival(this.time);
           if (prevSeason !== this.time.season) this.allDirty = true;
           break;
         }
@@ -198,6 +202,8 @@ class ClientState {
         case 'rare': this.rareLog = e[1]; break;
         case 'found': this.found = e[1]; this.mapDirty = true; break;
         case 'lore': game.onLore(e[1], e[2]); break;
+        case 'fest': this.fest = e[1]; break;
+        case 'festlog': this.festLog = e[1]; break;
       }
     }
   }

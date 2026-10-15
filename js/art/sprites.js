@@ -31,6 +31,7 @@ const SPR = {
   building(kind, season, lit) { return this._get('b:' + kind + season + (lit ? 1 : 0), () => genBuilding(kind, season, lit)); },
   mailbox(flag) { return this._get('mb:' + (flag ? 1 : 0), () => genMailbox(flag)); },
   struct(kind, season) { return this._get('st:' + kind + season, () => genStruct(kind, season)); },
+  festDecor(kind, season) { return this._get('fd:' + kind + season, () => genFestDecor(kind, season)); },
   rock(kind, level, season) { return this._get('r:' + kind + level + season, () => genRock(kind, level, season)); },
   log(moss, season) { return this._get('lg:' + moss + season, () => genLog(moss, season)); },
   stump(moss, season) { return this._get('sp:' + moss + season, () => genStump(moss, season)); },

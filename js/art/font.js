@@ -98,6 +98,7 @@ const GLYPHS = {
   '✗': '...../#...#/.#.#./..#../.#.#./#...#',
   '★': '..#../..#../#####/.###./.#.#./#...#',
   '♥': '...../.#.#./#####/#####/.###./..#..',
+  '♪': '..##./..#.#/..#../..#../.##../###../.#...',
   '♡': '...../.#.#./#.#.#/#...#/.#.#./..#..',
   '•': '.../.../.../.#./###/.#.',
   '…': '...../...../...../...../...../...../#.#.#',
@@ -194,6 +195,7 @@ class PixelFont {
     cv.width = Math.max(1, (this.measure(text) + 1) * scale + 2 * pad);
     cv.height = FONT_H * scale + 2 * pad;
     const cg = cv.getContext('2d');
+    cg.imageSmoothingEnabled = false; // scaled glyphs must stay crisp
     if (outline) for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) this._chars(cg, text, pad + dx * scale, pad + dy * scale, outline, scale);
     if (shadow) this._chars(cg, text, pad + scale, pad + scale, shadow, scale);
     this._chars(cg, text, pad, pad, color, scale);
