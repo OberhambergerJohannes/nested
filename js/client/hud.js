@@ -107,7 +107,8 @@ const HUD = {
       ui.g.globalAlpha = 1;
       ty += h + 2;
     }
-    // ---------------- chat
+    // ---------------- the song that just came on, and chat
+    if (!game.chatOpen) nowPlayingLabel(ui, v);
     this.chat(ui, game, v);
     // ---------------- touch controls
     if (game.touchControls()) this.touch(ui, game, v);

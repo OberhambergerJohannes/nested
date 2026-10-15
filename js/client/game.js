@@ -521,6 +521,9 @@ class Game {
     Input.poll();
     if (this.link) this.link.update(dt);
     this.processInbox();
+    // the music plays on through menus and the loading screen
+    const S0 = this.mode === 'play' && this.state && this.state.time ? this.state : null;
+    Audio2.updateMusic(S0 ? Audio2.musicMood(S0.time.season, S0.clock()) : 'title');
     const g = this.g, v = this.view;
     this.ui.begin(g, v, this.mode !== 'play' || !!this.modal);
     if (this.mode === 'play' && this.state && this.me && this.loading) {
@@ -602,7 +605,6 @@ class Game {
     const S = this.state, me = this.me;
     if (!this.isPausedLocal()) S.clockMs = Math.min(S.clockMs + dt, (S.mpm || MS_PER_MIN) * 12);
     Audio2.listener.x = me.x; Audio2.listener.y = me.y;
-    Audio2.updateMusic(S.time.season, S.clock(), true);
     Audio2.setRain(S.weather === 'rain');
     for (const tt of this.toasts) tt.t += dt;
     this.toasts = this.toasts.filter((tt) => tt.t < tt.life);

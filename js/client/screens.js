@@ -24,6 +24,14 @@ function windowFrame(ui, id, w, h, opts) {
 }
 // Badge progress as this player sees it (the host's World.statValue counts everyone's friendships)
 function statValueClient(S, k) { return badgeStat(S, k, () => isBestFriend(S.prog && S.prog.fr)); }
+// "♪ Song title" in the bottom-left corner while a new song starts (the lofi radio)
+function nowPlayingLabel(ui, v) {
+  const np = Audio2.nowPlaying();
+  if (!np) return;
+  ui.g.globalAlpha = np.a;
+  ui.text('♪ ' + np.title, 5, v.h - 12, UI_COL.cream, { outline: '#2a1a0e' });
+  ui.g.globalAlpha = 1;
+}
 function wantClose(extra) { return Input.hit('cancel') || (extra && Input.hit(extra)); }
 
 function birdThumb(ui, spId, x, y, box, sil) {
@@ -113,6 +121,7 @@ class TitleScreen {
     if (ui.button('t:help', 'How to Play', bx, y, bw / 2 - 2, bh)) G.openModal(new HelpScreen());
     if (ui.button('t:set', 'Settings', bx + bw / 2 + 2, y, bw / 2 - 2, bh)) G.openModal(new SettingsScreen());
     ui.text('v' + GAME_VERSION + ' · all art & sound made in code', v.w - 3, v.h - 10, UI_COL.ink, { align: 'right' });
+    nowPlayingLabel(ui, v);
   }
 }
 

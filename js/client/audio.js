@@ -1,16 +1,15 @@
 'use strict';
-// All sound is synthesised with the Web Audio API: effects, bird songs and gentle music.
+// All sound is synthesised with the Web Audio API: effects, bird songs and lofi hip-hop (lofi.js).
 // (Named Audio2 to avoid clashing with the browser's built-in Audio constructor.)
 
 const Audio2 = {
   ctx: null, master: null, sfxGain: null, musicGain: null, ambGain: null,
   vol: { music: 0.5, sfx: 0.8 },
   unlocked: false,
-  musicOn: true,
   noiseBuf: null,
   listener: { x: 0, y: 0 },
   rainNode: null,
-  nextNote: 0, step: 0, mood: null,
+  radio: null,
 
   loadPrefs() {
     try {
@@ -40,13 +39,12 @@ const Audio2 = {
     this.noiseBuf = c.createBuffer(1, len, c.sampleRate);
     const d = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    this.nextNote = c.currentTime + 0.5;
   },
 
   applyVolumes() {
     if (!this.ctx) return;
     this.sfxGain.gain.value = this.vol.sfx;
-    this.musicGain.gain.value = this.vol.music * 0.35;
+    this.musicGain.gain.value = this.vol.music * 0.56;   // the radio's songs sit around -16 LUFS
     this.ambGain.gain.value = this.vol.sfx * 0.6;
   },
 
@@ -157,6 +155,8 @@ const Audio2 = {
     if (!this.ctx) return;
     const d = this._out(x, y);
     if (!d) return;
+    // a bird singing close by: the music makes room for it
+    if (this.radio && d.gain.value > 0.3) this.radio.duckForBird(this.ctx.currentTime, 1.5);
     const t = this.ctx.currentTime + 0.02;
     const R = Math.random;
     const T = (dt, f0, f1, dur, v, type) => this.tone(d, t + dt, f0, f1, dur, v == null ? 0.07 : v, type || 'sine');
@@ -302,42 +302,24 @@ const Audio2 = {
   },
 
   // --------------------------------------------------------------- music
-  // A soft, sparse, generative tune per season & time of day.
-  updateMusic(season, minute, enabled) {
-    if (!this.ctx || !enabled || this.vol.music <= 0.001) return;
-    const c = this.ctx;
-    const night = minute >= 20 * 60 || minute < 6 * 60;
-    const scales = [
-      [0, 2, 4, 7, 9, 12, 14, 16],   // spring: major pentatonic
-      [0, 2, 4, 7, 9, 12, 14, 16],   // summer
-      [0, 2, 3, 7, 9, 12, 14, 15],   // autumn: dorian-ish
-      [0, 3, 5, 7, 10, 12, 15, 17],  // winter: minor pentatonic
-    ];
-    const roots = [65, 67, 62, 57];  // F, G, D, A (midi)
-    const tempo = night ? 0.9 : [0.5, 0.45, 0.55, 0.65][season];
-    const prog = [0, 5, 3, 4];
-    while (this.nextNote < c.currentTime + 0.3) {
-      const t = this.nextNote;
-      const bar = Math.floor(this.step / 8) % 4;
-      const chordRoot = roots[season] - 12 + [0, 9, 5, 7][prog[bar] % 4];
-      const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
-      if (this.step % 8 === 0) {
-        // soft pad chord
-        for (const iv of [0, 7, 12 + (season === WINTER || season === AUTUMN ? 3 : 4)]) {
-          this.tone(this.musicGain, t, midi(chordRoot + iv), midi(chordRoot + iv), tempo * 7.5, night ? 0.025 : 0.035, 'sine', 0.8);
-        }
-        this.tone(this.musicGain, t, midi(chordRoot - 12), midi(chordRoot - 12), tempo * 6, 0.05, 'triangle', 0.3);
-      }
-      const sc = scales[season];
-      const play = night ? Math.random() < 0.25 : Math.random() < (this.step % 2 === 0 ? 0.55 : 0.3);
-      if (play) {
-        const deg = sc[Math.floor(Math.random() * sc.length)];
-        const f = midi(roots[season] + deg);
-        this.tone(this.musicGain, t, f, f, tempo * (1.2 + Math.random()), night ? 0.035 : 0.05, 'triangle', 0.01);
-        if (Math.random() < 0.2) this.tone(this.musicGain, t + tempo / 2, f * 2, f * 2, tempo, 0.02, 'sine', 0.01);
-      }
-      this.step++;
-      this.nextNote += tempo;
-    }
+  // Lofi hip-hop (js/client/lofi.js): the radio picks songs for the mood and is scheduled a little
+  // ahead every frame. mood: 'title', 'night' or a season name.
+  updateMusic(mood) {
+    if (!this.ctx) return;
+    if (this.vol.music <= 0.001) { if (this.radio && this.radio.song) this.radio.silence(this.ctx.currentTime); return; }
+    if (!this.radio) this.radio = new LofiRadio(this.ctx, this.musicGain);
+    this.radio.setMood(mood);
+    this.radio.scheduleUntil(this.ctx.currentTime + 0.3);
+    this.radio.warmUp(2);   // render upcoming instrument notes a little at a time
+  },
+  // Nights have their own songs; by day it's the season's
+  musicMood(season, minute) { return minute >= 20 * 60 || minute < 6 * 60 ? 'night' : SEASONS[season]; },
+  // The song that just started, for a few seconds: {title, a (opacity)}, or null
+  nowPlaying() {
+    const np = this.radio && this.radio.song && this.radio.nowPlaying;
+    if (!np) return null;
+    const k = this.ctx.currentTime - np.t;
+    if (k < 0 || k > 7) return null;
+    return { title: np.title, a: Math.min(1, k / 0.6, (7 - k) / 1.2) };
   },
 };
