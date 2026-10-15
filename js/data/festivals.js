@@ -1,7 +1,7 @@
 'use strict';
 // Village festivals: one each season, on the middle day. The whole village gathers on the green,
 // there is one small activity with three ribbons to earn, and a keepsake for a gold ribbon.
-// Each festival is modelled on a real event (see README "Design notes"):
+// Each festival is modelled on a real event (see README "Village festivals"):
 //   Dawn Chorus Day — International Dawn Chorus Day (first Sunday in May)
 //   Midsummer Fair  — the midsummer fairs and bonfires held all over Europe
 //   Migration Watch — BirdLife's EuroBirdwatch (first weekend of October, since 1993)

@@ -115,8 +115,7 @@ class ClientState {
     const k = type + ':' + kind;
     let o = this._fi.get(k);
     if (o === undefined) {
-      o = null;
-      for (const q of this.objs.values()) if (q.type === type && q.kind === kind) { o = q; break; }
+      o = firstObj(this, type, kind);
       this._fi.set(k, o);
     }
     return o;

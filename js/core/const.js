@@ -43,7 +43,6 @@ const SPRING = 0, SUMMER = 1, AUTUMN = 2, WINTER = 3;
 const DIR_VEC = [[0, 1], [-1, 0], [1, 0], [0, -1]];
 
 const PLAYER_SPEED = 84;        // px per second
-const REACH = 30;               // px – interaction reach from player's feet
 const BAG_SIZE = 24, HOTBAR = 8;
 const STACK_MAX = 99;
 const MAX_PLAYERS = 6;

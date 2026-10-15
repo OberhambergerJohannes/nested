@@ -117,10 +117,6 @@ const SPR = {
   portrait(npc) {
     return this._get('portrait:' + npc, () => ({ px: genPortrait(NPC_LOOKS[npc]), ax: 16, ay: 16 }));
   },
-  playerPortrait(look) {
-    const l = cleanLook(look);
-    return this._get('pportrait:' + lookKey(l), () => ({ px: genPortrait(playerLookOpts(l)), ax: 16, ay: 16 }));
-  },
 
   tufts(season) {
     const key = 'tufts' + season;
@@ -147,6 +143,7 @@ const SPR = {
 const UI_COL = {
   ink: '#3a2614', inkSoft: '#6e5232', paper: '#f6ecd2', paperD: '#e8d8b0', wood: '#8a5a34',
   gold: '#f6c83a', red: '#c8483a', green: '#4a8a3a', blue: '#3a6ab0', muted: '#9a8464', white: '#ffffff',
+  ok: '#3a7a2a', bad: '#b8382a', cream: '#fff4d8',   // text: done / missing / light text on wood and dark panels
 };
 
 function genPanel(style, w, h) {

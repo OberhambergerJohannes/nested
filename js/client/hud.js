@@ -18,21 +18,21 @@ const HUD = {
       ui.panel('wood', 3, 3, 96, 30);
       const seasonIcon = SPR.ui(SEASONS[S.time.season]);
       ui.icon(seasonIcon, 6, 5);
-      ui.text(SEASON_NAMES[S.time.season].slice(0, 3) + ' ' + S.time.day + ', Y' + S.time.year, 24, 7, '#fff4d8');
+      ui.text(SEASON_NAMES[S.time.season].slice(0, 3) + ' ' + S.time.day + ', Y' + S.time.year, 24, 7, UI_COL.cream);
       const wIcon = { sun: 'sun', rain: 'rain', cloud: 'cloud', snow: 'snow' }[S.weather] || 'sun';
       ui.icon(SPR.ui(t >= 20 * 60 || t < 6 * 60 ? 'moon' : wIcon), 6, 17);
-      ui.text(fmtClock(t), 24, 21, t >= 23 * 60 ? '#ffb0a0' : '#fff4d8');
+      ui.text(fmtClock(t), 24, 21, t >= 23 * 60 ? '#ffb0a0' : UI_COL.cream);
       ui.panel('wood', 3, 34, 60, 16);
       ui.icon(SPR.ui('coin'), 4, 34);
-      ui.text(String(S.coins), 21, 38, '#fff4d8');
+      ui.text(String(S.coins), 21, 38, UI_COL.cream);
       // ---------------- birder rank: always-visible progress toward the next rank
       const mine = S.prog || { xp: 0, lvl: 1 };
       const need = xpForLevel(mine.lvl), frac = mine.lvl >= MAX_LEVEL ? 1 : mine.xp / need;
       const rw = ui.widget('hud:rank', 3, 51, 96, 18);
       ui.panel('wood', 3, 51, 96, 18);
       ui.text('★' + mine.lvl, 7, 54, '#f6d860');
-      ui.text(RANKS[mine.lvl - 1], 22, 54, '#fff4d8');
-      ui.rect(7, 63, 88, 3, '#3a2614');
+      ui.text(RANKS[mine.lvl - 1], 22, 54, UI_COL.cream);
+      ui.rect(7, 63, 88, 3, UI_COL.ink);
       ui.rect(7, 63, Math.round(88 * clamp(frac, 0, 1)), 3, '#9ae07a');
       if (rw.over || rw.focused) ui.tip = mine.lvl >= MAX_LEVEL ? 'Top birder rank!' : 'Birder rank ' + mine.lvl + ': ' + mine.xp + '/' + need + ' XP to the next rank. Earn XP by watching birds, building nests, finding clues and helping villagers.';
       if (rw.clicked) game.openModal(new JournalScreen(4));
@@ -80,7 +80,7 @@ const HUD = {
         const x = Math.floor((v.w - w) / 2);
         ui.panel('dark', x, hy - 16, w, 14);
         ui.icon(SPR.itemIcon(held.k), x + 2, hy - 17);
-        ui.text(txt, x + 20, hy - 13, '#f6ecd2');
+        ui.text(txt, x + 20, hy - 13, UI_COL.paper);
       }
     });
     if (!game.modal) this.guide(ui, game, v);
@@ -103,7 +103,7 @@ const HUD = {
       ui.g.globalAlpha = a;
       ui.panel('dark', x, ty, w, h);
       if (tt.icon && tt.icon !== 'no') ui.icon(SPR.ui(tt.icon), x + 4, ty + h / 2 - 8);
-      lines.forEach((l, i) => ui.text(l, x + (tt.icon ? 22 : 6), ty + 4 + i * LINE_H, tt.icon === 'no' ? '#ffb0a0' : '#f6ecd2'));
+      lines.forEach((l, i) => ui.text(l, x + (tt.icon ? 22 : 6), ty + 4 + i * LINE_H, tt.icon === 'no' ? '#ffb0a0' : UI_COL.paper));
       ui.g.globalAlpha = 1;
       ty += h + 2;
     }
@@ -172,52 +172,59 @@ const HUD = {
     parts.forEach(([k, l], i) => {
       const key = '[' + Input.keyLabel(k) + ']';
       cx += ui.text(key, cx, y + 2, '#f6c83a');
-      cx += ui.text(' ' + l + (i < parts.length - 1 ? '   ' : ''), cx, y + 2, '#f6ecd2');
+      cx += ui.text(' ' + l + (i < parts.length - 1 ? '   ' : ''), cx, y + 2, UI_COL.paper);
     });
   },
 
-  tracker(ui, game, v) {
+  // What the tracker shows: the tutorial step, today's festival, the bird you're tracking, or your leads.
+  // {title, lines: [[text, colour, material icon?]…]}
+  trackerContent(game) {
     const S = game.state;
-    const lines = [];
-    let title = '';
-    this.trackerRect = null;
     if (S.quest < TUTORIAL.length) {
-      title = 'Getting started';
-      const step = TUTORIAL[S.quest];
-      lines.push([step.text, '#3a2614']);
-      if (step.id === 'gather') {
-        for (const [k, n] of [['twig', 2], ['grass', 3], ['mud', 2]]) lines.push(['  ' + MATS[k].name + ' ' + Math.min(n, S.mats[k] || 0) + '/' + n, (S.mats[k] || 0) >= n ? '#3a7a2a' : '#6e5232', k]);
-      }
-      if (step.id === 'build') lines.push(['  Look for: shrub + short lawn', '#6e5232']);
-    } else if (game.tracked && S.journal[game.tracked] && S.journal[game.tracked].n === 0) {
-      const sp = SPECIES_BY_ID[game.tracked];
-      const j = S.journal[sp.id];
-      title = 'Tracking: ' + sp.name;
-      if (j.h < 3) lines.push(['Clues ' + j.h + '/3 — look around ' + ZONES_LABEL[sp.zone], '#6e5232']);
-      else {
-        lines.push(['Site: ' + SITES[sp.site].label, '#3a2614']);
-        for (const k in sp.mats) lines.push(['  ' + MATS[k].name + ' ' + Math.min(sp.mats[k], S.mats[k] || 0) + '/' + sp.mats[k], (S.mats[k] || 0) >= sp.mats[k] ? '#3a7a2a' : '#6e5232', k]);
-        if (!sp.breed.includes(S.time.season)) lines.push(['Nests in ' + sp.breed.map((b) => SEASON_NAMES[b]).join('/'), '#b8382a']);
-      }
-    } else {
-      title = 'Leads';
-      for (const q of QUESTS) {
-        const st = S.side && S.side[q.id];
-        if (!st || st.st !== 'on' || lines.length >= 2) continue;
-        const ready = questReady(S, q);
-        const more = ready ? ' — back to ' + NPCS[q.npc].name : q.kind === 'deliver' ? ' → ' + NPCS[q.to].name
-          : q.n > 1 ? ' ' + questProgress(S, q) + '/' + q.n : q.night ? ' (after 9 pm)' : q.early ? ' (before 8 am)' : '';
-        lines.push(['★ ' + q.title + more, ready ? '#3a7a2a' : '#8a5a1a']);
-      }
-      for (const id of S.featured || []) {
-        const sp = SPECIES_BY_ID[id], j = S.journal[id];
-        if (!sp || j.h >= 3) continue;
-        lines.push([(j.h ? sp.name : '???') + ' ' + j.h + '/3 · ' + ZONES_LABEL[sp.zone], '#3a2614']);
-      }
-      const ready = SPECIES.filter((s) => S.journal[s.id].h >= 3 && S.journal[s.id].n === 0 && s.site !== 'parasite' && !S.hasActiveNest(s.id));
-      for (const s of ready.slice(0, 2)) lines.push(['Ready to build: ' + s.name, '#3a6ab0']);
-      if (!lines.length) lines.push(['Nest more species to attract new birds', '#6e5232']);
+      const step = TUTORIAL[S.quest], lines = [[step.text, UI_COL.ink]];
+      if (step.id === 'gather') lines.push(...this._matLines(S, { twig: 2, grass: 3, mud: 2 }));
+      if (step.id === 'build') lines.push(['  Look for: shrub + short lawn', UI_COL.inkSoft]);
+      return { title: 'Getting started', lines };
     }
+    const fest = FestivalView.trackerLines(S);
+    if (fest) return fest;
+    const tj = game.tracked && S.journal[game.tracked];
+    if (tj && tj.n === 0) {
+      const sp = SPECIES_BY_ID[game.tracked], lines = [];
+      if (tj.h < 3) lines.push(['Clues ' + tj.h + '/3 — look around ' + ZONES_LABEL[sp.zone], UI_COL.inkSoft]);
+      else {
+        lines.push(['Site: ' + SITES[sp.site].label, UI_COL.ink], ...this._matLines(S, sp.mats));
+        if (!sp.breed.includes(S.time.season)) lines.push(['Nests in ' + sp.breed.map((b) => SEASON_NAMES[b]).join('/'), UI_COL.bad]);
+      }
+      return { title: 'Tracking: ' + sp.name, lines };
+    }
+    const lines = [];
+    for (const q of QUESTS) {
+      const st = S.side && S.side[q.id];
+      if (!st || st.st !== 'on' || lines.length >= 2) continue;
+      const ready = questReady(S, q);
+      const more = ready ? ' — back to ' + NPCS[q.npc].name : q.kind === 'deliver' ? ' → ' + NPCS[q.to].name
+        : q.n > 1 ? ' ' + questProgress(S, q) + '/' + q.n : q.night ? ' (after 9 pm)' : q.early ? ' (before 8 am)' : '';
+      lines.push(['★ ' + q.title + more, ready ? UI_COL.ok : '#8a5a1a']);
+    }
+    for (const id of S.featured || []) {
+      const sp = SPECIES_BY_ID[id], j = S.journal[id];
+      if (!sp || j.h >= 3) continue;
+      lines.push([(j.h ? sp.name : '???') + ' ' + j.h + '/3 · ' + ZONES_LABEL[sp.zone], UI_COL.ink]);
+    }
+    const ready = SPECIES.filter((s) => S.journal[s.id].h >= 3 && S.journal[s.id].n === 0 && s.site !== 'parasite' && !S.hasActiveNest(s.id));
+    for (const s of ready.slice(0, 2)) lines.push(['Ready to build: ' + s.name, UI_COL.blue]);
+    if (!lines.length) lines.push(['Nest more species to attract new birds', UI_COL.inkSoft]);
+    return { title: 'Leads', lines };
+  },
+  // "Twigs 1/2" for each material, green once there's enough in the pouch
+  _matLines(S, mats) {
+    return Object.keys(mats).map((k) => ['  ' + MATS[k].name + ' ' + Math.min(mats[k], S.mats[k] || 0) + '/' + mats[k], (S.mats[k] || 0) >= mats[k] ? UI_COL.ok : UI_COL.inkSoft, k]);
+  },
+
+  tracker(ui, game, v) {
+    this.trackerRect = null;
+    const { title, lines } = this.trackerContent(game);
     if (!lines.length) return;
     const maxW = Math.min(200, Math.floor(v.w * 0.42));
     // wrap long lines
@@ -233,7 +240,7 @@ const HUD = {
     this.trackerRect = [x, y, w, h];
     if (game.modal) return; // windows show the same information; don't peek out around them
     ui.panel('paper', x, y, w, h);
-    ui.text(title.length > 32 ? title.slice(0, 31) + '…' : title, x + 6, y + 4, '#3a6ab0');
+    ui.text(title.length > 32 ? title.slice(0, 31) + '…' : title, x + 6, y + 4, UI_COL.blue);
     rows.forEach(([t, c, mk], i) => {
       if (mk) ui.icon(SPR.matIcon(mk), x + 8, y + 13 + i * 10, 0.5);
       ui.text(t, x + 6 + (mk ? 12 : 0), y + 14 + i * 10, c);
@@ -255,7 +262,7 @@ const HUD = {
     if (game.chatOpen) {
       ui.panel('dark', 3, v.h - 52, Math.min(240, v.w - 6), 13);
       const cur = Math.floor(now / 400) % 2 ? '_' : '';
-      ui.text('Say: ' + game.chatText + cur, 7, v.h - 50, '#f6ecd2');
+      ui.text('Say: ' + game.chatText + cur, 7, v.h - 50, UI_COL.paper);
     }
   },
 
@@ -267,7 +274,7 @@ const HUD = {
     g.globalAlpha = 0.35;
     g.fillStyle = '#1d1a2b';
     g.beginPath(); g.arc(jx, jy, 22, 0, 7); g.fill();
-    g.fillStyle = '#f6ecd2';
+    g.fillStyle = UI_COL.paper;
     const kx = st.active ? clamp(st.x - st.cx, -20, 20) : 0, ky = st.active ? clamp(st.y - st.cy, -20, 20) : 0;
     g.beginPath(); g.arc(jx + kx, jy + ky, 9, 0, 7); g.fill();
     g.globalAlpha = 1;
@@ -276,7 +283,7 @@ const HUD = {
     const btn = (id, x, y, label, act) => {
       const s = ui.widget(id, x - 14, y - 14, 28, 28);
       g.globalAlpha = s.clicked ? 0.9 : 0.55;
-      g.fillStyle = id.endsWith('a') ? '#4a8a3a' : '#3a6ab0';
+      g.fillStyle = id.endsWith('a') ? '#4a8a3a' : UI_COL.blue;
       g.beginPath(); g.arc(x, y, 13, 0, 7); g.fill();
       g.globalAlpha = 1;
       ui.text(label, x, y - 4, '#ffffff', { align: 'center' });

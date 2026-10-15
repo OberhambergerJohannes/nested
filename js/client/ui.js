@@ -172,10 +172,10 @@ class UI {
   // A little keycap showing which key triggers something; returns its width
   keyHint(label, x, y) {
     const w = this.font.measure(label) + 6;
-    this.rect(x, y, w, 12, '#3a2614');
+    this.rect(x, y, w, 12, UI_COL.ink);
     this.rect(x + 1, y + 1, w - 2, 9, '#6a4c30');
     this.rect(x + 1, y + 1, w - 2, 1, '#8a6a46');
-    this.text(label, x + 3, y + 2, '#fff4d8');
+    this.text(label, x + 3, y + 2, UI_COL.cream);
     return w;
   }
   keyHintW(label) { return label ? this.font.measure(label) + 6 : 0; }
@@ -265,7 +265,7 @@ class UI {
   closeX(id, x, y) {
     if (!Input.touchMode) {
       const k = Input.lastDevice === 'pad' ? 'B' : 'Esc';
-      this.text(k, x - 2, y + 2, '#9a8464', { align: 'right' });
+      this.text(k, x - 2, y + 2, UI_COL.muted, { align: 'right' });
     }
     const st = this.widget(id, x, y, 11, 11);
     this.panel(st.over || st.focused ? 'btnh' : 'btn', x, y, 11, 11);
@@ -282,7 +282,7 @@ class UI {
     const active = this.editing === id;
     this.panel(active ? 'slotsel' : 'slot', x, y, w, 14);
     const shown = value + (active && Math.floor(performance.now() / 400) % 2 ? '_' : '');
-    this.text(shown || (active ? '' : opts.placeholder || ''), x + 4, y + 3, value ? UI_COL.ink : '#9a8464');
+    this.text(shown || (active ? '' : opts.placeholder || ''), x + 4, y + 3, value ? UI_COL.ink : UI_COL.muted);
     if (st.focused && !active) this.focusRing(x, y, w, 14);
     if (st.clicked && !active) { this.editing = id; Input.startText(value); return value; }
     if (active) {
@@ -320,7 +320,7 @@ class UI {
       let y = Input.lastDevice === 'mouse' ? Input.mouse.y + 10 : this.view.h - h - 34;
       x = clamp(x, 2, this.view.w - w - 2); y = clamp(y, 2, this.view.h - h - 2);
       this.panel('dark', x, y, w, h);
-      lines.forEach((l, i) => this.text(l, x + 4, y + 3 + i * LINE_H, '#f6ecd2'));
+      lines.forEach((l, i) => this.text(l, x + 4, y + 3 + i * LINE_H, UI_COL.paper));
     }
   }
 }

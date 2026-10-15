@@ -50,7 +50,7 @@ class World {
     for (const k of MAT_ORDER) w.mats[k] = 0;
     w.mats.wood = 5;
     w.journal = {};
-    for (const sp of SPECIES) w.journal[sp.id] = { h: 0, n: 0, seen: false, first: null };
+    for (const sp of SPECIES) w.journal[sp.id] = blankJournalEntry();
     w.log = [];
     w.mail = [];
     w.mailSeq = 1;
@@ -58,7 +58,7 @@ class World {
     w.tierSent = 0;
     w.adaDay = -1;
     w.allDone = false;
-    w.stats = { fledged: 0, built: 0, days: 1 };
+    w.stats = freshStats();
     w.dug = {};
     w.featured = [];
     w.visitors = [];
@@ -71,10 +71,7 @@ class World {
     w.festLog = {};
     w.sendMail(LETTERS.welcome);
     w._makeAnimals();
-    w.bulk = true;
-    w.startDay();
-    w.bulk = false;
-    w.pendAll = [];
+    w._quietly(() => w.startDay());
     return w;
   }
 
@@ -90,10 +87,10 @@ class World {
     w.time = d.time; w.weather = d.weather; w.coins = d.coins; w.mats = d.mats;
     for (const k of MAT_ORDER) if (w.mats[k] == null) w.mats[k] = 0;
     w.journal = d.journal;
-    for (const sp of SPECIES) if (!w.journal[sp.id]) w.journal[sp.id] = { h: 0, n: 0, seen: false, first: null };
+    for (const sp of SPECIES) if (!w.journal[sp.id]) w.journal[sp.id] = blankJournalEntry();
     w.log = d.log || []; w.mail = d.mail || []; w.mailSeq = d.mailSeq || 1;
     w.quest = d.quest || 0; w.tierSent = d.tierSent || 0; w.adaDay = d.adaDay == null ? -1 : d.adaDay;
-    w.allDone = !!d.allDone; w.stats = d.stats || { fledged: 0, built: 0, days: 1 };
+    w.allDone = !!d.allDone; w.stats = d.stats || freshStats();
     w.dug = d.dug || {};
     w.featured = d.featured || []; w.visitors = d.visitors || [];
     w.side = d.side || {}; w.found = d.found || {};
@@ -102,10 +99,10 @@ class World {
     w.festLog = d.festLog || {};
     w.fest = d.fest && d.fest.d === dayIdx(w.time) ? d.fest : null;
     w._addNewBuildings(m);
-    if (!w.fest) { w.bulk = true; w._startFest(); w.bulk = false; w.pendAll = []; }
+    if (!w.fest) w._quietly(() => w._startFest());
     npcFestival(w.time);
     w._makeAnimals();
-    if (!w.featured.length) { w.bulk = true; w.pickFeatured(); w.bulk = false; w.pendAll = []; }
+    if (!w.featured.length) w._quietly(() => w.pickFeatured());
     return w;
   }
 
@@ -147,6 +144,9 @@ class World {
       }
     }
   }
+
+  // Run setup without sending any events (nobody is listening yet)
+  _quietly(fn) { this.bulk = true; fn(); this.bulk = false; this.pendAll = []; }
 
   _setupMap(m) {
     this.wild = m.wild;
@@ -392,6 +392,7 @@ class World {
     this.questCheck();
   }
   hasMats(req) { for (const k in req) if ((this.mats[k] || 0) < req[k]) return false; return true; }
+  addCoins(n) { this.coins += n; this.ev('coins', this.coins); }
   takeMats(req) {
     const ch = {};
     for (const k in req) { this.mats[k] -= req[k]; ch[k] = this.mats[k]; }
@@ -532,7 +533,7 @@ class World {
         const first = !this.found[o.kind];
         if (first) {
           this.found[o.kind] = today;
-          this.coins += LANDMARK_REWARD; this.ev('coins', this.coins);
+          this.addCoins(LANDMARK_REWARD);
           this.ev('found', this.found);
           this.toastAll((p.name ? p.name + ' discovered ' : 'Discovered ') + 'the ' + l.name + '! (+' + LANDMARK_REWARD + ' coins)', 'star');
           this.addXP(p, XP.landmark, 'landmark');
@@ -546,7 +547,7 @@ class World {
           if (q.night && mm < 21 * 60) { this.toast(p, q.title + ': come back after 9 pm, when it\'s dark.', 'moon'); continue; }
           if (q.early && mm >= 8 * 60) { this.toast(p, q.title + ': come back before 8 in the morning.', 'sun'); continue; }
           st.n = 1; this.ev('side', this.side);
-          this.toast(p, q.title + ': done — tell ' + NPCS[q.npc].name + '!', 'star');
+          this.toast(p, questMsg(q, 1), 'star');
           this.ev('snd', 'clue');
         }
         break;
@@ -575,22 +576,14 @@ class World {
           break;
         }
         this.removeObj(o);
-        switch (o.kind) {
-          case 'twig': this.gainMat(p, 'twig', o.q || 1, src); break;
-          case 'stick': this.gainMat(p, 'stick', 1, src); break;
-          case 'leaves': this.gainMat(p, 'leaves', 2, src); break;
-          case 'feather': this.gainMat(p, 'feather', 1, src); break;
-          case 'stone': this.gainMat(p, 'stone', 1, src); break;
-          case 'driftwood': this.gainMat(p, 'wood', 2, src); break;
-          case 'mushroom': this.gainItem(p, 'mushroom', 1, src); break;
-          case 'garlic': this.gainItem(p, 'garlic', 1, src); break;
-          case 'note': this.giveHint(o.sp, 'note', p); break;
-          case 'paperbird': {
-            const fa = festActive(this.time, this.time.min);
-            if (fa && fa.id === 'midsummer') this.festCount(p, fa, 'pb' + o.id, 1, 'paper bird');
-            else this.toast(p, 'One of Rosie\'s paper birds. The hunt is over, but it\'s pretty!', '');
-            break;
-          }
+        const fg = FORAGE_GAIN[o.kind];
+        if (fg && fg.mat) this.gainMat(p, fg.mat, o.q || fg.n, src);
+        else if (fg) this.gainItem(p, fg.item, fg.n, src);
+        else if (o.kind === 'note') this.giveHint(o.sp, 'note', p);
+        else if (o.kind === 'paperbird') {
+          const fa = this._festRunning('midsummer');
+          if (fa) this.festCount(p, fa, 'pb' + o.id, 1, 'paper bird');
+          else this.toast(p, 'One of Rosie\'s paper birds. The hunt is over, but it\'s pretty!', '');
         }
         this.ev('fx', 'pickup', 0, src[0], src[1]);
         break;
@@ -618,13 +611,11 @@ class World {
     if (!q || q.op !== m.op) return;
     const i = tIdx(x, y), today = dayIdx(this.time);
     const src = [x * TS + 8, y * TS + 8];
-    switch (q.op) {
-      case 'cut': this.setGrass(i, 0); this.gainMat(p, 'grass', 1, src); this.ev('fx', 'grass', 0, src[0], src[1]); break;
-      case 'mud': this.dug[i] = today; this.ev('dug', i, today); this.gainMat(p, 'mud', 1, src); this.ev('fx', 'mud', 0, src[0], src[1]); break;
-      case 'sand': this.dug[i] = today; this.ev('dug', i, today); this.gainMat(p, 'sand', 1, src); this.ev('fx', 'dig', 0, src[0], src[1]); break;
-      case 'clay': this.dug[i] = today; this.ev('dug', i, today); this.gainMat(p, 'clay', 1, src); this.ev('fx', 'dig', 0, src[0], src[1]); break;
-      case 'gravel': this.dug[i] = today; this.ev('dug', i, today); this.gainMat(p, 'stone', 1, src); this.ev('fx', 'dig', 0, src[0], src[1]); break;
-    }
+    if (q.op === 'cut') { this.setGrass(i, 0); this.gainMat(p, 'grass', 1, src); this.ev('fx', 'grass', 0, src[0], src[1]); return; }
+    const dig = DIG_TILES[this.tiles[i]];
+    this.dug[i] = today; this.ev('dug', i, today);
+    this.gainMat(p, dig.mat, 1, src);
+    this.ev('fx', dig.fx, 0, src[0], src[1]);
   }
 
   actPlace(p, m) {
@@ -659,13 +650,7 @@ class World {
       this.addObj(o);
       this.ev('fx', 'plant', 0, x * TS + 8, y * TS + 12);
       this.bumpStat('planted');
-      for (const q of QUESTS) {
-        const st = this.side[q.id];
-        if (q.kind === 'plant' && [].concat(q.plant).includes(it.plant) && st && st.st === 'on' && (st.n || 0) < q.n) {
-          st.n = (st.n || 0) + 1; this.ev('side', this.side);
-          this.toast(p, q.title + ': ' + st.n + '/' + q.n + (st.n >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : ''), 'star');
-        }
-      }
+      this._bumpQuests((q) => q.kind === 'plant' && [].concat(q.plant).includes(it.plant), p);
     }
     this.takeSlot(p, slot, 1);
   }
@@ -713,12 +698,11 @@ class World {
     if (!sp.lining) return;
     if (!this.hasMats(sp.lining)) return this.fail(p, 'Not enough feathers for the lining.');
     this.takeMats(sp.lining);
-    n.st = 'pair';
-    n.cl = randInt(Math.random, sp.clutch[0], sp.clutch[1]);
+    this._pairUp(n, sp);
     this.touch(n, ['st', 'cl']);
     this.toastAll('The Wren nest is lined with feathers — the pair has moved in!', 'heart');
     this.ev('fx', 'hearts', n.id, 0, 0);
-    this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), p);
+    this._bumpQuests(questAbout('nest', sp.id), p);
   }
 
   actNestClear(p, m) {
@@ -767,7 +751,7 @@ class World {
     this.gainItem(p, r.id, 1);
     this.evTo(p.pid, 'snd', 'craft');
     this.toast(p, 'Crafted: ' + ITEMS[r.id].name + '! Face an empty spot and press E to place it.', 'hammer');
-    if (TUTORIAL[this.quest] && TUTORIAL[this.quest].id === 'craft') this._advanceQuest();
+    if (tutorialStep(this) === 'craft') this._advanceQuest();
   }
 
   clockMin() { return this.time.min + this.msAcc / this.msPerMin; }
@@ -791,7 +775,7 @@ class World {
     if (k === 'mat:wood') {
       const cost = WOOD_PRICE * n;
       if (this.coins < cost) return this.fail(p, 'Not enough coins.');
-      this.coins -= cost; this.ev('coins', this.coins);
+      this.addCoins(-cost);
       this.gainMat(p, 'wood', n);
       this.evTo(p.pid, 'snd', 'coin');
       return;
@@ -800,9 +784,9 @@ class World {
     const cost = it.price * n;
     if (this.coins < cost) return this.fail(p, 'Not enough coins.');
     if (!this.hasRoom(p, k)) return this.fail(p, 'Your bag is full!');
-    this.coins -= cost; this.ev('coins', this.coins);
+    this.addCoins(-cost);
     const got = this.gainItem(p, k, n);
-    if (got < n) { this.coins += it.price * (n - got); this.ev('coins', this.coins); }
+    if (got < n) { this.addCoins(it.price * (n - got)); }
     this.evTo(p.pid, 'snd', 'coin');
   }
 
@@ -813,7 +797,7 @@ class World {
     const n = clamp(m.n | 0, 1, s.n);
     const price = itemSellPrice(s.k) * n;
     this.takeSlot(p, slot, n);
-    this.coins += price; this.ev('coins', this.coins);
+    this.addCoins(price);
     this.evTo(p.pid, 'snd', 'coin');
   }
 
@@ -828,8 +812,8 @@ class World {
     if (p.obsD[sp.id] !== today) { p.obsD[sp.id] = today; this.addXP(p, XP.observe + (firstEver ? XP.firstSight : 0), 'observe'); }
     if (sp.ambient || sp.rare) this.stats['seen_' + sp.id] = 1;
     if (this.time.min < 7 * 60) this.stats.early = 1;
-    const fa = festActive(this.time, this.time.min);
-    if (fa && fa.id === 'dawn') this.festCount(p, fa, sp.id, 1, sp.name);
+    const fa = this._festRunning('dawn');
+    if (fa) this.festCount(p, fa, sp.id, 1, sp.name);
     if (sp.night) { const nl = this.stats.nightList || (this.stats.nightList = []); if (!nl.includes(sp.id)) nl.push(sp.id); }
     this.bumpStat('observed');
     if (sp.rare) return this._observeRare(p, sp);
@@ -839,7 +823,7 @@ class World {
       st.seen = st.seen || [];
       if (!st.seen.includes(sp.id) && st.seen.length < q.n) {
         st.seen.push(sp.id); this.ev('side', this.side);
-        this.toast(p, q.title + ': ' + st.seen.length + '/' + q.n + ' species' + (st.seen.length >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : ''), 'star');
+        this.toast(p, questMsg(q, st.seen.length, ' species'), 'star');
       }
     }
     if (sp.ambient) return;
@@ -887,11 +871,16 @@ class World {
     this._storePlayer(p);
   }
   teamXP(n, why) { for (const p of this.players.values()) this.addXP(p, n, why); }
+  // Hand out a reward {coins, items, mats} (src: where the things fly from); returns what was given, in words
+  _grant(p, r, src) {
+    const got = [];
+    if (r.coins) { this.addCoins(r.coins); got.push(r.coins + ' coins'); }
+    for (const k in r.items || {}) { this.gainItem(p, k, r.items[k], src); got.push(r.items[k] + '× ' + ITEMS[k].name); }
+    for (const k in r.mats || {}) { this.gainMat(p, k, r.mats[k], src); got.push(r.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+    return got;
+  }
   _levelUp(p) {
-    const lvl = p.lvl, r = LEVEL_REWARDS[lvl] || {}, got = [];
-    if (r.coins) { this.coins += r.coins; this.ev('coins', this.coins); got.push(r.coins + ' coins'); }
-    for (const k in r.items || {}) { this.gainItem(p, k, r.items[k]); got.push(r.items[k] + '× ' + ITEMS[k].name); }
-    for (const k in r.mats || {}) { this.gainMat(p, k, r.mats[k]); got.push(r.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+    const lvl = p.lvl, r = LEVEL_REWARDS[lvl] || {}, got = this._grant(p, r);
     if (r.recipe) got.push('New workbench recipe: ' + ITEMS[r.recipe].name);
     if (r.perk) got.push(PERK_TEXT[r.perk]);
     if (this.bulk) p.lvlUps.push({ lvl, got });
@@ -904,17 +893,7 @@ class World {
     this.checkBadges();
   }
   statValue(k) {
-    if (k === 'species') return nestedCount(this);
-    if (k === 'landmarks') return Object.keys(this.found || {}).length;
-    if (k === 'nightSpecies') return (this.stats.nightList || []).length;
-    if (k === 'festGold') return FESTIVALS.filter((f) => this.festLog && this.festLog[f.id] && this.festLog[f.id].best >= 3).length;
-    if (k === 'bestFriends') {
-      let best = 0;
-      for (const rec of Object.values(this.saved)) for (const npc in (rec.fr || {})) if (rec.fr[npc] >= HEART * MAX_HEARTS) best = 1;
-      for (const p of this.players.values()) for (const npc in (p.fr || {})) if (p.fr[npc] >= HEART * MAX_HEARTS) best = 1;
-      return best;
-    }
-    return this.stats[k] || 0;
+    return badgeStat(this, k, () => Object.values(this.saved).some((r) => isBestFriend(r.fr)) || [...this.players.values()].some((p) => isBestFriend(p.fr)));
   }
   checkBadges() {
     if (!this.badges) this.badges = {};
@@ -950,10 +929,7 @@ class World {
       if (h < lv || seen >= lv || !st[lv]) continue;
       p.hev[npc] = lv;
       if (lv === 5) {
-        const g = st[5], got = [];
-        if (g.coins) { this.coins += g.coins; this.ev('coins', this.coins); got.push(g.coins + ' coins'); }
-        for (const k in g.items || {}) { this.gainItem(p, k, g.items[k], [p.x, p.y - 20]); got.push(g.items[k] + '× ' + ITEMS[k].name); }
-        for (const k in g.mats || {}) { this.gainMat(p, k, g.mats[k], [p.x, p.y - 20]); got.push(g.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+        const g = st[5], got = this._grant(p, g, [p.x, p.y - 20]);
         this.dlg(p, npc, ['You know… you\'ve become one of my dearest friends.'].concat(g.lines, got.length ? ['(You received ' + got.join(', ') + '.)'] : []), [{ id: 'bye', label: 'Thank you, friend!' }]);
       } else this.dlg(p, npc, st[lv], [{ id: 'bye', label: 'Thanks for telling me.' }]);
       this._sendMe(p); this._storePlayer(p);
@@ -968,8 +944,8 @@ class World {
     const it = ITEMS[s.k];
     if (!it || it.cat === 'struct') return this.fail(p, 'That\'s not really a gift.');
     const today = dayIdx(this.time);
-    const fa = festActive(this.time, this.time.min);
-    if (fa && fa.id === 'feeders' && BIRD_FOOD.includes(s.k) && this.fest && !this.fest.seen.includes(id)) {
+    const fa = this._festRunning('feeders');
+    if (fa && BIRD_FOOD.includes(s.k) && this.fest && !this.fest.seen.includes(id)) {
       this.takeSlot(p, slot, 1);
       const birds = 4 + hash32(today, id.length * 31 + id.charCodeAt(0), this.seed) % 9;
       this.dlg(p, id, [FEEDER_THANKS[id], '(' + NPCS[id].name + ' fills a feeder and counts ' + birds + ' bird visits.)'], [{ id: 'bye', label: 'Happy counting!' }]);
@@ -1023,6 +999,8 @@ class World {
     const f = next.f;
     this.sendMail({ from: 'Featherbrook Village', title: f.name + ' tomorrow!', body: 'Dear neighbour,\n\n' + f.invite + '\n\nSee you on the green!\n— ' + NPCS[f.host].name + ' & all your neighbours' });
   }
+  // The festival with this id, while its activity is running
+  _festRunning(id) { const f = festActive(this.time, this.time.min); return f && f.id === id ? f : null; }
   // One more for the festival tally (a bird kind, a paper bird, a flock or a feeder)
   festCount(p, f, key, birds, what) {
     const st = this.fest;
@@ -1040,7 +1018,7 @@ class World {
   }
   _ribbon(p, f, tier) {
     const pr = RIBBON_PRIZE[tier];
-    this.coins += pr.coins; this.ev('coins', this.coins);
+    this.addCoins(pr.coins);
     const log = this.festLog[f.id] || (this.festLog[f.id] = { best: 0, years: {} });
     log.best = Math.max(log.best, tier);
     log.years[this.time.year] = Math.max(log.years[this.time.year] || 0, tier);
@@ -1093,8 +1071,8 @@ class World {
   }
   // Count a migrating flock that is passing over you (Migration Watch)
   actFlock(p, m) {
-    const fa = festActive(this.time, this.time.min);
-    if (!fa || fa.id !== 'migration') return;
+    const fa = this._festRunning('migration');
+    if (!fa) return;
     const fl = skyFlocks(this).find((x) => x.id === (m.id | 0));
     const pos = fl && flockPos(fl, this.clockMin());
     if (!pos || Math.abs(pos.x - p.x) > 170 || Math.abs(pos.y - p.y) > 150) return;
@@ -1114,7 +1092,7 @@ class World {
     this.ev('board', this.board);
   }
   actBoard(p, m) {
-    const b = Array.from(this.objs.values()).find((o) => o.type === 'building' && o.kind === 'board');
+    const b = firstObj(this, 'building', 'board');
     if (!b || !this.reachObj(p, b, 12)) return;
     const t = this.board[m.i | 0];
     if (!t || t.done) return;
@@ -1122,7 +1100,7 @@ class World {
     this.takeMats({ [t.mat]: t.n });
     t.done = p.name;
     const coins = 15 + t.n * 6;
-    this.coins += coins; this.ev('coins', this.coins);
+    this.addCoins(coins);
     this.ev('board', this.board);
     this.toastAll(p.name + ' helped ' + NPCS[t.npc].name + ': ' + t.text.toLowerCase() + ' (+' + coins + ' coins)', 'heart');
     this.ev('snd', 'coin');
@@ -1147,7 +1125,7 @@ class World {
     if (!this.rareLog[sp.id]) {
       this.rareLog[sp.id] = dateStr(this.time);
       this.ev('rare', this.rareLog);
-      this.coins += 50; this.ev('coins', this.coins);
+      this.addCoins(50);
       this.toastAll(p.name + ' spotted a rare ' + sp.name + '! (+50 coins)', 'star');
       this.ev('snd', 'fanfare');
       this.addXP(p, XP.rare, 'rare');
@@ -1168,7 +1146,7 @@ class World {
 
   // Rest until the evening (solo only): a gentle way to meet the birds of the night
   actRest(p) {
-    const c = Array.from(this.objs.values()).find((o) => o.type === 'building' && o.kind === 'cottage');
+    const c = firstObj(this, 'building', 'cottage');
     const benches = Array.from(this.objs.values()).filter((o) => o.type === 'struct' && o.kind === 'gardenbench');
     const near = (c && dist2(p.x, p.y, (c.x + 2.5) * TS, (c.y + 3) * TS) < 48 * 48) || benches.some((o) => dist2(p.x, p.y, o.x * TS + 8, o.y * TS + 12) < 32 * 32);
     if (!near) return;
@@ -1184,7 +1162,7 @@ class World {
   actTalk(p, m) {
     const id = String(m.npc);
     if (!NPCS[id] || !this._nearNpc(p, id)) return;
-    const step = TUTORIAL[this.quest] ? TUTORIAL[this.quest].id : '';
+    const step = tutorialStep(this);
     const today = dayIdx(this.time);
     if (p.talkD[id] !== today) { p.talkD[id] = today; this.addFriend(p, id, 8); }
     const dq = QUESTS.find((q) => q.kind === 'deliver' && q.to === id && this.side[q.id] && this.side[q.id].st === 'on');
@@ -1204,25 +1182,9 @@ class World {
         this.quest = TUTORIAL.findIndex((s) => s.id === 'gather');
         this.ev('quest', this.quest);
         this._advanceQuest(true);
-        return this.dlg(p, 'ada', [
-          'Ah, you must be my new neighbour! Welcome to Featherbrook.',
-          'Let\'s start with a familiar friend: the Eurasian Blackbird. I\'ve written its nest blueprint into your journal.',
-          'Blackbirds build a cup of twigs and dry grass, plastered inside with mud. Shake trees for twigs, cut long grass in the meadows, and scoop mud from the muddy shore of your garden pond.',
-          'Then find a shrub next to your lawn and press F (or right-click) on it to build the nest. The birds will do the rest!',
-          'Press TAB any time to open your journal.',
-        ], [{ id: 'bye', label: 'Thanks, Ada!' }]);
+        return this.dlg(p, 'ada', ADA_WELCOME, [{ id: 'bye', label: 'Thanks, Ada!' }]);
       }
-      const tips = {
-        gather: 'Twigs from shaking trees, dry grass from long grass, and mud from the muddy pond shore by your cottage.',
-        build: 'Find a shrub next to your lawn and press F to build the Blackbird nest.',
-        arrive: 'Now we wait. Blackbirds move in quickly when a spot is right.',
-        sleep: 'A pair moved in? Wonderful! Get some rest — birds lay their eggs in the early morning.',
-        craft: 'Nest boxes next! Robins like an open-fronted box; Great Tits a box with a 28 mm hole. Your workbench is beside the cottage, and you have some wood.',
-        clues: 'Watch the birds you don\'t know yet: get close, stand still and press E to observe them. Field Notes with clues are scattered around too.',
-      };
-      const n = nestedCount(this);
-      const line = tips[step] || (n >= SPECIES.length ? 'Listen to that chorus! You did it, neighbour.' :
-        pick(['Hello, neighbour! The valley sounds livelier every day.', 'Good to see you! Any new birds?', 'Ah, there you are. I was just updating the survey.']));
+      const line = ADA_TIPS[step] || (nestedCount(this) >= SPECIES.length ? ADA_ALL_DONE : pick(ADA_GREETINGS));
       return this.dlg(p, 'ada', [line], questOpt.concat([
         { id: 'lead', label: 'Any leads?' }, { id: 'fact', label: 'Bird fact' },
         { id: 'progress', label: 'How are we doing?' }, { id: 'bye', label: 'Bye' }]));
@@ -1298,7 +1260,7 @@ class World {
       if (!st || st.st !== 'on' || !pred(q) || (st.n || 0) >= q.n) continue;
       st.n = (st.n || 0) + 1;
       this.ev('side', this.side);
-      const msg = q.title + ': ' + (q.n > 1 ? st.n + '/' + q.n : 'done') + (st.n >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : '');
+      const msg = questMsg(q, st.n);
       if (sum) sum.push(['star', msg]);
       else if (p) this.toast(p, msg, 'star');
       else this.toastAll(msg, 'star');
@@ -1313,11 +1275,8 @@ class World {
     if (q.kind === 'bring') { if (!this.hasMats({ [q.mat]: q.n })) return; this.takeMats({ [q.mat]: q.n }); }
     st.st = 'done';
     this.ev('side', this.side);
-    const r = q.reward || {}, src = [p.x, p.y - 20];
-    const got = [];
-    if (r.coins) { this.coins += r.coins; this.ev('coins', this.coins); got.push(r.coins + ' coins'); }
-    for (const k in r.items || {}) { this.gainItem(p, k, r.items[k], src); got.push(r.items[k] + '× ' + ITEMS[k].name); }
-    for (const k in r.mats || {}) { this.gainMat(p, k, r.mats[k], src); got.push(r.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+    const r = q.reward || {};
+    const got = this._grant(p, r, [p.x, p.y - 20]);
     const who = q.kind === 'deliver' ? q.to : q.npc;
     const lines = (q.kind === 'deliver' ? ['(You hand over ' + QITEMS[q.item].name + ' from ' + NPCS[q.npc].name + '.)'] : []).concat(q.thanks);
     this.dlg(p, who, lines.concat(got.length ? ['(You received ' + got.join(', ') + '.)'] : []), [{ id: 'bye', label: 'You\'re welcome!' }]);
@@ -1369,7 +1328,7 @@ class World {
     if (!l || l.read) return;
     l.read = true;
     this.ev('mailr', l.id);
-    if (TUTORIAL[this.quest] && TUTORIAL[this.quest].id === 'mail') this._advanceQuest();
+    if (tutorialStep(this) === 'mail') this._advanceQuest();
   }
 
   actSwap(p, m) {
@@ -1412,7 +1371,7 @@ class World {
     }
     if (!n) return;
     this.evTo(p.pid, 'inv', p.inv);
-    this.coins += coins; this.ev('coins', this.coins);
+    this.addCoins(coins);
     this.evTo(p.pid, 'snd', 'coin');
     this.toast(p, 'Sold ' + plural(n, 'thing') + ' to Basil for ' + coins + ' coins.', 'coin');
   }
@@ -1426,7 +1385,7 @@ class World {
 
   actSleep(p, m) {
     if (m.v) {
-      const c = Array.from(this.objs.values()).find((o) => o.type === 'building' && o.kind === 'cottage');
+      const c = firstObj(this, 'building', 'cottage');
       if (!c || !this.reachObj(p, c, 16)) return;
       p.sleep = true;
     } else p.sleep = false;
@@ -1511,7 +1470,7 @@ class World {
           const [cx, cy] = nestCenter(this, n);
           if (!evalNest(this, sp, cx, cy, n.id).ok) continue;
           if (!sp.night && m >= 20 * 60) continue;
-          const tutorial = TUTORIAL[this.quest] && TUTORIAL[this.quest].id === 'arrive' && sp.id === 'blackbird';
+          const tutorial = tutorialStep(this) === 'arrive' && sp.id === 'blackbird';
           n.arr = m + (tutorial ? 10 : randInt(Math.random, 20, 80));
           this.touch(n, ['arr']);
         } else if (m >= n.arr) {
@@ -1524,14 +1483,19 @@ class World {
     this._checkWren();
   }
 
-  _arrive(n, sp) {
+  // A pair settles in a built nest and decides how many eggs to lay
+  _pairUp(n, sp) {
     n.st = 'pair'; n.arr = 0;
     n.cl = randInt(Math.random, sp.clutch[0], sp.clutch[1]);
+  }
+
+  _arrive(n, sp) {
+    this._pairUp(n, sp);
     this.touch(n, ['st', 'arr', 'cl']);
     this.toastAll('A pair of ' + sp.name + 's moved into the nest!', 'heart');
     this.ev('fx', 'hearts', n.id, 0, 0);
     this.ev('snd', 'arrive', 0, 0);
-    this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), null, this.bulk ? [] : null);
+    this._bumpQuests(questAbout('nest', sp.id), null, this.bulk ? [] : null);
     this.questCheck();
   }
 
@@ -1563,9 +1527,9 @@ class World {
         case 'built': {
           const [cx, cy] = nestCenter(this, n);
           if (evalNest(this, sp, cx, cy, n.id).ok) {
-            n.st = 'pair'; n.arr = 0; n.cl = randInt(Math.random, sp.clutch[0], sp.clutch[1]);
+            this._pairUp(n, sp);
             sum.push(['heart', 'A pair of ' + sp.name + 's moved into a nest at dawn.']);
-            this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), null, sum);
+            this._bumpQuests(questAbout('nest', sp.id), null, sum);
           }
           break;
         }
@@ -1622,19 +1586,19 @@ class World {
     const j = this.journal[id];
     j.n++;
     this.stats.fledged++;
-    this._bumpQuests((q) => q.kind === 'fledge' && (!q.sp || q.sp.includes(id)), null, sum);
+    this._bumpQuests(questAbout('fledge', id), null, sum);
     this.teamXP(XP.fledge + (j.n === 1 ? XP.newSpecies : 0), 'fledge');
     if (j.n === 1) {
       j.first = dateStr(this.time);
       if (j.h < 3) j.h = 3;
       const grant = 100 + 40 * sp.tier;
-      this.coins += grant;
+      this.addCoins(grant);
       sum.newSpecies.push(id);
       sum.push(['star', 'NEW SPECIES NESTED: ' + sp.name + '! (+' + grant + ' coins grant)']);
       this.sendMail(nestedLetter(sp, grant));
       if (nestedCount(this) >= SPECIES.length && !this.allDone) { this.allDone = true; this.sendMail(LETTERS.allDone); }
     } else {
-      this.coins += 25;
+      this.addCoins(25);
       sum.push(['chick', 'Another brood of ' + sp.name + 's fledged. (+25 coins)']);
     }
   }
@@ -1719,7 +1683,7 @@ class World {
       p.x = HOME_SPAWN[0] + (k % 3 - 1) * 14; p.y = HOME_SPAWN[1] + Math.floor(k / 3) * 10; p.d = 0;
       k++;
     }
-    if (TUTORIAL[this.quest] && TUTORIAL[this.quest].id === 'sleep') this.quest++;
+    if (tutorialStep(this) === 'sleep') this.quest++;
     this.bulk = false;
     this.pendAll = [];
     this.pendTo.clear();
@@ -1862,6 +1826,18 @@ class World {
 }
 
 // ---------------------------------------------------------------- helpers
+const blankJournalEntry = () => ({ h: 0, n: 0, seen: false, first: null });
+const freshStats = () => ({ fledged: 0, built: 0, days: 1 });
+// Which active quests an event counts for: a nest or fledging of a species (or of any bird)
+const questAbout = (kind, spId) => (q) => q.kind === kind && (!q.sp || q.sp.includes(spId));
+// "Title: 2/3 — tell Ada!" (a one-step quest just says "done")
+function questMsg(q, n, unit) { return q.title + ': ' + (q.n > 1 ? n + '/' + q.n + (unit || '') : 'done') + (n >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : ''); }
+// What a piece of forage gives when picked up: pouch material or bag item, and how much
+const FORAGE_GAIN = {
+  twig: { mat: 'twig', n: 1 }, stick: { mat: 'stick', n: 1 }, leaves: { mat: 'leaves', n: 2 }, feather: { mat: 'feather', n: 1 },
+  stone: { mat: 'stone', n: 1 }, driftwood: { mat: 'wood', n: 2 }, mushroom: { item: 'mushroom', n: 1 }, garlic: { item: 'garlic', n: 1 },
+};
+
 function starterInventory() {
   const inv = new Array(BAG_SIZE).fill(null);
   inv[0] = { k: 'seed_wildflower', n: 5 };

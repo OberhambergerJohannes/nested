@@ -96,8 +96,6 @@ function b64decode(str) {
   return u8;
 }
 
-const deepClone = (o) => JSON.parse(JSON.stringify(o));
-
 function makeToken() {
   const chars = 'abcdefghijkmnopqrstuvwxyz23456789';
   let s = '';
@@ -176,7 +174,6 @@ const SPRING = 0, SUMMER = 1, AUTUMN = 2, WINTER = 3;
 const DIR_VEC = [[0, 1], [-1, 0], [1, 0], [0, -1]];
 
 const PLAYER_SPEED = 84;        // px per second
-const REACH = 30;               // px – interaction reach from player's feet
 const BAG_SIZE = 24, HOTBAR = 8;
 const STACK_MAX = 99;
 const MAX_PLAYERS = 6;
@@ -2468,7 +2465,24 @@ const NPC_LINES = {
     'Nightjars eat moths. No moths, no nightjars — so plant flowers that bloom and smell at night.',
   ],
 };
-const MABEL_LINES = NPC_LINES.mabel, BASIL_LINES = NPC_LINES.basil;
+// Prof. Ada: her welcome when you first visit, a tip for each tutorial step, and everyday greetings
+const ADA_WELCOME = [
+  'Ah, you must be my new neighbour! Welcome to Featherbrook.',
+  'Let\'s start with a familiar friend: the Eurasian Blackbird. I\'ve written its nest blueprint into your journal.',
+  'Blackbirds build a cup of twigs and dry grass, plastered inside with mud. Shake trees for twigs, cut long grass in the meadows, and scoop mud from the muddy shore of your garden pond.',
+  'Then find a shrub next to your lawn and press F (or right-click) on it to build the nest. The birds will do the rest!',
+  'Press TAB any time to open your journal.',
+];
+const ADA_TIPS = {
+  gather: 'Twigs from shaking trees, dry grass from long grass, and mud from the muddy pond shore by your cottage.',
+  build: 'Find a shrub next to your lawn and press F to build the Blackbird nest.',
+  arrive: 'Now we wait. Blackbirds move in quickly when a spot is right.',
+  sleep: 'A pair moved in? Wonderful! Get some rest — birds lay their eggs in the early morning.',
+  craft: 'Nest boxes next! Robins like an open-fronted box; Great Tits a box with a 28 mm hole. Your workbench is beside the cottage, and you have some wood.',
+  clues: 'Watch the birds you don\'t know yet: get close, stand still and press E to observe them. Field Notes with clues are scattered around too.',
+};
+const ADA_GREETINGS = ['Hello, neighbour! The valley sounds livelier every day.', 'Good to see you! Any new birds?', 'Ah, there you are. I was just updating the survey.'];
+const ADA_ALL_DONE = 'Listen to that chorus! You did it, neighbour.';
 
 const BIRD_FACTS = [
   'Most birds don\'t sleep in nests! Nests are nurseries for eggs and chicks — the rest of the year, songbirds roost on branches.',
@@ -2935,7 +2949,7 @@ const BOARD_TASKS = [
 // ---- js/data/festivals.js ----
 // Village festivals: one each season, on the middle day. The whole village gathers on the green,
 // there is one small activity with three ribbons to earn, and a keepsake for a gold ribbon.
-// Each festival is modelled on a real event (see README "Design notes"):
+// Each festival is modelled on a real event (see README "Village festivals"):
 //   Dawn Chorus Day — International Dawn Chorus Day (first Sunday in May)
 //   Midsummer Fair  — the midsummer fairs and bonfires held all over Europe
 //   Migration Watch — BirdLife's EuroBirdwatch (first weekend of October, since 1993)
@@ -3140,7 +3154,6 @@ function solidBox(o) {
       if (o.kind === 'bank' || o.kind === 'brushpile') return [1, 5, 15, 15];
       if (o.kind === 'birdbath') return [3, 8, 13, 15];
       if (o.kind === 'gardenbench') return [1, 9, 15, 15];
-      if (o.kind === 'feeder' || o.kind === 'lamppost') return [6, 11, 10, 15];
       return [6, 11, 10, 15];
     default: return null;
   }
@@ -3194,6 +3207,12 @@ function objsOnTile(S, x, y) {
 }
 
 function tileAt(S, x, y) { return inBounds(x, y) ? S.tiles[tIdx(x, y)] : T.CLIFF; }
+
+// The first object of a type and kind (the cottage, the notice board…), or null
+function firstObj(S, type, kind) {
+  for (const o of S.objs.values()) if (o.type === type && o.kind === kind) return o;
+  return null;
+}
 
 // ---------- collision ----------
 function boxBlocked(S, x0, y0, x1, y1) {
@@ -3364,11 +3383,6 @@ function nestsOfHost(S, hostId) {
   return out;
 }
 
-function groundNestAt(S, x, y) {
-  const o = objAt(S, x, y);
-  return o && o.type === 'nest' ? o : null;
-}
-
 // Evaluate whether a species would settle at a host. Returns {ok, checks:[{label, ok, have, need, why}]}
 function evalNest(S, sp, cx, cy, ignoreId) {
   const checks = [];
@@ -3376,11 +3390,7 @@ function evalNest(S, sp, cx, cy, ignoreId) {
   checks.push({ label: 'Nesting season: ' + sp.breed.map((s) => SEASON_NAMES[s]).join(', '), ok: inSeason, why: inSeason ? 'Now is the time!' : 'Wait for the right season' });
   for (const h of sp.hab) {
     const have = countHab(S, h.k, cx, cy, h.r);
-    let ok, label;
-    if (h.k === 'open') { ok = have <= h.n; label = h.n === 0 ? 'No trees within ' + h.r + ' tiles' : 'At most ' + h.n + ' trees within ' + h.r; }
-    else if (h.k === 'water' || h.k === 'anvil' || h.k === 'mud') { ok = have >= h.n; label = (h.k === 'anvil' ? 'Anvil stone' : h.k === 'mud' ? 'Mud source' : 'Water') + (h.r <= 1 ? ' right next to it' : ' within ' + h.r + ' tiles'); }
-    else { ok = have >= h.n; label = h.n + '+ ' + HAB_KINDS[h.k].unit + ' within ' + h.r; }
-    checks.push({ label, ok, have, need: h.n, why: h.why, k: h.k });
+    checks.push({ label: habLabel(h), ok: h.k === 'open' ? have <= h.n : have >= h.n, have, need: h.n, why: h.why, k: h.k });
   }
   if (sp.terr > 0) {
     let rival = 0;
@@ -3394,12 +3404,17 @@ function evalNest(S, sp, cx, cy, ignoreId) {
   return { ok: checks.every((c) => c.ok), checks };
 }
 
+// A habitat need in words, e.g. "8+ lawn tiles within 5" (journal and nest-site panel alike)
+function habLabel(h) {
+  if (h.k === 'open') return h.n === 0 ? 'No trees within ' + h.r + ' tiles' : 'At most ' + h.n + ' trees within ' + h.r;
+  if (h.k === 'water' || h.k === 'anvil' || h.k === 'mud') return (h.k === 'anvil' ? 'Anvil stone' : h.k === 'mud' ? 'Mud source' : 'Water') + (h.r <= 1 ? ' right next to it' : ' within ' + h.r + ' tiles');
+  return h.n + '+ ' + HAB_KINDS[h.k].unit + ' within ' + h.r;
+}
+
 function nestCenter(S, n) {
   if (n.host) { const h = S.objs.get(n.host); if (h) return hostCenter(h); }
   return [n.x, n.y];
 }
-
-function speciesForSite(site) { return SPECIES.filter((s) => s.site === site); }
 
 // Where a quest sends you (for the guide arrow), or null when it isn't about one place
 function questTarget(S, q) {
@@ -3407,7 +3422,8 @@ function questTarget(S, q) {
   if (questReady(S, q)) return npcAt(q.npc, NPCS[q.npc].name);
   if (q.kind === 'deliver') return npcAt(q.to, NPCS[q.to].name);
   if (q.kind === 'trip') {
-    for (const o of S.objs.values()) if (o.type === 'landmark' && o.kind === q.lm) return { x: o.x * TS + 8, y: o.y * TS + 8, label: LANDMARKS[q.lm].name, kind: 'quest' };
+    const o = firstObj(S, 'landmark', q.lm);
+    if (o) return { x: o.x * TS + 8, y: o.y * TS + 8, label: LANDMARKS[q.lm].name, kind: 'quest' };
   }
   if (q.kind === 'find' && q.area) return { x: (q.area[0] + q.area[2]) / 2 * TS, y: (q.area[1] + q.area[3]) / 2 * TS, label: 'Search here', kind: 'quest' };
   return null;
@@ -3426,9 +3442,8 @@ function staticShadow(o) {
 // (x, y) is a spot in front of each, in pixels.
 function travelPoints(S) {
   const out = [];
-  const find = (type, kind) => { for (const o of S.objs.values()) if (o.type === type && o.kind === kind) return o; return null; };
   for (const [kind, label] of [['cottage', 'Home'], ['station', 'Field Station'], ['farmhouse', 'Mabel\'s farm']]) {
-    const o = find('building', kind);
+    const o = firstObj(S, 'building', kind);
     if (!o) continue;
     const b = BUILDINGS[o.kind], dx = b.door ? b.door[0] : Math.floor(b.w / 2);
     out.push({ key: kind, label, x: (o.x + dx) * TS + 8, y: (o.y + b.h) * TS + 10 });
@@ -3548,17 +3563,22 @@ function quickOp(S, o, pid) {
   }
 }
 
+// Ground you can dig or scoop once a day: what it gives and how it looks
+const DIG_TILES = {
+  [T.MUD]: { op: 'mud', label: 'Scoop mud', mat: 'mud', fx: 'mud' },
+  [T.SAND]: { op: 'sand', label: 'Dig sand', mat: 'sand', fx: 'dig' },
+  [T.CLAY]: { op: 'clay', label: 'Dig clay', mat: 'clay', fx: 'dig' },
+  [T.GRAVEL]: { op: 'gravel', label: 'Pick up stones', mat: 'stone', fx: 'dig' },
+};
+
 function tileOp(S, x, y) {
   if (!inBounds(x, y)) return null;
   const i = tIdx(x, y), t = S.tiles[i];
   if (S.occ[i]) return null;
   if ((t === T.GRASS || t === T.MARSH) && S.grass[i] === 2) return { op: 'cut', label: 'Cut long grass' };
-  const dug = S.dug && S.dug[i] === dayIdx(S.time);
-  if (t === T.MUD) return dug ? null : { op: 'mud', label: 'Scoop mud' };
-  if (t === T.SAND) return dug ? null : { op: 'sand', label: 'Dig sand' };
-  if (t === T.CLAY) return dug ? null : { op: 'clay', label: 'Dig clay' };
-  if (t === T.GRAVEL) return dug ? null : { op: 'gravel', label: 'Pick up stones' };
-  return null;
+  const dig = DIG_TILES[t];
+  if (!dig || (S.dug && S.dug[i] === dayIdx(S.time))) return null;
+  return { op: dig.op, label: dig.label };
 }
 
 // ---------- villagers & side quests ----------
@@ -3628,6 +3648,8 @@ function festActive(time, min) {
   return f && min >= f.from && min < f.until ? f : null;
 }
 function festTier(f, n) { let t = 0; for (let i = 0; i < 3; i++) if (n >= f.goal[i]) t = i + 1; return t; }
+// How many festivals have been won with a gold ribbon (for the Village Champion badge)
+function festGoldCount(log) { return FESTIVALS.filter((f) => log && log[f.id] && log[f.id].best >= 3).length; }
 
 // Villager positions are shared by host and players, so the festival of the day is kept here.
 // Both the world and the client state call this whenever the date may have changed.
@@ -3716,6 +3738,20 @@ function flockPos(fl, min) {
   return { x: (fl.x0 + Math.sin(ty * 0.08 + fl.ph) * 2.5) * TS, y: ty * TS };
 }
 
+// The id of the tutorial step in progress ('' once the tutorial is over)
+function tutorialStep(S) { const s = TUTORIAL[S.quest]; return s ? s.id : ''; }
+
+// Progress toward a badge (BADGES[].s); bestFriend() says whether someone is best friends with a villager
+function badgeStat(S, k, bestFriend) {
+  if (k === 'species') return nestedCount(S);
+  if (k === 'landmarks') return Object.keys(S.found || {}).length;
+  if (k === 'nightSpecies') return ((S.stats && S.stats.nightList) || []).length;
+  if (k === 'festGold') return festGoldCount(S.festLog);
+  if (k === 'bestFriends') return bestFriend() ? 1 : 0;
+  return (S.stats && S.stats[k]) || 0;
+}
+const isBestFriend = (fr) => Object.values(fr || {}).some((v) => v >= HEART * MAX_HEARTS);
+
 // Side quests: state is S.side[id] = {st: 'on'|'done', n, seen}
 function questGateOpen(S) { return S.quest >= TUTORIAL.findIndex((t) => t.id === 'arrive'); }
 function questProgress(S, q) {
@@ -3739,11 +3775,6 @@ function npcQuest(S, npc) {
     return { q, state: 'offer' };
   }
   return null;
-}
-
-function speciesName(S, id) {
-  const j = S.journal[id];
-  return j && j.h > 0 ? SPECIES_BY_ID[id].name : 'unknown bird';
 }
 
 function nestedCount(S) {
@@ -4188,7 +4219,7 @@ class World {
     for (const k of MAT_ORDER) w.mats[k] = 0;
     w.mats.wood = 5;
     w.journal = {};
-    for (const sp of SPECIES) w.journal[sp.id] = { h: 0, n: 0, seen: false, first: null };
+    for (const sp of SPECIES) w.journal[sp.id] = blankJournalEntry();
     w.log = [];
     w.mail = [];
     w.mailSeq = 1;
@@ -4196,7 +4227,7 @@ class World {
     w.tierSent = 0;
     w.adaDay = -1;
     w.allDone = false;
-    w.stats = { fledged: 0, built: 0, days: 1 };
+    w.stats = freshStats();
     w.dug = {};
     w.featured = [];
     w.visitors = [];
@@ -4209,10 +4240,7 @@ class World {
     w.festLog = {};
     w.sendMail(LETTERS.welcome);
     w._makeAnimals();
-    w.bulk = true;
-    w.startDay();
-    w.bulk = false;
-    w.pendAll = [];
+    w._quietly(() => w.startDay());
     return w;
   }
 
@@ -4228,10 +4256,10 @@ class World {
     w.time = d.time; w.weather = d.weather; w.coins = d.coins; w.mats = d.mats;
     for (const k of MAT_ORDER) if (w.mats[k] == null) w.mats[k] = 0;
     w.journal = d.journal;
-    for (const sp of SPECIES) if (!w.journal[sp.id]) w.journal[sp.id] = { h: 0, n: 0, seen: false, first: null };
+    for (const sp of SPECIES) if (!w.journal[sp.id]) w.journal[sp.id] = blankJournalEntry();
     w.log = d.log || []; w.mail = d.mail || []; w.mailSeq = d.mailSeq || 1;
     w.quest = d.quest || 0; w.tierSent = d.tierSent || 0; w.adaDay = d.adaDay == null ? -1 : d.adaDay;
-    w.allDone = !!d.allDone; w.stats = d.stats || { fledged: 0, built: 0, days: 1 };
+    w.allDone = !!d.allDone; w.stats = d.stats || freshStats();
     w.dug = d.dug || {};
     w.featured = d.featured || []; w.visitors = d.visitors || [];
     w.side = d.side || {}; w.found = d.found || {};
@@ -4240,10 +4268,10 @@ class World {
     w.festLog = d.festLog || {};
     w.fest = d.fest && d.fest.d === dayIdx(w.time) ? d.fest : null;
     w._addNewBuildings(m);
-    if (!w.fest) { w.bulk = true; w._startFest(); w.bulk = false; w.pendAll = []; }
+    if (!w.fest) w._quietly(() => w._startFest());
     npcFestival(w.time);
     w._makeAnimals();
-    if (!w.featured.length) { w.bulk = true; w.pickFeatured(); w.bulk = false; w.pendAll = []; }
+    if (!w.featured.length) w._quietly(() => w.pickFeatured());
     return w;
   }
 
@@ -4285,6 +4313,9 @@ class World {
       }
     }
   }
+
+  // Run setup without sending any events (nobody is listening yet)
+  _quietly(fn) { this.bulk = true; fn(); this.bulk = false; this.pendAll = []; }
 
   _setupMap(m) {
     this.wild = m.wild;
@@ -4530,6 +4561,7 @@ class World {
     this.questCheck();
   }
   hasMats(req) { for (const k in req) if ((this.mats[k] || 0) < req[k]) return false; return true; }
+  addCoins(n) { this.coins += n; this.ev('coins', this.coins); }
   takeMats(req) {
     const ch = {};
     for (const k in req) { this.mats[k] -= req[k]; ch[k] = this.mats[k]; }
@@ -4670,7 +4702,7 @@ class World {
         const first = !this.found[o.kind];
         if (first) {
           this.found[o.kind] = today;
-          this.coins += LANDMARK_REWARD; this.ev('coins', this.coins);
+          this.addCoins(LANDMARK_REWARD);
           this.ev('found', this.found);
           this.toastAll((p.name ? p.name + ' discovered ' : 'Discovered ') + 'the ' + l.name + '! (+' + LANDMARK_REWARD + ' coins)', 'star');
           this.addXP(p, XP.landmark, 'landmark');
@@ -4684,7 +4716,7 @@ class World {
           if (q.night && mm < 21 * 60) { this.toast(p, q.title + ': come back after 9 pm, when it\'s dark.', 'moon'); continue; }
           if (q.early && mm >= 8 * 60) { this.toast(p, q.title + ': come back before 8 in the morning.', 'sun'); continue; }
           st.n = 1; this.ev('side', this.side);
-          this.toast(p, q.title + ': done — tell ' + NPCS[q.npc].name + '!', 'star');
+          this.toast(p, questMsg(q, 1), 'star');
           this.ev('snd', 'clue');
         }
         break;
@@ -4713,22 +4745,14 @@ class World {
           break;
         }
         this.removeObj(o);
-        switch (o.kind) {
-          case 'twig': this.gainMat(p, 'twig', o.q || 1, src); break;
-          case 'stick': this.gainMat(p, 'stick', 1, src); break;
-          case 'leaves': this.gainMat(p, 'leaves', 2, src); break;
-          case 'feather': this.gainMat(p, 'feather', 1, src); break;
-          case 'stone': this.gainMat(p, 'stone', 1, src); break;
-          case 'driftwood': this.gainMat(p, 'wood', 2, src); break;
-          case 'mushroom': this.gainItem(p, 'mushroom', 1, src); break;
-          case 'garlic': this.gainItem(p, 'garlic', 1, src); break;
-          case 'note': this.giveHint(o.sp, 'note', p); break;
-          case 'paperbird': {
-            const fa = festActive(this.time, this.time.min);
-            if (fa && fa.id === 'midsummer') this.festCount(p, fa, 'pb' + o.id, 1, 'paper bird');
-            else this.toast(p, 'One of Rosie\'s paper birds. The hunt is over, but it\'s pretty!', '');
-            break;
-          }
+        const fg = FORAGE_GAIN[o.kind];
+        if (fg && fg.mat) this.gainMat(p, fg.mat, o.q || fg.n, src);
+        else if (fg) this.gainItem(p, fg.item, fg.n, src);
+        else if (o.kind === 'note') this.giveHint(o.sp, 'note', p);
+        else if (o.kind === 'paperbird') {
+          const fa = this._festRunning('midsummer');
+          if (fa) this.festCount(p, fa, 'pb' + o.id, 1, 'paper bird');
+          else this.toast(p, 'One of Rosie\'s paper birds. The hunt is over, but it\'s pretty!', '');
         }
         this.ev('fx', 'pickup', 0, src[0], src[1]);
         break;
@@ -4756,13 +4780,11 @@ class World {
     if (!q || q.op !== m.op) return;
     const i = tIdx(x, y), today = dayIdx(this.time);
     const src = [x * TS + 8, y * TS + 8];
-    switch (q.op) {
-      case 'cut': this.setGrass(i, 0); this.gainMat(p, 'grass', 1, src); this.ev('fx', 'grass', 0, src[0], src[1]); break;
-      case 'mud': this.dug[i] = today; this.ev('dug', i, today); this.gainMat(p, 'mud', 1, src); this.ev('fx', 'mud', 0, src[0], src[1]); break;
-      case 'sand': this.dug[i] = today; this.ev('dug', i, today); this.gainMat(p, 'sand', 1, src); this.ev('fx', 'dig', 0, src[0], src[1]); break;
-      case 'clay': this.dug[i] = today; this.ev('dug', i, today); this.gainMat(p, 'clay', 1, src); this.ev('fx', 'dig', 0, src[0], src[1]); break;
-      case 'gravel': this.dug[i] = today; this.ev('dug', i, today); this.gainMat(p, 'stone', 1, src); this.ev('fx', 'dig', 0, src[0], src[1]); break;
-    }
+    if (q.op === 'cut') { this.setGrass(i, 0); this.gainMat(p, 'grass', 1, src); this.ev('fx', 'grass', 0, src[0], src[1]); return; }
+    const dig = DIG_TILES[this.tiles[i]];
+    this.dug[i] = today; this.ev('dug', i, today);
+    this.gainMat(p, dig.mat, 1, src);
+    this.ev('fx', dig.fx, 0, src[0], src[1]);
   }
 
   actPlace(p, m) {
@@ -4797,13 +4819,7 @@ class World {
       this.addObj(o);
       this.ev('fx', 'plant', 0, x * TS + 8, y * TS + 12);
       this.bumpStat('planted');
-      for (const q of QUESTS) {
-        const st = this.side[q.id];
-        if (q.kind === 'plant' && [].concat(q.plant).includes(it.plant) && st && st.st === 'on' && (st.n || 0) < q.n) {
-          st.n = (st.n || 0) + 1; this.ev('side', this.side);
-          this.toast(p, q.title + ': ' + st.n + '/' + q.n + (st.n >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : ''), 'star');
-        }
-      }
+      this._bumpQuests((q) => q.kind === 'plant' && [].concat(q.plant).includes(it.plant), p);
     }
     this.takeSlot(p, slot, 1);
   }
@@ -4851,12 +4867,11 @@ class World {
     if (!sp.lining) return;
     if (!this.hasMats(sp.lining)) return this.fail(p, 'Not enough feathers for the lining.');
     this.takeMats(sp.lining);
-    n.st = 'pair';
-    n.cl = randInt(Math.random, sp.clutch[0], sp.clutch[1]);
+    this._pairUp(n, sp);
     this.touch(n, ['st', 'cl']);
     this.toastAll('The Wren nest is lined with feathers — the pair has moved in!', 'heart');
     this.ev('fx', 'hearts', n.id, 0, 0);
-    this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), p);
+    this._bumpQuests(questAbout('nest', sp.id), p);
   }
 
   actNestClear(p, m) {
@@ -4905,7 +4920,7 @@ class World {
     this.gainItem(p, r.id, 1);
     this.evTo(p.pid, 'snd', 'craft');
     this.toast(p, 'Crafted: ' + ITEMS[r.id].name + '! Face an empty spot and press E to place it.', 'hammer');
-    if (TUTORIAL[this.quest] && TUTORIAL[this.quest].id === 'craft') this._advanceQuest();
+    if (tutorialStep(this) === 'craft') this._advanceQuest();
   }
 
   clockMin() { return this.time.min + this.msAcc / this.msPerMin; }
@@ -4929,7 +4944,7 @@ class World {
     if (k === 'mat:wood') {
       const cost = WOOD_PRICE * n;
       if (this.coins < cost) return this.fail(p, 'Not enough coins.');
-      this.coins -= cost; this.ev('coins', this.coins);
+      this.addCoins(-cost);
       this.gainMat(p, 'wood', n);
       this.evTo(p.pid, 'snd', 'coin');
       return;
@@ -4938,9 +4953,9 @@ class World {
     const cost = it.price * n;
     if (this.coins < cost) return this.fail(p, 'Not enough coins.');
     if (!this.hasRoom(p, k)) return this.fail(p, 'Your bag is full!');
-    this.coins -= cost; this.ev('coins', this.coins);
+    this.addCoins(-cost);
     const got = this.gainItem(p, k, n);
-    if (got < n) { this.coins += it.price * (n - got); this.ev('coins', this.coins); }
+    if (got < n) { this.addCoins(it.price * (n - got)); }
     this.evTo(p.pid, 'snd', 'coin');
   }
 
@@ -4951,7 +4966,7 @@ class World {
     const n = clamp(m.n | 0, 1, s.n);
     const price = itemSellPrice(s.k) * n;
     this.takeSlot(p, slot, n);
-    this.coins += price; this.ev('coins', this.coins);
+    this.addCoins(price);
     this.evTo(p.pid, 'snd', 'coin');
   }
 
@@ -4966,8 +4981,8 @@ class World {
     if (p.obsD[sp.id] !== today) { p.obsD[sp.id] = today; this.addXP(p, XP.observe + (firstEver ? XP.firstSight : 0), 'observe'); }
     if (sp.ambient || sp.rare) this.stats['seen_' + sp.id] = 1;
     if (this.time.min < 7 * 60) this.stats.early = 1;
-    const fa = festActive(this.time, this.time.min);
-    if (fa && fa.id === 'dawn') this.festCount(p, fa, sp.id, 1, sp.name);
+    const fa = this._festRunning('dawn');
+    if (fa) this.festCount(p, fa, sp.id, 1, sp.name);
     if (sp.night) { const nl = this.stats.nightList || (this.stats.nightList = []); if (!nl.includes(sp.id)) nl.push(sp.id); }
     this.bumpStat('observed');
     if (sp.rare) return this._observeRare(p, sp);
@@ -4977,7 +4992,7 @@ class World {
       st.seen = st.seen || [];
       if (!st.seen.includes(sp.id) && st.seen.length < q.n) {
         st.seen.push(sp.id); this.ev('side', this.side);
-        this.toast(p, q.title + ': ' + st.seen.length + '/' + q.n + ' species' + (st.seen.length >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : ''), 'star');
+        this.toast(p, questMsg(q, st.seen.length, ' species'), 'star');
       }
     }
     if (sp.ambient) return;
@@ -5025,11 +5040,16 @@ class World {
     this._storePlayer(p);
   }
   teamXP(n, why) { for (const p of this.players.values()) this.addXP(p, n, why); }
+  // Hand out a reward {coins, items, mats} (src: where the things fly from); returns what was given, in words
+  _grant(p, r, src) {
+    const got = [];
+    if (r.coins) { this.addCoins(r.coins); got.push(r.coins + ' coins'); }
+    for (const k in r.items || {}) { this.gainItem(p, k, r.items[k], src); got.push(r.items[k] + '× ' + ITEMS[k].name); }
+    for (const k in r.mats || {}) { this.gainMat(p, k, r.mats[k], src); got.push(r.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+    return got;
+  }
   _levelUp(p) {
-    const lvl = p.lvl, r = LEVEL_REWARDS[lvl] || {}, got = [];
-    if (r.coins) { this.coins += r.coins; this.ev('coins', this.coins); got.push(r.coins + ' coins'); }
-    for (const k in r.items || {}) { this.gainItem(p, k, r.items[k]); got.push(r.items[k] + '× ' + ITEMS[k].name); }
-    for (const k in r.mats || {}) { this.gainMat(p, k, r.mats[k]); got.push(r.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+    const lvl = p.lvl, r = LEVEL_REWARDS[lvl] || {}, got = this._grant(p, r);
     if (r.recipe) got.push('New workbench recipe: ' + ITEMS[r.recipe].name);
     if (r.perk) got.push(PERK_TEXT[r.perk]);
     if (this.bulk) p.lvlUps.push({ lvl, got });
@@ -5042,17 +5062,7 @@ class World {
     this.checkBadges();
   }
   statValue(k) {
-    if (k === 'species') return nestedCount(this);
-    if (k === 'landmarks') return Object.keys(this.found || {}).length;
-    if (k === 'nightSpecies') return (this.stats.nightList || []).length;
-    if (k === 'festGold') return FESTIVALS.filter((f) => this.festLog && this.festLog[f.id] && this.festLog[f.id].best >= 3).length;
-    if (k === 'bestFriends') {
-      let best = 0;
-      for (const rec of Object.values(this.saved)) for (const npc in (rec.fr || {})) if (rec.fr[npc] >= HEART * MAX_HEARTS) best = 1;
-      for (const p of this.players.values()) for (const npc in (p.fr || {})) if (p.fr[npc] >= HEART * MAX_HEARTS) best = 1;
-      return best;
-    }
-    return this.stats[k] || 0;
+    return badgeStat(this, k, () => Object.values(this.saved).some((r) => isBestFriend(r.fr)) || [...this.players.values()].some((p) => isBestFriend(p.fr)));
   }
   checkBadges() {
     if (!this.badges) this.badges = {};
@@ -5088,10 +5098,7 @@ class World {
       if (h < lv || seen >= lv || !st[lv]) continue;
       p.hev[npc] = lv;
       if (lv === 5) {
-        const g = st[5], got = [];
-        if (g.coins) { this.coins += g.coins; this.ev('coins', this.coins); got.push(g.coins + ' coins'); }
-        for (const k in g.items || {}) { this.gainItem(p, k, g.items[k], [p.x, p.y - 20]); got.push(g.items[k] + '× ' + ITEMS[k].name); }
-        for (const k in g.mats || {}) { this.gainMat(p, k, g.mats[k], [p.x, p.y - 20]); got.push(g.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+        const g = st[5], got = this._grant(p, g, [p.x, p.y - 20]);
         this.dlg(p, npc, ['You know… you\'ve become one of my dearest friends.'].concat(g.lines, got.length ? ['(You received ' + got.join(', ') + '.)'] : []), [{ id: 'bye', label: 'Thank you, friend!' }]);
       } else this.dlg(p, npc, st[lv], [{ id: 'bye', label: 'Thanks for telling me.' }]);
       this._sendMe(p); this._storePlayer(p);
@@ -5106,8 +5113,8 @@ class World {
     const it = ITEMS[s.k];
     if (!it || it.cat === 'struct') return this.fail(p, 'That\'s not really a gift.');
     const today = dayIdx(this.time);
-    const fa = festActive(this.time, this.time.min);
-    if (fa && fa.id === 'feeders' && BIRD_FOOD.includes(s.k) && this.fest && !this.fest.seen.includes(id)) {
+    const fa = this._festRunning('feeders');
+    if (fa && BIRD_FOOD.includes(s.k) && this.fest && !this.fest.seen.includes(id)) {
       this.takeSlot(p, slot, 1);
       const birds = 4 + hash32(today, id.length * 31 + id.charCodeAt(0), this.seed) % 9;
       this.dlg(p, id, [FEEDER_THANKS[id], '(' + NPCS[id].name + ' fills a feeder and counts ' + birds + ' bird visits.)'], [{ id: 'bye', label: 'Happy counting!' }]);
@@ -5161,6 +5168,8 @@ class World {
     const f = next.f;
     this.sendMail({ from: 'Featherbrook Village', title: f.name + ' tomorrow!', body: 'Dear neighbour,\n\n' + f.invite + '\n\nSee you on the green!\n— ' + NPCS[f.host].name + ' & all your neighbours' });
   }
+  // The festival with this id, while its activity is running
+  _festRunning(id) { const f = festActive(this.time, this.time.min); return f && f.id === id ? f : null; }
   // One more for the festival tally (a bird kind, a paper bird, a flock or a feeder)
   festCount(p, f, key, birds, what) {
     const st = this.fest;
@@ -5178,7 +5187,7 @@ class World {
   }
   _ribbon(p, f, tier) {
     const pr = RIBBON_PRIZE[tier];
-    this.coins += pr.coins; this.ev('coins', this.coins);
+    this.addCoins(pr.coins);
     const log = this.festLog[f.id] || (this.festLog[f.id] = { best: 0, years: {} });
     log.best = Math.max(log.best, tier);
     log.years[this.time.year] = Math.max(log.years[this.time.year] || 0, tier);
@@ -5231,8 +5240,8 @@ class World {
   }
   // Count a migrating flock that is passing over you (Migration Watch)
   actFlock(p, m) {
-    const fa = festActive(this.time, this.time.min);
-    if (!fa || fa.id !== 'migration') return;
+    const fa = this._festRunning('migration');
+    if (!fa) return;
     const fl = skyFlocks(this).find((x) => x.id === (m.id | 0));
     const pos = fl && flockPos(fl, this.clockMin());
     if (!pos || Math.abs(pos.x - p.x) > 170 || Math.abs(pos.y - p.y) > 150) return;
@@ -5252,7 +5261,7 @@ class World {
     this.ev('board', this.board);
   }
   actBoard(p, m) {
-    const b = Array.from(this.objs.values()).find((o) => o.type === 'building' && o.kind === 'board');
+    const b = firstObj(this, 'building', 'board');
     if (!b || !this.reachObj(p, b, 12)) return;
     const t = this.board[m.i | 0];
     if (!t || t.done) return;
@@ -5260,7 +5269,7 @@ class World {
     this.takeMats({ [t.mat]: t.n });
     t.done = p.name;
     const coins = 15 + t.n * 6;
-    this.coins += coins; this.ev('coins', this.coins);
+    this.addCoins(coins);
     this.ev('board', this.board);
     this.toastAll(p.name + ' helped ' + NPCS[t.npc].name + ': ' + t.text.toLowerCase() + ' (+' + coins + ' coins)', 'heart');
     this.ev('snd', 'coin');
@@ -5285,7 +5294,7 @@ class World {
     if (!this.rareLog[sp.id]) {
       this.rareLog[sp.id] = dateStr(this.time);
       this.ev('rare', this.rareLog);
-      this.coins += 50; this.ev('coins', this.coins);
+      this.addCoins(50);
       this.toastAll(p.name + ' spotted a rare ' + sp.name + '! (+50 coins)', 'star');
       this.ev('snd', 'fanfare');
       this.addXP(p, XP.rare, 'rare');
@@ -5306,7 +5315,7 @@ class World {
 
   // Rest until the evening (solo only): a gentle way to meet the birds of the night
   actRest(p) {
-    const c = Array.from(this.objs.values()).find((o) => o.type === 'building' && o.kind === 'cottage');
+    const c = firstObj(this, 'building', 'cottage');
     const benches = Array.from(this.objs.values()).filter((o) => o.type === 'struct' && o.kind === 'gardenbench');
     const near = (c && dist2(p.x, p.y, (c.x + 2.5) * TS, (c.y + 3) * TS) < 48 * 48) || benches.some((o) => dist2(p.x, p.y, o.x * TS + 8, o.y * TS + 12) < 32 * 32);
     if (!near) return;
@@ -5322,7 +5331,7 @@ class World {
   actTalk(p, m) {
     const id = String(m.npc);
     if (!NPCS[id] || !this._nearNpc(p, id)) return;
-    const step = TUTORIAL[this.quest] ? TUTORIAL[this.quest].id : '';
+    const step = tutorialStep(this);
     const today = dayIdx(this.time);
     if (p.talkD[id] !== today) { p.talkD[id] = today; this.addFriend(p, id, 8); }
     const dq = QUESTS.find((q) => q.kind === 'deliver' && q.to === id && this.side[q.id] && this.side[q.id].st === 'on');
@@ -5342,25 +5351,9 @@ class World {
         this.quest = TUTORIAL.findIndex((s) => s.id === 'gather');
         this.ev('quest', this.quest);
         this._advanceQuest(true);
-        return this.dlg(p, 'ada', [
-          'Ah, you must be my new neighbour! Welcome to Featherbrook.',
-          'Let\'s start with a familiar friend: the Eurasian Blackbird. I\'ve written its nest blueprint into your journal.',
-          'Blackbirds build a cup of twigs and dry grass, plastered inside with mud. Shake trees for twigs, cut long grass in the meadows, and scoop mud from the muddy shore of your garden pond.',
-          'Then find a shrub next to your lawn and press F (or right-click) on it to build the nest. The birds will do the rest!',
-          'Press TAB any time to open your journal.',
-        ], [{ id: 'bye', label: 'Thanks, Ada!' }]);
+        return this.dlg(p, 'ada', ADA_WELCOME, [{ id: 'bye', label: 'Thanks, Ada!' }]);
       }
-      const tips = {
-        gather: 'Twigs from shaking trees, dry grass from long grass, and mud from the muddy pond shore by your cottage.',
-        build: 'Find a shrub next to your lawn and press F to build the Blackbird nest.',
-        arrive: 'Now we wait. Blackbirds move in quickly when a spot is right.',
-        sleep: 'A pair moved in? Wonderful! Get some rest — birds lay their eggs in the early morning.',
-        craft: 'Nest boxes next! Robins like an open-fronted box; Great Tits a box with a 28 mm hole. Your workbench is beside the cottage, and you have some wood.',
-        clues: 'Watch the birds you don\'t know yet: get close, stand still and press E to observe them. Field Notes with clues are scattered around too.',
-      };
-      const n = nestedCount(this);
-      const line = tips[step] || (n >= SPECIES.length ? 'Listen to that chorus! You did it, neighbour.' :
-        pick(['Hello, neighbour! The valley sounds livelier every day.', 'Good to see you! Any new birds?', 'Ah, there you are. I was just updating the survey.']));
+      const line = ADA_TIPS[step] || (nestedCount(this) >= SPECIES.length ? ADA_ALL_DONE : pick(ADA_GREETINGS));
       return this.dlg(p, 'ada', [line], questOpt.concat([
         { id: 'lead', label: 'Any leads?' }, { id: 'fact', label: 'Bird fact' },
         { id: 'progress', label: 'How are we doing?' }, { id: 'bye', label: 'Bye' }]));
@@ -5436,7 +5429,7 @@ class World {
       if (!st || st.st !== 'on' || !pred(q) || (st.n || 0) >= q.n) continue;
       st.n = (st.n || 0) + 1;
       this.ev('side', this.side);
-      const msg = q.title + ': ' + (q.n > 1 ? st.n + '/' + q.n : 'done') + (st.n >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : '');
+      const msg = questMsg(q, st.n);
       if (sum) sum.push(['star', msg]);
       else if (p) this.toast(p, msg, 'star');
       else this.toastAll(msg, 'star');
@@ -5451,11 +5444,8 @@ class World {
     if (q.kind === 'bring') { if (!this.hasMats({ [q.mat]: q.n })) return; this.takeMats({ [q.mat]: q.n }); }
     st.st = 'done';
     this.ev('side', this.side);
-    const r = q.reward || {}, src = [p.x, p.y - 20];
-    const got = [];
-    if (r.coins) { this.coins += r.coins; this.ev('coins', this.coins); got.push(r.coins + ' coins'); }
-    for (const k in r.items || {}) { this.gainItem(p, k, r.items[k], src); got.push(r.items[k] + '× ' + ITEMS[k].name); }
-    for (const k in r.mats || {}) { this.gainMat(p, k, r.mats[k], src); got.push(r.mats[k] + ' ' + MATS[k].name.toLowerCase()); }
+    const r = q.reward || {};
+    const got = this._grant(p, r, [p.x, p.y - 20]);
     const who = q.kind === 'deliver' ? q.to : q.npc;
     const lines = (q.kind === 'deliver' ? ['(You hand over ' + QITEMS[q.item].name + ' from ' + NPCS[q.npc].name + '.)'] : []).concat(q.thanks);
     this.dlg(p, who, lines.concat(got.length ? ['(You received ' + got.join(', ') + '.)'] : []), [{ id: 'bye', label: 'You\'re welcome!' }]);
@@ -5507,7 +5497,7 @@ class World {
     if (!l || l.read) return;
     l.read = true;
     this.ev('mailr', l.id);
-    if (TUTORIAL[this.quest] && TUTORIAL[this.quest].id === 'mail') this._advanceQuest();
+    if (tutorialStep(this) === 'mail') this._advanceQuest();
   }
 
   actSwap(p, m) {
@@ -5550,7 +5540,7 @@ class World {
     }
     if (!n) return;
     this.evTo(p.pid, 'inv', p.inv);
-    this.coins += coins; this.ev('coins', this.coins);
+    this.addCoins(coins);
     this.evTo(p.pid, 'snd', 'coin');
     this.toast(p, 'Sold ' + plural(n, 'thing') + ' to Basil for ' + coins + ' coins.', 'coin');
   }
@@ -5564,7 +5554,7 @@ class World {
 
   actSleep(p, m) {
     if (m.v) {
-      const c = Array.from(this.objs.values()).find((o) => o.type === 'building' && o.kind === 'cottage');
+      const c = firstObj(this, 'building', 'cottage');
       if (!c || !this.reachObj(p, c, 16)) return;
       p.sleep = true;
     } else p.sleep = false;
@@ -5649,7 +5639,7 @@ class World {
           const [cx, cy] = nestCenter(this, n);
           if (!evalNest(this, sp, cx, cy, n.id).ok) continue;
           if (!sp.night && m >= 20 * 60) continue;
-          const tutorial = TUTORIAL[this.quest] && TUTORIAL[this.quest].id === 'arrive' && sp.id === 'blackbird';
+          const tutorial = tutorialStep(this) === 'arrive' && sp.id === 'blackbird';
           n.arr = m + (tutorial ? 10 : randInt(Math.random, 20, 80));
           this.touch(n, ['arr']);
         } else if (m >= n.arr) {
@@ -5662,14 +5652,19 @@ class World {
     this._checkWren();
   }
 
-  _arrive(n, sp) {
+  // A pair settles in a built nest and decides how many eggs to lay
+  _pairUp(n, sp) {
     n.st = 'pair'; n.arr = 0;
     n.cl = randInt(Math.random, sp.clutch[0], sp.clutch[1]);
+  }
+
+  _arrive(n, sp) {
+    this._pairUp(n, sp);
     this.touch(n, ['st', 'arr', 'cl']);
     this.toastAll('A pair of ' + sp.name + 's moved into the nest!', 'heart');
     this.ev('fx', 'hearts', n.id, 0, 0);
     this.ev('snd', 'arrive', 0, 0);
-    this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), null, this.bulk ? [] : null);
+    this._bumpQuests(questAbout('nest', sp.id), null, this.bulk ? [] : null);
     this.questCheck();
   }
 
@@ -5701,9 +5696,9 @@ class World {
         case 'built': {
           const [cx, cy] = nestCenter(this, n);
           if (evalNest(this, sp, cx, cy, n.id).ok) {
-            n.st = 'pair'; n.arr = 0; n.cl = randInt(Math.random, sp.clutch[0], sp.clutch[1]);
+            this._pairUp(n, sp);
             sum.push(['heart', 'A pair of ' + sp.name + 's moved into a nest at dawn.']);
-            this._bumpQuests((q) => q.kind === 'nest' && (!q.sp || q.sp.includes(sp.id)), null, sum);
+            this._bumpQuests(questAbout('nest', sp.id), null, sum);
           }
           break;
         }
@@ -5760,19 +5755,19 @@ class World {
     const j = this.journal[id];
     j.n++;
     this.stats.fledged++;
-    this._bumpQuests((q) => q.kind === 'fledge' && (!q.sp || q.sp.includes(id)), null, sum);
+    this._bumpQuests(questAbout('fledge', id), null, sum);
     this.teamXP(XP.fledge + (j.n === 1 ? XP.newSpecies : 0), 'fledge');
     if (j.n === 1) {
       j.first = dateStr(this.time);
       if (j.h < 3) j.h = 3;
       const grant = 100 + 40 * sp.tier;
-      this.coins += grant;
+      this.addCoins(grant);
       sum.newSpecies.push(id);
       sum.push(['star', 'NEW SPECIES NESTED: ' + sp.name + '! (+' + grant + ' coins grant)']);
       this.sendMail(nestedLetter(sp, grant));
       if (nestedCount(this) >= SPECIES.length && !this.allDone) { this.allDone = true; this.sendMail(LETTERS.allDone); }
     } else {
-      this.coins += 25;
+      this.addCoins(25);
       sum.push(['chick', 'Another brood of ' + sp.name + 's fledged. (+25 coins)']);
     }
   }
@@ -5857,7 +5852,7 @@ class World {
       p.x = HOME_SPAWN[0] + (k % 3 - 1) * 14; p.y = HOME_SPAWN[1] + Math.floor(k / 3) * 10; p.d = 0;
       k++;
     }
-    if (TUTORIAL[this.quest] && TUTORIAL[this.quest].id === 'sleep') this.quest++;
+    if (tutorialStep(this) === 'sleep') this.quest++;
     this.bulk = false;
     this.pendAll = [];
     this.pendTo.clear();
@@ -6000,6 +5995,18 @@ class World {
 }
 
 // ---------------------------------------------------------------- helpers
+const blankJournalEntry = () => ({ h: 0, n: 0, seen: false, first: null });
+const freshStats = () => ({ fledged: 0, built: 0, days: 1 });
+// Which active quests an event counts for: a nest or fledging of a species (or of any bird)
+const questAbout = (kind, spId) => (q) => q.kind === kind && (!q.sp || q.sp.includes(spId));
+// "Title: 2/3 — tell Ada!" (a one-step quest just says "done")
+function questMsg(q, n, unit) { return q.title + ': ' + (q.n > 1 ? n + '/' + q.n + (unit || '') : 'done') + (n >= q.n ? ' — tell ' + NPCS[q.npc].name + '!' : ''); }
+// What a piece of forage gives when picked up: pouch material or bag item, and how much
+const FORAGE_GAIN = {
+  twig: { mat: 'twig', n: 1 }, stick: { mat: 'stick', n: 1 }, leaves: { mat: 'leaves', n: 2 }, feather: { mat: 'feather', n: 1 },
+  stone: { mat: 'stone', n: 1 }, driftwood: { mat: 'wood', n: 2 }, mushroom: { item: 'mushroom', n: 1 }, garlic: { item: 'garlic', n: 1 },
+};
+
 function starterInventory() {
   const inv = new Array(BAG_SIZE).fill(null);
   inv[0] = { k: 'seed_wildflower', n: 5 };
@@ -6166,12 +6173,6 @@ class Pix {
     return this;
   }
   // Replace colours: map of hex -> hex
-  recolor(map) {
-    const m = new Map();
-    for (const k in map) m.set(C(k), C(map[k]));
-    for (let i = 0; i < this.p.length; i++) { const r = m.get(this.p[i]); if (r !== undefined) this.p[i] = r; }
-    return this;
-  }
   flipped() {
     const q = new Pix(this.w, this.h);
     for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) q.p[y * this.w + x] = this.p[y * this.w + this.w - 1 - x];
@@ -8266,13 +8267,6 @@ class TileArt {
   }
 
   // Render a chunk of tiles into a Pix (all at once).
-  renderChunk(tiles, cx, cy, size, season) {
-    const job = this.chunkJob(tiles, cx, cy, size, season);
-    let r;
-    while (!(r = job.next()).done) { /* keep going */ }
-    return r.value;
-  }
-
   // A resumable chunk render: each next() renders one row of tiles.
   *chunkJob(tiles, cx, cy, size, season) {
     if (!this.depth) this.depth = computeWaterDepth(tiles);
@@ -9645,19 +9639,6 @@ function wallBoards(px, x0, y0, w, h, base, seed) {
       else if (k === 2) c = P.d;
       px.set(x, y, c);
     }
-  }
-}
-function wallLogs(px, x0, y0, w, h, base, seed) {
-  const P = ramp(base);
-  for (let y = y0; y < y0 + h; y++) {
-    const row = Math.floor((y - y0) / 5), ry = (y - y0) % 5;
-    for (let x = x0; x < x0 + w; x++) {
-      let c = ry === 0 ? P.l : ry === 1 ? mix(P.l, P.m) : ry === 4 ? '#3a2a20' : ry === 3 ? P.d : P.m;
-      if (ry > 0 && ry < 4 && valueNoise(x * 0.35, row * 7 + ry * 0.3, seed) > 0.72) c = mix(c, P.d, 0.4);
-      px.set(x, y, c);
-    }
-    // log ends at the corners
-    if (ry === 2) for (const cx of [x0 + 1, x0 + w - 2]) { px.set(cx, y, P.h); px.set(cx, y - 1, P.l); px.set(cx, y + 1, P.d); }
   }
 }
 // Exposed timber frame: beams [x0, y0, x1, y1] (straight or diagonal)
@@ -11407,6 +11388,11 @@ function boxIcon(px, k) {
   px.rect(7, 14, 2, 2, '#8a5a34');
 }
 
+// A rosette: a round badge with two tails (festival ribbons)
+function ribbonIcon(px, c) {
+  px.poly([[5, 9], [8, 9], [6, 15], [4, 13]], darken(c, 0.25)); px.poly([[8, 9], [11, 9], [12, 13], [10, 15]], darken(c, 0.25));
+  px.disc(8, 7, 5.5, c); px.disc(8, 7, 3.6, lighten(c, 0.35)); px.disc(8, 7, 2, c);
+}
 const UI_ICON = {
   coin(px) { px.disc(8, 8, 6, '#e8b830'); px.disc(8, 8, 4.5, '#f6d860'); px.vline(8, 5, 11, '#c8961a'); px.set(6, 5, '#fff4b0'); },
   clock(px) { px.disc(8, 8, 6, '#f2e6c8'); px.vline(8, 4, 8, '#3a2a1e'); px.hline(8, 11, 8, '#3a2a1e'); },
@@ -11444,6 +11430,10 @@ const UI_ICON = {
   clue(px) { px.rect(3, 3, 10, 11, '#f6eed8'); px.hline(4, 11, 6, '#b0a080'); px.hline(4, 9, 8, '#b0a080'); px.hline(4, 10, 10, '#b0a080'); px.disc(11, 11, 2.5, '#5aa048'); px.set(11, 11, '#ffffff'); },
   sparkle(px) { px.line(8, 1, 8, 15, '#fff4b0'); px.line(1, 8, 15, 8, '#fff4b0'); px.disc(8, 8, 2, '#ffffff'); },
   no(px) { UI_ICON.cross(px); },
+  ribbon0(px) { ribbonIcon(px, '#c8bca4'); },
+  ribbon1(px) { ribbonIcon(px, '#c87a3a'); },
+  ribbon2(px) { ribbonIcon(px, '#b8c0cc'); },
+  ribbon3(px) { ribbonIcon(px, '#f0b830'); },
   note(px) { px.ellipse(5, 12, 2.5, 2, '#3a2614'); px.ellipse(11.5, 11, 2.5, 2, '#3a2614'); px.vline(7, 4, 12, '#3a2614'); px.vline(13, 3, 11, '#3a2614'); px.thick(7, 4, 13, 3, 2, '#3a2614'); px.set(4, 11, '#8a6a4a'); },
 };
 
@@ -11574,10 +11564,6 @@ const SPR = {
   portrait(npc) {
     return this._get('portrait:' + npc, () => ({ px: genPortrait(NPC_LOOKS[npc]), ax: 16, ay: 16 }));
   },
-  playerPortrait(look) {
-    const l = cleanLook(look);
-    return this._get('pportrait:' + lookKey(l), () => ({ px: genPortrait(playerLookOpts(l)), ax: 16, ay: 16 }));
-  },
 
   tufts(season) {
     const key = 'tufts' + season;
@@ -11604,6 +11590,7 @@ const SPR = {
 const UI_COL = {
   ink: '#3a2614', inkSoft: '#6e5232', paper: '#f6ecd2', paperD: '#e8d8b0', wood: '#8a5a34',
   gold: '#f6c83a', red: '#c8483a', green: '#4a8a3a', blue: '#3a6ab0', muted: '#9a8464', white: '#ffffff',
+  ok: '#3a7a2a', bad: '#b8382a', cream: '#fff4d8',   // text: done / missing / light text on wood and dark panels
 };
 
 function genPanel(style, w, h) {
@@ -12337,8 +12324,7 @@ class ClientState {
     const k = type + ':' + kind;
     let o = this._fi.get(k);
     if (o === undefined) {
-      o = null;
-      for (const q of this.objs.values()) if (q.type === type && q.kind === kind) { o = q; break; }
+      o = firstObj(this, type, kind);
       this._fi.set(k, o);
     }
     return o;
@@ -12938,135 +12924,137 @@ class Birds {
     const S = this.S;
     if (!S || !S.time) return;
     const night = this.isNight();
-    const me = this.game.me;
     const m = S.clock();
     const chorus = m < 9 * 60 ? 2.5 : m > 18 * 60 ? 1.4 : 0.6;
     this.candT += dt;
     if (this.candT > 30000) { this.candT = 0; this.cands.clear(); }
     for (const a of this.agents) {
-      const sp = SPECIES_BY_ID[a.sp];
-      const nocturnal = !!sp.night;
-      const asleep = nocturnal ? !this.isDusk() && !night : night;
+      const asleep = SPECIES_BY_ID[a.sp].night ? !this.isDusk() && !night : night;
       a.anim += dt;
       // ---- night: diurnal visitors roost (hidden); owls only come out at dusk
       if (!a.nest) {
         if (asleep && a.state !== 'fly') { a.hidden = true; continue; }
         if (!asleep && a.hidden && a.state !== 'sit') a.hidden = false;
       }
-      // ---- flee from people moving close by
-      if (a.state === 'idle' || a.state === 'swim') {
-        for (const p of S.players.values()) {
-          if (p.sleep) continue;
-          const r = p.m ? (p.pid === S.me && this.game.perk('quiet') ? 15 : 26) : 12;
-          const close = dist2(p.x, p.y, a.x, a.y) < r * r;
-          if (close && !a.observed && a.job !== 'sit') {
-            const np = a.nest ? this._nearPerch(S.objs.get(a.nest) || { kind: a.sp }, a.anchor, 0) : this.pickPerch(a.sp, a.zone);
-            this.flyTo(a, np, 95);
-            Audio2.sfx('rustle', a.x, a.y);
-            // the rest of the flock follows
-            if (a.flockId && np) for (const b of this.agents) {
-              if (b === a || b.flockId !== a.flockId || b.state === 'fly' || b.observed) continue;
-              if (dist2(b.x, b.y, a.x, a.y) > 60 * 60) continue;
-              const q = Object.assign({}, np, { x: np.x + (Math.random() - 0.5) * 24, y: np.y + (np.kind === 'ground' ? (Math.random() - 0.5) * 16 : 0) });
-              q.sortY = np.kind === 'ground' ? q.y : np.sortY;
-              this.flyTo(b, q, 90 + Math.random() * 20);
-            }
-            break;
-          }
-        }
-      }
-      // ---- songs
-      if (!asleep && (a.state === 'idle' || a.state === 'circle' || a.state === 'swim' || a.job === 'sing')) {
-        a.songT -= dt * (a.job === 'sing' || a.job === 'court' ? 2 : chorus) * (S.weather === 'rain' ? 0.4 : 1);
-        if (a.songT <= 0) {
-          a.songT = 9000 + Math.random() * 16000;
-          if (me && dist2(me.x, me.y, a.x, a.y) < 280 * 280) {
-            Audio2.song(a.sp, a.x, a.y - a.z);
-            this.game.fx.burst('note', a.x + a.face * 4, a.y - a.z - 10, 1);
-          }
-        }
-      }
+      if (a.state === 'idle' || a.state === 'swim') this._flee(a);
+      if (!asleep) this._sing(a, dt, chorus);
       switch (a.state) {
-        case 'fly': {
-          const f = a.flight;
-          f.t += dt;
-          const k = clamp(f.t / f.dur, 0, 1);
-          const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-          a.x = lerp(f.x0, f.p.x, e); a.y = lerp(f.y0, f.p.y, e);
-          a.z = lerp(f.z0, f.p.z, e) + Math.sin(k * Math.PI) * f.arc;
-          a.sortY = a.y;
-          if (k >= 1) {
-            a.perch = f.p; a.flight = null;
-            a.sortY = f.p.sortY;
-            a.state = f.p.kind === 'water' ? 'swim' : f.p.kind === 'air' ? 'circle' : 'idle';
-            if (a.state === 'circle') { a.ang = Math.random() * 6.3; a.cx = f.p.x; a.cy = f.p.y; a.rx = f.p.rx; a.ry = f.p.ry; a.circleT = 8000 + Math.random() * 10000; }
-            a.timer = 3000 + Math.random() * 8000;
-            if (a.onLand) { const fn = a.onLand; a.onLand = null; fn(); }
-          }
-          break;
-        }
-        case 'circle': {
-          const spd = a.sp === 'barnowl' ? 0.35 : 0.9;
-          a.ang += dt / 1000 * spd;
-          a.x = a.cx + Math.cos(a.ang) * a.rx; a.y = a.cy + Math.sin(a.ang) * a.ry;
-          a.z = 34 + Math.sin(a.ang * 3) * 8;
-          a.face = -Math.sin(a.ang) >= 0 ? 1 : -1;
-          a.sortY = a.y;
-          a.circleT -= dt;
-          if (a.circleT <= 0) {
-            const p = this.pickPerch(a.sp, a.zone);
-            if (p && p.kind !== 'air') this.flyTo(a, p, 110); else a.circleT = 6000;
-          }
-          break;
-        }
-        case 'swim': {
-          if (a.follow && a.mother) {
-            const idx = this.agents.filter((b) => b.mother === a.mother).indexOf(a);
-            const tx = a.mother.x - a.mother.face * (8 + idx * 6), ty = a.mother.y + 1;
-            a.x = lerp(a.x, tx, 0.04); a.y = lerp(a.y, ty, 0.04); a.face = a.mother.face; a.sortY = a.y;
-            break;
-          }
-          a.timer -= dt;
-          if (!a.swimTo || a.timer < 0) {
-            const S2 = this.S;
-            const nx = a.x + (Math.random() - 0.5) * 40, ny = a.y + (Math.random() - 0.5) * 30;
-            if (isWaterT(tileAt(S2, Math.floor(nx / TS), Math.floor(ny / TS)))) a.swimTo = { x: nx, y: ny };
-            a.timer = 2000 + Math.random() * 4000;
-          }
-          if (a.swimTo) {
-            const dx = a.swimTo.x - a.x, dy = a.swimTo.y - a.y, d = Math.hypot(dx, dy);
-            if (d > 1) { a.x += dx / d * 0.012 * dt; a.y += dy / d * 0.012 * dt; a.face = dx >= 0 ? 1 : -1; }
-            a.sortY = a.y;
-          }
-          a.frame = (a.anim % 4000) < 600 ? 'peck' : 'perch';
-          break;
-        }
-        case 'sit': {
-          a.timer -= dt;
-          break;
-        }
-        case 'idle': {
-          a.timer -= dt;
-          const ground = a.perch && a.perch.kind === 'ground';
-          // idle animation: pecking on the ground, occasional turn
-          if (ground) a.frame = (a.anim % 1800) < 350 ? 'peck' : 'perch';
-          else a.frame = (a.anim % 5000) < 200 ? 'peck' : 'perch';
-          if (a.perch && a.perch.cling) a.frame = (a.anim % 900) < 120 ? 'peck' : 'perch';
-          if (Math.random() < dt / 6000) a.face = -a.face;
-          if (a.perch && a.perch.kind === 'bath' && Math.random() < dt / 2200) { a.frame = 'peck'; this.game.fx.burst('splash', a.x, a.y - a.z, 3); }
-          if (a.perch && a.perch.kind === 'feeder') a.frame = (a.anim % 1200) < 300 ? 'peck' : 'perch';
-          if (ground && Math.random() < dt / 2500) {
-            // hop
-            const nx = a.x + a.face * (3 + Math.random() * 6);
-            const t2 = tileAt(S, Math.floor(nx / TS), Math.floor(a.y / TS));
-            if (TINFO[t2].land) { a.x = nx; a.hopT = 160; }
-          }
-          if (a.hopT > 0) a.hopT -= dt;
-          if (a.timer <= 0 && !a.observed) this._nextMove(a);
-          break;
-        }
+        case 'fly': this._fly(a, dt); break;
+        case 'circle': this._circle(a, dt); break;
+        case 'swim': this._swim(a, dt); break;
+        case 'sit': a.timer -= dt; break;
+        case 'idle': this._idle(a, dt); break;
       }
     }
+  }
+
+  // People moving close by scare a bird off (and the rest of its flock with it)
+  _flee(a) {
+    const S = this.S;
+    for (const p of S.players.values()) {
+      if (p.sleep) continue;
+      const r = p.m ? (p.pid === S.me && this.game.perk('quiet') ? 15 : 26) : 12;
+      const close = dist2(p.x, p.y, a.x, a.y) < r * r;
+      if (!close || a.observed || a.job === 'sit') continue;
+      const np = a.nest ? this._nearPerch(S.objs.get(a.nest) || { kind: a.sp }, a.anchor, 0) : this.pickPerch(a.sp, a.zone);
+      this.flyTo(a, np, 95);
+      Audio2.sfx('rustle', a.x, a.y);
+      if (a.flockId && np) for (const b of this.agents) {
+        if (b === a || b.flockId !== a.flockId || b.state === 'fly' || b.observed) continue;
+        if (dist2(b.x, b.y, a.x, a.y) > 60 * 60) continue;
+        const q = Object.assign({}, np, { x: np.x + (Math.random() - 0.5) * 24, y: np.y + (np.kind === 'ground' ? (Math.random() - 0.5) * 16 : 0) });
+        q.sortY = np.kind === 'ground' ? q.y : np.sortY;
+        this.flyTo(b, q, 90 + Math.random() * 20);
+      }
+      return;
+    }
+  }
+
+  // Songs: more at dawn and dusk, less in the rain, often while courting; heard when you're near
+  _sing(a, dt, chorus) {
+    if (!(a.state === 'idle' || a.state === 'circle' || a.state === 'swim' || a.job === 'sing')) return;
+    a.songT -= dt * (a.job === 'sing' || a.job === 'court' ? 2 : chorus) * (this.S.weather === 'rain' ? 0.4 : 1);
+    if (a.songT > 0) return;
+    a.songT = 9000 + Math.random() * 16000;
+    const me = this.game.me;
+    if (me && dist2(me.x, me.y, a.x, a.y) < 280 * 280) {
+      Audio2.song(a.sp, a.x, a.y - a.z);
+      this.game.fx.burst('note', a.x + a.face * 4, a.y - a.z - 10, 1);
+    }
+  }
+
+  _fly(a, dt) {
+    const f = a.flight;
+    f.t += dt;
+    const k = clamp(f.t / f.dur, 0, 1);
+    const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    a.x = lerp(f.x0, f.p.x, e); a.y = lerp(f.y0, f.p.y, e);
+    a.z = lerp(f.z0, f.p.z, e) + Math.sin(k * Math.PI) * f.arc;
+    a.sortY = a.y;
+    if (k < 1) return;
+    a.perch = f.p; a.flight = null;
+    a.sortY = f.p.sortY;
+    a.state = f.p.kind === 'water' ? 'swim' : f.p.kind === 'air' ? 'circle' : 'idle';
+    if (a.state === 'circle') { a.ang = Math.random() * 6.3; a.cx = f.p.x; a.cy = f.p.y; a.rx = f.p.rx; a.ry = f.p.ry; a.circleT = 8000 + Math.random() * 10000; }
+    a.timer = 3000 + Math.random() * 8000;
+    if (a.onLand) { const fn = a.onLand; a.onLand = null; fn(); }
+  }
+
+  // Swifts, swallows and owls circle in the air for a while
+  _circle(a, dt) {
+    const spd = a.sp === 'barnowl' ? 0.35 : 0.9;
+    a.ang += dt / 1000 * spd;
+    a.x = a.cx + Math.cos(a.ang) * a.rx; a.y = a.cy + Math.sin(a.ang) * a.ry;
+    a.z = 34 + Math.sin(a.ang * 3) * 8;
+    a.face = -Math.sin(a.ang) >= 0 ? 1 : -1;
+    a.sortY = a.y;
+    a.circleT -= dt;
+    if (a.circleT <= 0) {
+      const p = this.pickPerch(a.sp, a.zone);
+      if (p && p.kind !== 'air') this.flyTo(a, p, 110); else a.circleT = 6000;
+    }
+  }
+
+  // Ducks and grebes paddle about; ducklings follow their mother in a line
+  _swim(a, dt) {
+    if (a.follow && a.mother) {
+      const idx = this.agents.filter((b) => b.mother === a.mother).indexOf(a);
+      const tx = a.mother.x - a.mother.face * (8 + idx * 6), ty = a.mother.y + 1;
+      a.x = lerp(a.x, tx, 0.04); a.y = lerp(a.y, ty, 0.04); a.face = a.mother.face; a.sortY = a.y;
+      return;
+    }
+    a.timer -= dt;
+    if (!a.swimTo || a.timer < 0) {
+      const nx = a.x + (Math.random() - 0.5) * 40, ny = a.y + (Math.random() - 0.5) * 30;
+      if (isWaterT(tileAt(this.S, Math.floor(nx / TS), Math.floor(ny / TS)))) a.swimTo = { x: nx, y: ny };
+      a.timer = 2000 + Math.random() * 4000;
+    }
+    if (a.swimTo) {
+      const dx = a.swimTo.x - a.x, dy = a.swimTo.y - a.y, d = Math.hypot(dx, dy);
+      if (d > 1) { a.x += dx / d * 0.012 * dt; a.y += dy / d * 0.012 * dt; a.face = dx >= 0 ? 1 : -1; }
+      a.sortY = a.y;
+    }
+    a.frame = (a.anim % 4000) < 600 ? 'peck' : 'perch';
+  }
+
+  // Perched or on the ground: pecking, turning, hopping, bathing — then on to the next spot
+  _idle(a, dt) {
+    a.timer -= dt;
+    const ground = a.perch && a.perch.kind === 'ground';
+    if (ground) a.frame = (a.anim % 1800) < 350 ? 'peck' : 'perch';
+    else a.frame = (a.anim % 5000) < 200 ? 'peck' : 'perch';
+    if (a.perch && a.perch.cling) a.frame = (a.anim % 900) < 120 ? 'peck' : 'perch';
+    if (Math.random() < dt / 6000) a.face = -a.face;
+    if (a.perch && a.perch.kind === 'bath' && Math.random() < dt / 2200) { a.frame = 'peck'; this.game.fx.burst('splash', a.x, a.y - a.z, 3); }
+    if (a.perch && a.perch.kind === 'feeder') a.frame = (a.anim % 1200) < 300 ? 'peck' : 'perch';
+    if (ground && Math.random() < dt / 2500) {
+      // hop
+      const nx = a.x + a.face * (3 + Math.random() * 6);
+      const t2 = tileAt(this.S, Math.floor(nx / TS), Math.floor(a.y / TS));
+      if (TINFO[t2].land) { a.x = nx; a.hopT = 160; }
+    }
+    if (a.hopT > 0) a.hopT -= dt;
+    if (a.timer <= 0 && !a.observed) this._nextMove(a);
   }
 
   _nextMove(a) {
@@ -13626,6 +13614,7 @@ class Renderer {
       const e = this._e(ny, spr.img, Math.round(nx) - spr.ax, Math.round(ny) - spr.ay);
       e.sh = NPCS[k].kid ? 5 : 6; e.sx = nx; e.sy = ny;
     }
+    FestivalView.collect(this, S, now);
     for (const a of S.animals.values()) {
       const left = a.d === 1 || (a.d !== 2 && a.lastLeft);
       if (a.d === 1) a.lastLeft = true; else if (a.d === 2) a.lastLeft = false;
@@ -13678,6 +13667,7 @@ class Renderer {
     // effects
     this._ambientFx(S, now, cx0, cy0, view);
     game.fx.draw(g, cx0, cy0);
+    FestivalView.drawSky(g, S, cx0, cy0, view, now, me);
     // quest markers ("!" over where to go next)
     for (const [mx, my, mk] of game.questMarkers()) {
       const bob = Math.round(Math.sin(now / 220) * 2);
@@ -13766,14 +13756,14 @@ class Renderer {
         const spr = SPR.forage(pb ? 'paperbird' + (o.c | 0) : o.kind, season);
         const bob = o.kind === 'note' || pb ? Math.round(Math.sin(now / 300 + o.id) * 1.5) - 2 : 0;
         g.drawImage(spr.img, bx - spr.ax - cx0, by - spr.ay - 2 + bob - cy0);
-        if ((o.kind === 'note' || pb) && (now / 250 + o.id) % 6 < 1) { g.fillStyle = '#fff4b0'; g.fillRect(bx + 4 - cx0, by - 14 + bob - cy0, 1, 3); g.fillRect(bx + 3 - cx0, by - 13 + bob - cy0, 3, 1); }
+        if ((o.kind === 'note' || pb) && (now / 250 + o.id) % 6 < 1) this._twinkle(g, bx + 4 - cx0, by - 14 + bob - cy0);
         break;
       }
       case 'qitem': {
         const spr = SPR.qitem(o.kind);
         const bob = Math.round(Math.sin(now / 300 + o.id) * 1);
         g.drawImage(spr.img, bx - spr.ax - cx0, by - spr.ay - 1 + bob - cy0);
-        if ((now / 230 + o.id) % 5 < 1) { g.fillStyle = '#fff4b0'; g.fillRect(bx + 3 - cx0, by - 13 + bob - cy0, 1, 3); g.fillRect(bx + 2 - cx0, by - 12 + bob - cy0, 3, 1); }
+        if ((now / 230 + o.id) % 5 < 1) this._twinkle(g, bx + 3 - cx0, by - 13 + bob - cy0);
         break;
       }
       case 'landmark': {
@@ -13791,6 +13781,9 @@ class Renderer {
       case 'nest': this._collectNest(o, now); break;
     }
   }
+
+  // a little sparkle (+) above something worth picking up; (x, y) is its top
+  _twinkle(g, x, y) { g.fillStyle = '#fff4b0'; g.fillRect(x, y, 1, 3); g.fillRect(x - 1, y + 1, 3, 1); }
 
   _collectNest(n, now) {
     const S = this.game.state;
@@ -13994,6 +13987,7 @@ class Renderer {
         if (!n.away) add(n.x * TS - cx0, n.y * TS - 12 - cy0, 30);
       }
       for (const p of S.players.values()) if (!p.sleep) add(p.x - cx0, p.y - 12 - cy0, 32);
+      FestivalView.lights(S, m, now, (x, y, r) => add(x - cx0, y - cy0, r));
     }
     if (lights.length) {
       lg.globalCompositeOperation = 'lighter';
@@ -14242,10 +14236,10 @@ class UI {
   // A little keycap showing which key triggers something; returns its width
   keyHint(label, x, y) {
     const w = this.font.measure(label) + 6;
-    this.rect(x, y, w, 12, '#3a2614');
+    this.rect(x, y, w, 12, UI_COL.ink);
     this.rect(x + 1, y + 1, w - 2, 9, '#6a4c30');
     this.rect(x + 1, y + 1, w - 2, 1, '#8a6a46');
-    this.text(label, x + 3, y + 2, '#fff4d8');
+    this.text(label, x + 3, y + 2, UI_COL.cream);
     return w;
   }
   keyHintW(label) { return label ? this.font.measure(label) + 6 : 0; }
@@ -14335,7 +14329,7 @@ class UI {
   closeX(id, x, y) {
     if (!Input.touchMode) {
       const k = Input.lastDevice === 'pad' ? 'B' : 'Esc';
-      this.text(k, x - 2, y + 2, '#9a8464', { align: 'right' });
+      this.text(k, x - 2, y + 2, UI_COL.muted, { align: 'right' });
     }
     const st = this.widget(id, x, y, 11, 11);
     this.panel(st.over || st.focused ? 'btnh' : 'btn', x, y, 11, 11);
@@ -14352,7 +14346,7 @@ class UI {
     const active = this.editing === id;
     this.panel(active ? 'slotsel' : 'slot', x, y, w, 14);
     const shown = value + (active && Math.floor(performance.now() / 400) % 2 ? '_' : '');
-    this.text(shown || (active ? '' : opts.placeholder || ''), x + 4, y + 3, value ? UI_COL.ink : '#9a8464');
+    this.text(shown || (active ? '' : opts.placeholder || ''), x + 4, y + 3, value ? UI_COL.ink : UI_COL.muted);
     if (st.focused && !active) this.focusRing(x, y, w, 14);
     if (st.clicked && !active) { this.editing = id; Input.startText(value); return value; }
     if (active) {
@@ -14390,7 +14384,7 @@ class UI {
       let y = Input.lastDevice === 'mouse' ? Input.mouse.y + 10 : this.view.h - h - 34;
       x = clamp(x, 2, this.view.w - w - 2); y = clamp(y, 2, this.view.h - h - 2);
       this.panel('dark', x, y, w, h);
-      lines.forEach((l, i) => this.text(l, x + 4, y + 3 + i * LINE_H, '#f6ecd2'));
+      lines.forEach((l, i) => this.text(l, x + 4, y + 3 + i * LINE_H, UI_COL.paper));
     }
   }
 }
@@ -14862,7 +14856,6 @@ class NestCam {
     const ease = (k) => k * k * (3 - 2 * k), lerp = (a, b, k) => a + (b - a) * k;
     const rimX = cx + hrx + 3;
     const cu = n.cu && (n.st === 'chicks' || n.st === 'fledged');
-    const parentId = sp.id; // in a cuckoo's nest, the foster parents
     const ctype = cu ? 'gape' : camChickType(sp);
     const after = []; // drawn over the front lip
     const visit = (P, arrive, stay, leave, sit) => {
@@ -14886,8 +14879,8 @@ class NestCam {
       case 'eggs': {
         const v = visit(11000, 4200, 5000, 10000, true);
         if (!(v.at)) eggsRow(Math.max(1, n.eggs || 1), sp.id, n.cu);
-        if (v.at) this.bird(parentId, cx, sitY + Math.round(Math.sin(t / 700)), (t % 3000) < 400 ? 'peck' : 'perch', Math.floor(t / 11000) % 2 ? 1 : -1);
-        else if (!v.away) after.push(() => this.bird(parentId, v.x, v.y, v.f, v.face));
+        if (v.at) this.bird(sp.id, cx, sitY + Math.round(Math.sin(t / 700)), (t % 3000) < 400 ? 'peck' : 'perch', Math.floor(t / 11000) % 2 ? 1 : -1);
+        else if (!v.away) after.push(() => this.bird(sp.id, v.x, v.y, v.f, v.face));
         break;
       }
       case 'chicks': {
@@ -14895,7 +14888,7 @@ class NestCam {
           // precocial chicks run about near the nest; a parent keeps watch
           const k = Math.min(5, n.ch || 3);
           after.push(() => {
-            this.bird(parentId, 18, CAM_H - 3, (t % 4000) < 600 ? 'peck' : 'perch', 1);
+            this.bird(sp.id, 18, CAM_H - 3, (t % 4000) < 600 ? 'peck' : 'perch', 1);
             for (let i = 0; i < k; i++) {
               const sx = Math.sin(t / 900 + i * 2.1), vx = Math.cos(t / 900 + i * 2.1);
               this.runner(sp, 44 + i * 6 + sx * 7, CAM_H - 2 - (i % 2) * 2, vx >= 0 ? 1 : -1, ((t / 300 + i) % 7) < 1);
@@ -14925,7 +14918,7 @@ class NestCam {
             }
           }
         }
-        if (!v.away) after.push(() => this.bird(parentId, v.x, v.y, v.at ? (Math.floor(v.ph / 260) % 2 ? 'peck' : 'perch') : v.f, v.face));
+        if (!v.away) after.push(() => this.bird(sp.id, v.x, v.y, v.at ? (Math.floor(v.ph / 260) % 2 ? 'peck' : 'perch') : v.f, v.face));
         break;
       }
       case 'pair': case 'lining': {
@@ -14975,6 +14968,155 @@ class NestCam {
   }
 }
 
+// ---- js/client/festival.js ----
+// The client side of the village festivals (rules in js/sim, data in js/data/festivals.js):
+// decorations on the green, their lights, migrating flocks in the sky (and counting them on
+// Migration Watch), the HUD tracker lines and the guide arrow to the green.
+
+const FestivalView = {
+  heard: new Set(),   // flocks whose calls already played as they passed (flock id + day)
+
+  // Today's festival, or null
+  today(S) { return S && S.time ? festivalOn(S.time) : null; },
+
+  // Decorations on the green for a festival: {kind, x, y (base, world px), spr}
+  decor(f, season) {
+    const key = f.id + ':' + season;
+    if (this._dk === key) return this._decor;
+    const gx = FEST_GREEN[0] * TS, out = [];
+    const put = (kind, spr, tx, ty) => out.push({ kind, spr, x: tx * TS, y: ty * TS });
+    const lanterns = f.decor.includes('lanterns');
+    if (f.decor.includes('bunting')) put('bunting', SPR.festDecor(lanterns ? 'buntingL' : 'bunting', season), 56.0, 31.1);
+    if (f.decor.includes('table')) put('table', SPR.festDecor('table', season), 65.4, 35.1);
+    if (f.decor.includes('bonfire')) put('bonfire', SPR.festDecor('bonfire', season), gx / TS, 33.9);
+    if (f.decor.includes('scope')) put('scope', SPR.struct('scope', season), 62.7, 31.6);
+    this._dk = key; this._decor = out;
+    return out;
+  },
+
+  // Is the midsummer bonfire burning? (from the end of the hunt until the fair ends)
+  bonfireLit(f, m) { return f.id === 'midsummer' && m >= f.until && m < f.gather[1]; },
+
+  // Add the decorations to the renderer's depth-sorted list
+  collect(R, S, now) {
+    const f = this.today(S);
+    if (!f) return;
+    const m = S.clock();
+    for (const d of this.decor(f, S.time.season)) {
+      R._e(d.y, d.spr.img, Math.round(d.x - d.spr.ax), Math.round(d.y - d.spr.ay));
+      if (d.kind === 'bonfire' && this.bonfireLit(f, m)) {
+        const fl = SPR.festDecor('flame' + (Math.floor(now / 120) % 3), S.time.season);
+        R._e(d.y + 0.5, fl.img, Math.round(d.x - fl.ax), Math.round(d.y - 3 - fl.ay));
+      }
+    }
+  },
+
+  // Extra light at night: paper lanterns on the bunting and the bonfire (world px: x, y, radius)
+  lights(S, m, now, add) {
+    const f = this.today(S);
+    if (!f) return;
+    for (const d of this.decor(f, S.time.season)) {
+      if (d.kind === 'bunting' && f.decor.includes('lanterns')) {
+        // the lanterns hang at a quarter, half and three quarters of each span (see genFestDecor)
+        for (const fx of [0.125, 0.25, 0.375, 0.625, 0.75, 0.875]) add(d.x - d.spr.ax + d.spr.w * fx, d.y - d.spr.ay + 16, 26);
+      }
+      if (d.kind === 'bonfire' && this.bonfireLit(f, m)) add(d.x, d.y - 8, 64 + Math.sin(now / 90) * 4);
+    }
+  },
+
+  // ---------------------------------------------------------------- migrating flocks
+  // The birds of a flock, as offsets from its centre (cached per flock)
+  _shape(fl) {
+    if (fl._shape) return fl._shape;
+    const n = Math.min(fl.n, fl.kind.form === 'cloud' ? 48 : 28), pts = [], dir = fl.north ? 1 : -1;
+    for (let i = 0; i < n; i++) {
+      const h = (j) => hashf(fl.id, i * 5 + j, 77);
+      if (fl.kind.form === 'v') { const k = Math.ceil(i / 2), side = i % 2 ? 1 : -1; pts.push([side * k * 6 + (h(1) - 0.5) * 2, dir * k * 5 + (h(2) - 0.5) * 2, h(3)]); }
+      else if (fl.kind.form === 'cloud') pts.push([(h(1) - 0.5) * 80, (h(2) - 0.5) * 46, h(3)]);
+      else pts.push([(h(1) - 0.5) * 60, (h(2) - 0.5) * 40, h(3)]);
+    }
+    return (fl._shape = pts);
+  },
+
+  // Flocks over the valley right now: [{fl, x, y}] in world px
+  flocksNow(S) {
+    const m = S.clock(), out = [];
+    for (const fl of skyFlocks(S)) { const p = flockPos(fl, m); if (p) out.push({ fl, x: p.x, y: p.y }); }
+    return out;
+  },
+
+  // Small dark birds flapping high overhead; their calls drift down as they pass
+  drawSky(g, S, cx0, cy0, view, now, me) {
+    const list = this.flocksNow(S);
+    if (!list.length) return;
+    const day = dayIdx(S.time);
+    // one bird: a body and two wings that beat up and down
+    const bird = (bx, by, big, up) => {
+      if (big) { g.fillRect(bx - 1, by, 3, 2); g.fillRect(bx - 4, by - up, 3, 1); g.fillRect(bx + 2, by - up, 3, 1); g.fillRect(bx - 5, by + 1 - 2 * up, 1, 1); g.fillRect(bx + 5, by + 1 - 2 * up, 1, 1); }
+      else { g.fillRect(bx, by, 2, 1); g.fillRect(bx - 2, by - up, 2, 1); g.fillRect(bx + 2, by - up, 2, 1); }
+    };
+    for (const { fl, x, y } of list) {
+      const sx = x - cx0, sy = y - cy0;
+      if (sx < -80 || sy < -60 || sx > view.w + 80 || sy > view.h + 60) continue;
+      const big = !!fl.kind.big, cloud = fl.kind.form === 'cloud', pts = [];
+      for (const [ox, oy, ph] of this._shape(fl)) {
+        const wob = cloud ? Math.sin(now / 700 + ph * 9) * 4 : 0;
+        pts.push(Math.round(sx + ox + wob), Math.round(sy + oy + Math.cos(now / 900 + ph * 7) * (cloud ? 3 : 1)), Math.floor(now / (big ? 260 : 140) + ph * 4) % 2);
+      }
+      // they're high up: their shadows fall well away from them
+      g.fillStyle = 'rgba(20,30,20,0.16)';
+      for (let k = 0; k < pts.length; k += 3) bird(pts[k] + 10, pts[k + 1] + 26, big, 0);
+      g.fillStyle = 'rgba(34,32,44,0.9)';
+      for (let k = 0; k < pts.length; k += 3) bird(pts[k], pts[k + 1], big, pts[k + 2]);
+      const key = day + ':' + fl.id;
+      if (me && !this.heard.has(key) && dist2(x, y, me.x, me.y) < 180 * 180) { this.heard.add(key); Audio2.song(fl.kind.song, x, y); }
+    }
+  },
+
+  // The flock you could count from where you stand (Migration Watch only), or null
+  countable(S, me) {
+    const fa = festActive(S.time, S.clock());
+    if (!fa || fa.id !== 'migration' || !S.fest) return null;
+    let best = null, bd = 1e12;
+    for (const c of this.flocksNow(S)) {
+      if (S.fest.seen.includes('f' + c.fl.id)) continue;
+      // a little stricter than the host's check, so a count is never refused because of lag
+      if (Math.abs(c.x - me.x) > 150 || Math.abs(c.y - me.y) > 130) continue;
+      const d = dist2(c.x, c.y, me.x, me.y);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best;
+  },
+
+  // ---------------------------------------------------------------- HUD & guide
+  // Tracker title and lines for today's festival, or null once it's over
+  trackerLines(S) {
+    const f = this.today(S);
+    const m = S.clock();
+    if (!f || m >= f.gather[1]) return null;
+    const st = S.fest && S.fest.id === f.id ? S.fest : { n: 0, tier: 0, done: false };
+    const lines = [];
+    if (m < f.gather[0]) lines.push(['On the village green from ' + fmtClock(f.gather[0]), UI_COL.ink]);
+    if (m < f.until && !st.done) {
+      lines.push([f.task, UI_COL.ink]);
+      const next = f.goal.find((goal) => goal > st.n);
+      lines.push(['  ' + st.n + ' ' + f.unit + (next ? ' · next ribbon at ' + next : ' · every ribbon won!'), st.tier ? UI_COL.ok : UI_COL.inkSoft]);
+    } else lines.push(['Join everyone on the green', UI_COL.ink]);
+    if (st.tier) lines.push(['  ' + RIBBONS[st.tier] + ' ribbon', '#a8761a']);
+    return { title: f.name, lines };
+  },
+
+  // Where the guide arrow points around the start of the gathering, or null
+  guide(S, me) {
+    const f = this.today(S);
+    if (!f) return null;
+    const m = S.clock(), x = FEST_GREEN[0] * TS, y = FEST_GREEN[1] * TS;
+    if (m < f.gather[0] - 30 || m >= Math.min(f.gather[1], f.gather[0] + 120)) return null;
+    if (dist2(x, y, me.x, me.y) < (6 * TS) ** 2) return null;
+    return { x, y, label: f.name, kind: 'tut' };
+  },
+};
+
 // ---- js/client/screens.js ----
 // Modal screens. Each has draw(ui, dt). `pause: true` pauses time in solo play.
 
@@ -14982,14 +15124,25 @@ function centered(view, w, h) {
   w = Math.min(w, view.w - 6); h = Math.min(h, view.h - 6);
   return [Math.floor((view.w - w) / 2), Math.floor((view.h - h) / 2), w, h];
 }
-// Badge progress as the client sees it (mirrors World.statValue)
-function statValueClient(S, k) {
-  if (k === 'species') return nestedCount(S);
-  if (k === 'landmarks') return Object.keys(S.found || {}).length;
-  if (k === 'nightSpecies') return ((S.stats && S.stats.nightList) || []).length;
-  if (k === 'bestFriends') { const fr = (S.prog && S.prog.fr) || {}; return Object.values(fr).some((v) => v >= HEART * MAX_HEARTS) ? 1 : 0; }
-  return (S.stats && S.stats[k]) || 0;
+// A window: a centred panel with an optional title and the close button (or Esc).
+// Returns [x, y, w, h], or null when it was closed this frame.
+// opts: style ('paper'), title, titleLeft, titleCol, titleY, tabs (room above the panel for a row of tabs),
+//       key (another key that closes it), typing (Esc doesn't close while a text field is being edited), onClose
+function windowFrame(ui, id, w, h, opts) {
+  opts = opts || {};
+  const [x, y, ww, hh] = centered(ui.view, w, h), top = opts.tabs ? 12 : 0;
+  ui.panel(opts.style || 'paper', x, y + top, ww, hh - top);
+  if (opts.title && opts.titleLeft) ui.text(opts.title, x + 10, y + 8, opts.titleCol || UI_COL.ink);
+  else if (opts.title) ui.text(opts.title, x + ww / 2, y + (opts.titleY || 8), opts.titleCol || UI_COL.ink, { align: 'center' });
+  if (ui.closeX(id + ':x', x + ww - 15, y + top + (opts.tabs ? 4 : 5)) || (wantClose(opts.key) && !(opts.typing && ui.editing))) {
+    if (opts.onClose) opts.onClose();
+    G.closeModal();
+    return null;
+  }
+  return [x, y, ww, hh];
 }
+// Badge progress as this player sees it (the host's World.statValue counts everyone's friendships)
+function statValueClient(S, k) { return badgeStat(S, k, () => isBestFriend(S.prog && S.prog.fr)); }
 function wantClose(extra) { return Input.hit('cancel') || (extra && Input.hit(extra)); }
 
 function birdThumb(ui, spId, x, y, box, sil) {
@@ -15010,7 +15163,7 @@ function matsRow(ui, mats, x, y, maxW) {
     const w = 16 + ui.font.measure(t) + 4;
     if (cx + w > x + maxW) { cx = x; y += 17; }
     ui.icon(SPR.matIcon(k), cx, y);
-    ui.text(t, cx + 16, y + 4, have >= need ? '#3a7a2a' : '#b8382a');
+    ui.text(t, cx + 16, y + 4, have >= need ? UI_COL.ok : UI_COL.bad);
     const st = ui.widget('mat:' + k + ':' + x + ':' + y, cx, y, w, 16, {});
     if (st.over || st.focused) ui.tip = MATS[k].name + ' — ' + MATS[k].where;
     cx += w;
@@ -15063,8 +15216,8 @@ class TitleScreen {
     // logo
     const ly = Math.max(14, v.h * 0.12);
     ui.text('NESTED', v.w / 2 + 2, ly + 2, '#2a3a1a', { align: 'center', scale: 4 });
-    ui.text('NESTED', v.w / 2, ly, '#fff4d8', { align: 'center', scale: 4, outline: '#3a2614' });
-    ui.text('A cozy bird-haven life sim', v.w / 2, ly + 40, '#3a2614', { align: 'center' });
+    ui.text('NESTED', v.w / 2, ly, UI_COL.cream, { align: 'center', scale: 4, outline: UI_COL.ink });
+    ui.text('A cozy bird-haven life sim', v.w / 2, ly + 40, UI_COL.ink, { align: 'center' });
     // menu
     const bw = 132, bh = 16;
     let y = ly + 58;
@@ -15078,7 +15231,7 @@ class TitleScreen {
     y += bh + 4;
     if (ui.button('t:help', 'How to Play', bx, y, bw / 2 - 2, bh)) G.openModal(new HelpScreen());
     if (ui.button('t:set', 'Settings', bx + bw / 2 + 2, y, bw / 2 - 2, bh)) G.openModal(new SettingsScreen());
-    ui.text('v' + GAME_VERSION + ' · all art & sound made in code', v.w - 3, v.h - 10, '#3a2614', { align: 'right' });
+    ui.text('v' + GAME_VERSION + ' · all art & sound made in code', v.w - 3, v.h - 10, UI_COL.ink, { align: 'right' });
   }
 }
 
@@ -15117,10 +15270,9 @@ const Profile = {
 class SlotScreen {
   constructor(mode) { this.mode = mode; this.metas = [1, 2, 3].map((i) => Saves.meta(i)); this.defaultFocus = this.metas[0] ? 'sl:play0' : 'sl:new0'; }
   draw(ui) {
-    const [x, y, w, h] = centered(ui.view, 260, 170);
-    ui.panel('paper', x, y, w, h);
-    ui.text(this.mode === 'host' ? 'Host a valley' : 'Choose a valley', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
-    if (ui.closeX('sl:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const fr = windowFrame(ui, 'sl', 260, 170, { title: this.mode === 'host' ? 'Host a valley' : 'Choose a valley' });
+    if (!fr) return;
+    const [x, y, w] = fr;
     for (let i = 0; i < 3; i++) {
       const m = this.metas[i];
       const by = y + 24 + i * 46;
@@ -15152,7 +15304,7 @@ function lookEditor(ui, st, x, y, w) {
   const lk = st.look;
   let cy = y + 20;
   const lx = x + 2, fx = x + 62, fw = w - 64;
-  const sw = (col) => (sx, sy, swd) => { ui.rect(sx + swd / 2 - 12, sy + 2, 24, 10, '#3a2614'); ui.rect(sx + swd / 2 - 11, sy + 3, 22, 8, col); };
+  const sw = (col) => (sx, sy, swd) => { ui.rect(sx + swd / 2 - 12, sy + 2, 24, 10, UI_COL.ink); ui.rect(sx + swd / 2 - 11, sy + 3, 22, 8, col); };
   const row = (label) => { ui.text(label, lx, cy + 3, UI_COL.inkSoft); const yy = cy; cy += 18; return yy; };
   const opt = (label, key, list) => { const yy = row(label); lk[key] = ui.stepper('lk:' + key, LOOK_LABELS[list[lk[key]]] || '', fx, yy, fw, lk[key], list.length); };
   const colour = (label, key, cols, order) => {
@@ -15204,6 +15356,20 @@ function lookPreview(ui, look, x, y, t, scale) {
   ui.g.drawImage(spr.img, x, y, spr.w * k, spr.h * k);
 }
 
+// "Label  [text field]" in the character windows
+function labeledField(ui, label, id, value, x, y, maxLen, placeholder) {
+  ui.text(label, x + 12, y + 3, UI_COL.inkSoft);
+  return ui.textField(id, value, x + 82, y, 132, maxLen, placeholder ? { placeholder } : undefined);
+}
+// The look editor with a turning preview and "Surprise me" (character creation and the wardrobe)
+function lookSection(ui, id, st, t, x, y, w, cy) {
+  lookEditor(ui, st, x + 10, cy, 222);
+  const px = x + w - 82, py = y + 22;
+  ui.panel('note', px, py, 70, 104);
+  lookPreview(ui, st.look, px + 11, py + 10, t, 3);
+  if (ui.button(id + ':rnd', 'Surprise me', px, py + 108, 70, 15)) { st.look = randomLook(); Audio2.sfx('pop'); }
+}
+
 class CreateScreen {
   constructor(o) {
     this.o = o;
@@ -15217,26 +15383,14 @@ class CreateScreen {
   }
   draw(ui, dt) {
     this.t += dt;
-    const [x, y, w, h] = centered(ui.view, 330, this.o.newWorld ? 222 : 202);
-    ui.panel('paper', x, y, w, h);
-    ui.text(this.o.newWorld ? 'A new valley' : 'Your birder', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
-    if (ui.closeX('cr:x', x + w - 15, y + 5) || (wantClose() && !ui.editing)) { ui.stopEditing(); G.closeModal(); return; }
+    const fr = windowFrame(ui, 'cr', 330, this.o.newWorld ? 222 : 202, { title: this.o.newWorld ? 'A new valley' : 'Your birder', typing: true, onClose: () => ui.stopEditing() });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     let cy = y + 24;
-    const lx = x + 12, fx = x + 82, fw = 132;
-    ui.text('Your name', lx, cy + 3, UI_COL.inkSoft);
-    this.name = ui.textField('cr:name', this.name, fx, cy, fw, 14, { placeholder: 'type a name' });
+    this.name = labeledField(ui, 'Your name', 'cr:name', this.name, x, cy, 14, 'type a name');
     cy += 20;
-    if (this.o.newWorld) {
-      ui.text('Valley name', lx, cy + 3, UI_COL.inkSoft);
-      this.valley = ui.textField('cr:valley', this.valley, fx, cy, fw, 18);
-      cy += 20;
-    }
-    lookEditor(ui, this.st, lx - 2, cy, 222);
-    // preview
-    const px = x + w - 82, py = y + 22;
-    ui.panel('note', px, py, 70, 104);
-    lookPreview(ui, this.st.look, px + 11, py + 10, this.t, 3);
-    if (ui.button('cr:rnd', 'Surprise me', px, py + 108, 70, 15)) { this.st.look = randomLook(); Audio2.sfx('pop'); }
+    if (this.o.newWorld) { this.valley = labeledField(ui, 'Valley name', 'cr:valley', this.valley, x, cy, 18); cy += 20; }
+    lookSection(ui, 'cr', this.st, this.t, x, y, w, cy);
     const ok = this.name.trim().length > 0 && (!this.o.newWorld || this.valley.trim().length > 0);
     if (ui.button('cr:go', this.o.newWorld ? 'Create valley' : 'Let\'s go!', x + w / 2 - 60, y + h - 22, 120, 16, { disabled: !ok, tip: ok ? '' : 'Please enter a name.' })) {
       ui.stopEditing();
@@ -15262,20 +15416,11 @@ class LookScreen {
   }
   draw(ui, dt) {
     this.t += dt;
-    const [x, y, w, h] = centered(ui.view, 330, 196);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Wardrobe', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
-    if (ui.closeX('lk:x', x + w - 15, y + 5) || (wantClose() && !ui.editing)) { ui.stopEditing(); G.closeModal(); return; }
-    let cy = y + 24;
-    const lx = x + 12;
-    ui.text('Your name', lx, cy + 3, UI_COL.inkSoft);
-    this.name = ui.textField('lk:name', this.name, x + 82, cy, 132, 14, { placeholder: 'type a name' });
-    cy += 20;
-    lookEditor(ui, this.st, lx - 2, cy, 222);
-    const px = x + w - 82, py = y + 22;
-    ui.panel('note', px, py, 70, 104);
-    lookPreview(ui, this.st.look, px + 11, py + 10, this.t, 3);
-    if (ui.button('lk:rnd', 'Surprise me', px, py + 108, 70, 15)) { this.st.look = randomLook(); Audio2.sfx('pop'); }
+    const fr = windowFrame(ui, 'lk', 330, 196, { title: 'Wardrobe', typing: true, onClose: () => ui.stopEditing() });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
+    this.name = labeledField(ui, 'Your name', 'lk:name', this.name, x, y + 24, 14, 'type a name');
+    lookSection(ui, 'lk', this.st, this.t, x, y, w, y + 44);
     const ok = this.name.trim().length > 0;
     if (ui.button('lk:save', 'Looking good!', x + w / 2 - 60, y + h - 22, 120, 16, { disabled: !ok })) {
       ui.stopEditing();
@@ -15294,10 +15439,9 @@ class JoinScreen {
   draw(ui, dt) {
     this.t += dt;
     if (this.t > 3000) { this.t = 0; G.fetchRooms().then((r) => { this.rooms = r; }).catch(() => { this.rooms = []; }); }
-    const [x, y, w, h] = centered(ui.view, 280, 190);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Join a friend\'s valley', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
-    if (ui.closeX('jn:x', x + w - 15, y + 5) || (wantClose() && !ui.editing)) { ui.stopEditing(); G.closeModal(); return; }
+    const fr = windowFrame(ui, 'jn', 280, 190, { title: 'Join a friend\'s valley', typing: true, onClose: () => ui.stopEditing() });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     let cy = y + 24;
     if (!this.rooms) ui.text('Looking for valleys…', x + 12, cy, UI_COL.inkSoft);
     else if (!this.rooms.length) ui.wrap('No valleys are open on this server yet. Ask your friend to choose "Host Co-op".', x + 12, cy, w - 24, UI_COL.inkSoft);
@@ -15312,15 +15456,13 @@ class JoinScreen {
     if (ui.button('jn:go', 'Join', x + 140, by, 50, 14, { disabled: this.code.length !== 4 })) { this._join(this.code); return; }
     ui.text('Players on your network can open this page and join.', x + 12, y + h - 18, UI_COL.muted);
   }
+  // check name and look (prefilled from the profile), then join
   _join(code) {
-    ui_stop();
+    G.ui.stopEditing();
     G.closeModal();
-    const prof = Profile.get();
     G.openModal(new CreateScreen({ join: code }));
-    if (prof) { /* prefilled */ }
   }
 }
-function ui_stop() { if (G.ui) G.ui.stopEditing(); }
 
 // ===================================================================== confirm
 class ConfirmScreen {
@@ -15350,13 +15492,14 @@ const HELP_PAGES = [
     '2. Gather materials. Shake trees for twigs, cut long grass, scoop mud, scrape moss and lichen, brush sheep, collect dewy spider silk in the morning…',
     '3. Create habitat. Plant trees, shrubs, thistles, herbs and reeds; craft nest boxes, platforms and banks; dig ponds.',
     '4. Build the nest at the right site (press F there). If the habitat is right and it\'s the breeding season, a pair moves in.',
-    '5. Watch eggs hatch and chicks fledge — then the species is nested! Nest all ' + SPECIES.length + ' species.',
+    '5. Watch eggs hatch and chicks fledge on the nest cam (F at the nest) — then the species is nested! Nest all ' + SPECIES.length + ' species.',
   ]],
   ['Tips', [
     'Sleep in your cottage to end the day. Eggs, chicks and plants grow overnight.',
     'Each species has a season: most nest in spring & summer, some even in autumn or winter.',
     'Check a nest site with F before building: it shows exactly which habitat needs are met. Or press "Where can it nest?" in the journal and follow the arrow.',
     'Mud is easier to find after rain. Spider webs only sparkle until 11:00.',
+    'On day ' + FEST_DAY + ' of every season the village holds a festival on the green, with ribbons to win and a keepsake for gold. A letter arrives the day before.',
     'Sell mushrooms, berries and nuts to Basil for coins. Fledged species earn conservation grants.',
     'Co-op: everyone shares the valley, the coins and the nest-material pouch.',
   ]],
@@ -15365,10 +15508,10 @@ const HELP_PAGES = [
 class HelpScreen {
   constructor() { this.page = 0; this.pause = true; }
   draw(ui) {
-    const [x, y, w, h] = centered(ui.view, 340, 228);
-    ui.panel('paper', x, y + 10, w, h - 10);
+    const fr = windowFrame(ui, 'hp', 340, 228, { tabs: true });
+    if (!fr) return;
+    const [x, y, w] = fr;
     this.page = ui.tabs('hp', HELP_PAGES.map((p) => p[0]), x + 6, y, this.page);
-    if (ui.closeX('hp:x', x + w - 14, y + 13) || wantClose()) { G.closeModal(); return; }
     let cy = y + 26;
     for (const line of HELP_PAGES[this.page][1]) {
       cy += ui.wrap(line, x + 12, cy, w - 24, UI_COL.ink) + 4;
@@ -15380,10 +15523,9 @@ class HelpScreen {
 class SettingsScreen {
   constructor() { this.pause = true; }
   draw(ui) {
-    const [x, y, w, h] = centered(ui.view, 230, 216);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Settings', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
-    if (ui.closeX('st:x', x + w - 15, y + 5) || wantClose()) { Audio2.savePrefs(); G.closeModal(); return; }
+    const fr = windowFrame(ui, 'st', 230, 216, { title: 'Settings', onClose: () => Audio2.savePrefs() });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     let cy = y + 26;
     const row = (label, key) => {
       ui.text(label, x + 14, cy + 3, UI_COL.inkSoft);
@@ -15455,7 +15597,7 @@ class PauseScreen {
     if (b('ps:set', 'Settings')) { G.openModal(new SettingsScreen()); return; }
     if (b('ps:quit', G.isHost ? 'Save & quit to title' : 'Leave valley')) { G.quitToTitle(); return; }
     if (G.roomCode) {
-      ui.text('Room code: ' + G.roomCode, x + w / 2, cy + 2, '#3a6ab0', { align: 'center' });
+      ui.text('Room code: ' + G.roomCode, x + w / 2, cy + 2, UI_COL.blue, { align: 'center' });
       ui.text('Friends: open ' + location.host, x + w / 2, cy + 12, UI_COL.muted, { align: 'center' });
     }
   }
@@ -15474,10 +15616,10 @@ class JournalScreen {
   }
   draw(ui, dt) {
     const S = G.state;
-    const [x, y, w, h] = centered(ui.view, 460, 264);
-    ui.panel('paper', x, y + 12, w, h - 12);
+    const fr = windowFrame(ui, 'jt', 460, 264, { tabs: true, key: 'journal' });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     this.tab = ui.tabs('jt', ['Birds', 'Clues', 'Materials', 'Quests', 'Progress', 'Valley', 'Diary'], x + 6, y, this.tab);
-    if (ui.closeX('jt:x', x + w - 15, y + 16) || wantClose('journal')) { G.closeModal(); return; }
     const bx = x + 8, by = y + 20, bw = w - 16, bh = h - 28;
     if (this.tab === 0) this.drawBirds(ui, bx, by, bw, bh);
     else if (this.tab === 1) this.drawClues(ui, bx, by, bw, bh);
@@ -15514,7 +15656,7 @@ class JournalScreen {
     for (const r of per[this.diaryPage]) {
       ui.text(r.e.when, x + 4, cy, UI_COL.muted);
       if (r.e.icon && r.e.icon !== 'no' && SPR.ui(r.e.icon)) ui.icon(SPR.ui(r.e.icon), x + 4 + whenW, cy - 3, 0.75);
-      r.lines.forEach((l, i) => ui.text(l, x + 20 + whenW, cy + i * LINE_H, r.e.icon === 'no' ? '#b8382a' : UI_COL.ink));
+      r.lines.forEach((l, i) => ui.text(l, x + 20 + whenW, cy + i * LINE_H, r.e.icon === 'no' ? UI_COL.bad : UI_COL.ink));
       cy += r.lines.length * LINE_H + 3;
     }
     if (per.length > 1) {
@@ -15561,7 +15703,7 @@ class JournalScreen {
       birdThumb(ui, sp.id, cx + 1, cy + 1, cell - 2, j.h === 0);
       if (j.n > 0) ui.icon(SPR.ui('star'), cx + cell - 12, cy - 3, 0.75);
       else if (j.h >= 3) ui.icon(SPR.ui('nest'), cx + cell - 12, cy - 3, 0.75);
-      else if (j.h > 0) ui.text(j.h + '/3', cx + 2, cy + cell - 9, '#ffffff', { outline: '#3a2614' });
+      else if (j.h > 0) ui.text(j.h + '/3', cx + 2, cy + cell - 9, '#ffffff', { outline: UI_COL.ink });
       if (st.focused) ui.focusRing(cx, cy, cell, cell);
       if (st.clicked || (st.focused && this.sel !== sp.id)) { if (this.sel !== sp.id) { this.sel = sp.id; this.sub = -1; Audio2.sfx('tick'); } }
     });
@@ -15599,7 +15741,7 @@ class JournalScreen {
     ui.text(sp.name, ix + 44, iy, UI_COL.ink);
     ui.text(sp.latin, ix + 44, iy + 10, UI_COL.muted);
     const status = j.n > 0 ? 'Nested! (' + j.first + ')' + (j.n > 1 ? ' · ' + j.n + ' broods' : '') : j.h >= 3 ? 'Blueprint known — build its nest!' : 'Clues: ' + j.h + '/3';
-    ui.text(status, ix + 44, iy + 21, j.n > 0 ? '#3a7a2a' : j.h >= 3 ? '#3a6ab0' : UI_COL.inkSoft);
+    ui.text(status, ix + 44, iy + 21, j.n > 0 ? UI_COL.ok : j.h >= 3 ? UI_COL.blue : UI_COL.inkSoft);
     if (sp.id !== 'cuckoo') ui.text('Nests in: ' + sp.breed.map((b) => SEASON_NAMES[b]).join(', '), ix + 44, iy + 31, UI_COL.inkSoft);
     // eggs
     const egg = SPR.egg(sp.id);
@@ -15638,11 +15780,11 @@ class JournalScreen {
       ui.text('Materials:', cx, cy, UI_COL.inkSoft);
       cy += 9;
       if (Object.keys(sp.mats).length) cy = matsRow(ui, sp.mats, cx, cy, cw);
-      else { ui.text('None — it needs no nest material!', cx, cy + 2, '#3a7a2a'); cy += 12; }
+      else { ui.text('None — it needs no nest material!', cx, cy + 2, UI_COL.ok); cy += 12; }
       if (sp.lining) { ui.text('+ lining:', cx, cy + 4, UI_COL.inkSoft); cy = matsRow(ui, sp.lining, cx + 44, cy, cw - 44); }
       ui.text('Habitat:', cx, cy + 1, UI_COL.inkSoft);
       cy += 11;
-      const habs = sp.hab.map((hb) => ({ why: hb.why, t: '• ' + (hb.k === 'open' ? (hb.n === 0 ? 'Open: no trees within ' + hb.r : 'Open: max ' + hb.n + ' trees within ' + hb.r) : (hb.k === 'water' || hb.k === 'anvil' || hb.k === 'mud') ? (hb.k === 'anvil' ? 'Anvil stone' : hb.k === 'mud' ? 'Mud' : 'Water') + (hb.r <= 1 ? ' right next to it' : ' within ' + hb.r + ' tiles') : hb.n + '+ ' + HAB_KINDS[hb.k].unit + ' within ' + hb.r) }));
+      const habs = sp.hab.map((hb) => ({ why: hb.why, t: '• ' + habLabel(hb) }));
       if (sp.terr) habs.push({ t: '• Territorial: no other ' + sp.name.split(' ').pop() + ' nest within ' + sp.terr });
       // the reasons go under each need when there's room; otherwise they show when you point at it
       const bottom = y + h - (j.n === 0 && j.h > 0 ? 20 : 4);
@@ -15658,11 +15800,11 @@ class JournalScreen {
       }
       // the nest-spot finder's answer for this bird
       const f = G.finder && G.finder.sp === sp.id ? G.finder : null;
-      if (f && cy < y + h - 24) ui.wrap(finderText(sp, f), cx, cy + 3, cw, f.count ? '#3a7a2a' : '#8a5a1a', LINE_H, Math.max(1, Math.floor((y + h - 8 - cy) / LINE_H)));
+      if (f && cy < y + h - 24) ui.wrap(finderText(sp, f), cx, cy + 3, cw, f.count ? UI_COL.ok : '#8a5a1a', LINE_H, Math.max(1, Math.floor((y + h - 8 - cy) / LINE_H)));
     } else if (this.sub === 1) {
       for (let i = 0; i < 3; i++) {
         const known = i < j.h;
-        ui.text('Clue ' + (i + 1), cx, cy, known ? '#3a6ab0' : UI_COL.muted);
+        ui.text('Clue ' + (i + 1), cx, cy, known ? UI_COL.blue : UI_COL.muted);
         cy += 9;
         cy += ui.wrap(known ? sp.hints[i] : '???', cx, cy, cw, known ? UI_COL.ink : UI_COL.muted) + 4;
       }
@@ -15691,7 +15833,7 @@ class JournalScreen {
       ui.panel('note', x, cy, w, 28);
       birdThumb(ui, e.sp, x + 3, cy + 3, 22, false);
       const src = e.src === 'obs' ? 'observed' : e.src === 'note' ? 'Field Note' : e.src === 'quest' ? 'tip from a villager' : 'from Ada';
-      ui.text(sp.name + ' · clue ' + (e.i + 1) + '/3 · ' + src + (e.by ? ' by ' + e.by : '') + ' · ' + e.d, x + 28, cy + 3, '#3a6ab0');
+      ui.text(sp.name + ' · clue ' + (e.i + 1) + '/3 · ' + src + (e.by ? ' by ' + e.by : '') + ' · ' + e.d, x + 28, cy + 3, UI_COL.blue);
       ui.wrap(sp.hints[e.i], x + 28, cy + 12, w - 34, UI_COL.ink, LINE_H, 2);
       cy += 30;
     }
@@ -15714,13 +15856,13 @@ class JournalScreen {
       if (st.over || st.focused || this.matSel === k) ui.rect(cx, cy, colW - 4, 17, '#efe0bc');
       ui.icon(SPR.matIcon(k), cx + 1, cy);
       ui.text(MATS[k].name, cx + 20, cy + 4, UI_COL.ink);
-      ui.text(String(S.mats[k] || 0), cx + colW - 10, cy + 4, (S.mats[k] || 0) > 0 ? '#3a7a2a' : UI_COL.muted, { align: 'right' });
+      ui.text(String(S.mats[k] || 0), cx + colW - 10, cy + 4, (S.mats[k] || 0) > 0 ? UI_COL.ok : UI_COL.muted, { align: 'right' });
       if (st.over || st.focused || st.clicked) this.matSel = k;
     });
     const k = this.matSel || MAT_ORDER[0];
     const iy = y + 12 + rowsN * 18 + 2;
     ui.rect(x, iy - 2, w, 1, '#c8b48a');
-    ui.text(MATS[k].name + ': ' + MATS[k].where, x + 2, iy + 1, '#3a6ab0');
+    ui.text(MATS[k].name + ': ' + MATS[k].where, x + 2, iy + 1, UI_COL.blue);
     ui.wrap(MATS[k].info, x + 2, iy + 11, w - 4, UI_COL.ink, LINE_H, 2);
   }
 
@@ -15742,12 +15884,12 @@ class JournalScreen {
     for (const q of active.slice(this.qPage * per, this.qPage * per + per)) {
       const ready = questReady(S, q);
       ui.panel('note', x + 2, cy - 2, colW - 6, 48);
-      ui.text(q.title, x + 8, cy + 2, ready ? '#3a7a2a' : UI_COL.ink);
+      ui.text(q.title, x + 8, cy + 2, ready ? UI_COL.ok : UI_COL.ink);
       ui.text(NPCS[q.npc].name + (q.kind === 'deliver' ? ' → ' + NPCS[q.to].name : ''), x + colW - 10, cy + 2, UI_COL.muted, { align: 'right' });
       ui.wrap(q.hint, x + 8, cy + 13, colW - 20, UI_COL.inkSoft, LINE_H, 2);
       const p = questProgress(S, q);
       if (q.n > 1) { ui.bar(x + 8, cy + 35, 70, 5, p / q.n, ready ? '#5ac05a' : '#e8b830'); ui.text(p + '/' + q.n, x + 82, cy + 33, UI_COL.inkSoft); }
-      if (ready) ui.text('Ready! Go back to ' + NPCS[q.npc].name, x + (q.n > 1 ? 104 : 8), cy + 33, '#3a7a2a');
+      if (ready) ui.text('Ready! Go back to ' + NPCS[q.npc].name, x + (q.n > 1 ? 104 : 8), cy + 33, UI_COL.ok);
       // point the guide arrow at this request
       if (questTarget(S, q)) {
         const on = G.guideQuest === q.id;
@@ -15803,7 +15945,7 @@ class JournalScreen {
       ui.icon(SPR.ui(got ? 'star' : 'lock'), bx, by - 3, 0.75);
       ui.text(b.name, bx + 14, by, got ? UI_COL.ink : UI_COL.inkSoft);
       if (!got) { ui.bar(bx + 104, by + 1, 40, 5, have / goal, '#e8b830'); ui.text(have + '/' + goal, bx + 148, by - 1, UI_COL.muted); }
-      else ui.text('earned!', bx + 104, by, '#3a7a2a');
+      else ui.text('earned!', bx + 104, by, UI_COL.ok);
       const st = ui.widget('bd:' + b.id, bx, by - 2, colW - 4, 12);
       if (st.over || st.focused) ui.tip = b.desc;
       i++;
@@ -15851,10 +15993,24 @@ class JournalScreen {
       const got = seen[r.id];
       ui.text(got ? '★ ' + r.name : '? ??? (' + r.present.map((q) => SEASON_NAMES[q]).join('/') + ')', rx, ry + 18 + k * 10, got ? '#a8761a' : UI_COL.muted);
     });
+    // festivals: the best ribbon won at each, and when the next one is
+    const nx = festivalNext(S.time);
+    ui.text('Festivals', x + 4, y + 84, UI_COL.ink);
+    ui.text('· ' + nx.f.name + (nx.days === 0 ? ' is today!' : nx.days === 1 ? ' is tomorrow' : ' in ' + nx.days + ' days'), x + 8 + ui.font.measure('Festivals'), y + 84, UI_COL.muted);
+    let fx = x + 6;
+    for (const f of FESTIVALS) {
+      const log = (S.festLog || {})[f.id], best = log ? log.best : 0, short = f.name.replace(/ (Day|Fair|Watch)$/, '');
+      const fw = 16 + ui.font.measure(short);
+      ui.icon(SPR.ui('ribbon' + best), fx, y + 93, 0.75);
+      ui.text(short, fx + 13, y + 96, best ? UI_COL.ink : UI_COL.muted);
+      const st = ui.widget('jv:f:' + f.id, fx, y + 94, fw, 11);
+      if (st.over || st.focused) ui.tip = f.name + ' — ' + SEASON_NAMES[f.season] + ' ' + FEST_DAY + '. ' + f.task + '. ' + (best ? 'Best: ' + RIBBONS[best] + ' ribbon.' : 'No ribbon yet.') + (log && log.keep ? ' Keepsake: ' + ITEMS[f.keep].name + '.' : ' Gold ribbon keepsake: ' + ITEMS[f.keep].name + '.');
+      fx += fw + 4;
+    }
     const nests = S.activeNests();
-    ui.text('Active nests', x + 4, y + 86, UI_COL.ink);
-    if (nests.length) ui.text('· pick one to watch its nest cam', x + 8 + ui.font.measure('Active nests'), y + 86, UI_COL.muted);
-    let cy = y + 97;
+    ui.text('Active nests', x + 4, y + 112, UI_COL.ink);
+    if (nests.length) ui.text('· pick one to watch its nest cam', x + 8 + ui.font.measure('Active nests'), y + 112, UI_COL.muted);
+    let cy = y + 123;
     if (!nests.length) ui.text('None yet — build one at a nest site (press ' + Input.keyLabel('alt') + ').', x + 8, cy, UI_COL.muted);
     let i = 0;
     const rowW = x + w - 160 - (x + 6);
@@ -15863,7 +16019,7 @@ class JournalScreen {
       const sp = SPECIES_BY_ID[nn.kind];
       const st = ui.widget('jv:n' + nn.id, x + 6, cy - 1, rowW, 10);
       if (st.over || st.focused) ui.rect(x + 6, cy - 1, rowW, 10, '#efe0bc');
-      ui.text('• ' + sp.name + ': ' + NEST_STAGE_LABEL[nn.st] + (nn.st === 'eggs' ? ' (' + nn.eggs + ')' : nn.st === 'chicks' ? ' (' + nn.ch + ')' : ''), x + 8, cy, st.over || st.focused ? '#3a6ab0' : UI_COL.ink);
+      ui.text('• ' + sp.name + ': ' + NEST_STAGE_LABEL[nn.st] + (nn.st === 'eggs' ? ' (' + nn.eggs + ')' : nn.st === 'chicks' ? ' (' + nn.ch + ')' : ''), x + 8, cy, st.over || st.focused ? UI_COL.blue : UI_COL.ink);
       if (st.clicked) { Audio2.sfx('page'); G.openModal(new NestScreen(nn.id)); }
       cy += 10; i++;
     }
@@ -15886,13 +16042,12 @@ class BagScreen {
   constructor() { this.pause = true; this.sel = -1; this.hover = G.selSlot; }
   draw(ui) {
     const S = G.state;
-    const [x, y, w, h] = centered(ui.view, 8 * 22 + 24, 128);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Your bag', x + 10, y + 8, UI_COL.ink);
+    const fr = windowFrame(ui, 'bg', 8 * 22 + 24, 128, { title: 'Your bag', titleLeft: true, key: 'bag' });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     const cw = ui.font.measure(String(S.coins));
     ui.icon(SPR.ui('coin'), x + w - 58 - cw, y + 4);
     ui.text(String(S.coins), x + w - 40 - cw, y + 8, UI_COL.ink);
-    if (ui.closeX('bg:x', x + w - 15, y + 5) || wantClose('bag')) { G.closeModal(); return; }
     for (let i = 0; i < BAG_SIZE; i++) {
       const sx = x + 12 + (i % 8) * 22, sy = y + 22 + Math.floor(i / 8) * 22 + (i >= 8 ? 4 : 0);
       const it = S.inv[i];
@@ -15925,12 +16080,12 @@ class ShopScreen {
   constructor() { this.pause = true; this.tab = 0; this.sel = 0; }
   draw(ui) {
     const S = G.state;
-    const [x, y, w, h] = centered(ui.view, 360, 236);
-    ui.panel('paper', x, y + 12, w, h - 12);
+    const fr = windowFrame(ui, 'sh', 360, 236, { tabs: true });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     this.tab = ui.tabs('sh', ['Buy', 'Sell'], x + 6, y, this.tab);
     ui.icon(SPR.ui('coin'), x + w - 86, y + 16);
     ui.text(String(S.coins), x + w - 68, y + 20, UI_COL.ink);
-    if (ui.closeX('sh:x', x + w - 15, y + 16) || wantClose()) { G.closeModal(); return; }
     const lx = x + 8, ly = y + 32, colW = 108;
     if (this.tab === 0) {
       SHOP_STOCK.forEach((k, i) => {
@@ -15941,7 +16096,7 @@ class ShopScreen {
         ui.panel(this.sel === i ? 'slotsel' : (st.over || st.focused) ? 'slothot' : 'slot', cx, cy, colW, 20);
         ui.icon(wood ? SPR.matIcon('wood') : SPR.itemIcon(k), cx + 2, cy + 2);
         ui.text(name.length > 15 ? name.slice(0, 14) + '…' : name, cx + 20, cy + 3, UI_COL.ink);
-        ui.text(price + 'c', cx + 20, cy + 11, S.coins >= price ? '#8a6a1a' : '#b8382a');
+        ui.text(price + 'c', cx + 20, cy + 11, S.coins >= price ? '#8a6a1a' : UI_COL.bad);
         if (st.focused) ui.focusRing(cx, cy, colW, 20);
         if (st.clicked || st.focused) { if (this.sel !== i && st.clicked) Audio2.sfx('tick'); this.sel = i; }
       });
@@ -15996,10 +16151,9 @@ class CraftScreen {
   constructor() { this.pause = true; this.sel = 0; }
   draw(ui) {
     const S = G.state;
-    const [x, y, w, h] = centered(ui.view, 360, 222);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Workbench', x + 10, y + 8, UI_COL.ink);
-    if (ui.closeX('cf:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const fr = windowFrame(ui, 'cf', 360, 222, { title: 'Workbench', titleLeft: true });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     const lx = x + 8, ly = y + 22, colW = 108;
     RECIPES.forEach((r, i) => {
       const cx = lx + (i % 2) * (colW + 2), cy = ly + Math.floor(i / 2) * 22;
@@ -16010,7 +16164,7 @@ class CraftScreen {
       ui.icon(SPR.itemIcon(r.id), cx + 2, cy + 2);
       const nm = ITEMS[r.id].name;
       ui.text(nm.length > 15 ? nm.slice(0, 14) + '…' : nm, cx + 20, cy + 3, UI_COL.ink);
-      ui.text(locked ? 'birder rank ' + r.lvl : can ? 'ready' : 'need materials', cx + 20, cy + 11, locked ? '#a8761a' : can ? '#3a7a2a' : UI_COL.muted);
+      ui.text(locked ? 'birder rank ' + r.lvl : can ? 'ready' : 'need materials', cx + 20, cy + 11, locked ? '#a8761a' : can ? UI_COL.ok : UI_COL.muted);
       if (st.focused) ui.focusRing(cx, cy, colW, 20);
       if (st.clicked || st.focused) this.sel = i;
     });
@@ -16026,7 +16180,7 @@ class CraftScreen {
     const site = STRUCTS[r.id] && STRUCTS[r.id].site;
     if (site) {
       const users = SPECIES.filter((s) => s.site === site && S.journal[s.id].h >= 2);
-      if (users.length) cy += ui.wrap('Used by: ' + users.map((s) => s.name).join(', '), dx + 6, cy, dw - 12, '#3a6ab0');
+      if (users.length) cy += ui.wrap('Used by: ' + users.map((s) => s.name).join(', '), dx + 6, cy, dw - 12, UI_COL.blue);
     }
     const locked = r.lvl && (S.prog.lvl || 1) < r.lvl;
     if (locked) cy += ui.wrap('Unlocks at birder rank ' + r.lvl + ' (' + RANKS[r.lvl - 1] + ').', dx + 6, cy, dw - 12, '#a8761a');
@@ -16044,11 +16198,9 @@ class SiteScreen {
     const h0 = this.hostObj();
     if (!this.host.tile && !h0) { G.closeModal(); return; }
     const target = this.host.tile ? { tile: this.host.tile } : h0;
-    const [x, y, w, h] = centered(ui.view, 380, 232);
-    ui.panel('paper', x, y, w, h);
-    if (ui.closeX('si:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
-    const title = this.host.tile ? 'Long grass by the water' : hostName(h0);
-    ui.text(title, x + 10, y + 8, UI_COL.ink);
+    const fr = windowFrame(ui, 'si', 380, 232, { title: this.host.tile ? 'Long grass by the water' : hostName(h0), titleLeft: true });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     const sites = sitesOf(S, target);
     let cy = y + 20;
     // existing nests on this host
@@ -16096,13 +16248,13 @@ class SiteScreen {
         ui.wrap('You know it nests here, but not what its nest is made of. Find its third clue!', dx + 6, dy, dw - 12, UI_COL.inkSoft);
       } else {
         if (Object.keys(sp.mats).length) dy = matsRow(ui, sp.mats, dx + 6, dy, dw - 12);
-        else { ui.text('No materials needed!', dx + 6, dy + 2, '#3a7a2a'); dy += 13; }
+        else { ui.text('No materials needed!', dx + 6, dy + 2, UI_COL.ok); dy += 13; }
         const c = this.host.tile ? this.host.tile : hostCenter(h0);
         const ev = evalNest(S, sp, c[0], c[1], 0);
         for (const ch of ev.checks) {
           ui.icon(SPR.ui(ch.ok ? 'check' : 'cross'), dx + 4, dy - 3, 0.75);
           const lbl = ch.label + (ch.have != null && ch.k !== 'open' ? ' (' + ch.have + ')' : ch.have != null ? ' (' + ch.have + ')' : '');
-          ui.text(lbl, dx + 18, dy, ch.ok ? '#3a7a2a' : '#b8382a');
+          ui.text(lbl, dx + 18, dy, ch.ok ? UI_COL.ok : UI_COL.bad);
           dy += 9;
           if (ch.why && !ch.ok) { ui.text(ch.why, dx + 18, dy, UI_COL.muted); dy += 9; }
           dy += 1;
@@ -16156,18 +16308,18 @@ class NestScreen {
     if (!n) { G.closeModal(); return; }
     const sp = SPECIES_BY_ID[n.kind];
     const j = S.journal[sp.id];
-    const [x, y, w, h] = centered(ui.view, 336, 212);
-    ui.panel('paper', x, y, w, h);
-    if (ui.closeX('ns:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const fr = windowFrame(ui, 'ns', 336, 212);
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     ui.panel('slot', x + 10, y + 8, 36, 36);
     birdThumb(ui, n.cu && (n.st === 'chicks' || n.st === 'fledged') ? 'cuckoo' : sp.id, x + 12, y + 10, 32, false);
     ui.text(sp.name + ' nest', x + 54, y + 9, UI_COL.ink);
-    ui.text(NEST_STAGE_LABEL[n.st], x + 54, y + 20, '#3a6ab0');
+    ui.text(NEST_STAGE_LABEL[n.st], x + 54, y + 20, UI_COL.blue);
     ui.text('Built by ' + (n.by || '?'), x + 54, y + 31, UI_COL.muted);
     if (j.h > 0 && ui.button('ns:song', 'Listen', x + w - 72, y + 27, 60, 15, { icon: SPR.ui('note'), tip: 'Play the song of the ' + sp.name })) Audio2.song(sp.id);
     // the nest cam
     const camX = x + 10, camY = y + 49;
-    ui.rect(camX - 2, camY - 2, CAM_W * 2 + 4, CAM_H * 2 + 4, '#3a2614');
+    ui.rect(camX - 2, camY - 2, CAM_W * 2 + 4, CAM_H * 2 + 4, UI_COL.ink);
     this.cam.draw(ui, camX, camY, dt);
     // what's happening, to the right of the cam
     const rx = camX + CAM_W * 2 + 10, rw = x + w - 10 - rx, bottom = y + h - 24;
@@ -16193,7 +16345,7 @@ class NestScreen {
     } else if (n.st === 'built') {
       const c = nestCenter(S, n);
       const ev = evalNest(S, sp, c[0], c[1], n.id);
-      say(ev.ok ? 'Everything is ready — a pair should arrive soon!' : 'Not quite right yet:', ev.ok ? '#3a7a2a' : '#b8382a');
+      say(ev.ok ? 'Everything is ready — a pair should arrive soon!' : 'Not quite right yet:', ev.ok ? UI_COL.ok : UI_COL.bad);
       cy -= 2;
       const rows = ev.checks.map((ch) => ({ ch, t: ch.label + (ch.have != null ? ' (' + ch.have + ')' : '') }));
       const full = rows.reduce((a, r) => a + ui.wrapHeight(r.t, rw - 12, 9) + (!r.ch.ok && r.ch.why ? ui.wrapHeight(r.ch.why, rw - 12, 9) : 0) + 1, 0);
@@ -16201,7 +16353,7 @@ class NestScreen {
       for (const r of rows) {
         if (cy > bottom - 9) break;
         ui.icon(SPR.ui(r.ch.ok ? 'check' : 'cross'), rx - 2, cy - 3, 0.75);
-        cy += ui.wrap(r.t, rx + 12, cy, rw - 12, r.ch.ok ? '#3a7a2a' : '#b8382a', 9);
+        cy += ui.wrap(r.t, rx + 12, cy, rw - 12, r.ch.ok ? UI_COL.ok : UI_COL.bad, 9);
         if (!r.ch.ok && r.ch.why && why) cy += ui.wrap(r.ch.why, rx + 12, cy, rw - 12, UI_COL.muted, 9);
         cy += 1;
       }
@@ -16307,12 +16459,11 @@ class BoardScreen {
   draw(ui) {
     const S = G.state;
     const foot = ui.font.wrap('New notices every morning. They\'re optional — help when you like!', 284);
-    const [x, y, w, h] = centered(ui.view, 300, 140 + foot.length * LINE_H);
-    ui.panel('wood', x, y, w, h);
-    ui.text('Notice Board', x + w / 2, y + 6, '#fff4d8', { align: 'center' });
-    if (ui.closeX('nb:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const fr = windowFrame(ui, 'nb', 300, 140 + foot.length * LINE_H, { style: 'wood', title: 'Notice Board', titleCol: UI_COL.cream, titleY: 6 });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     const tasks = S.board || [];
-    if (!tasks.length) ui.wrap('No notices today. Check back tomorrow morning!', x + 12, y + 30, w - 24, '#fff4d8');
+    if (!tasks.length) ui.wrap('No notices today. Check back tomorrow morning!', x + 12, y + 30, w - 24, UI_COL.cream);
     tasks.forEach((t, i) => {
       const cy = y + 22 + i * 58;
       ui.panel('note', x + 8, cy, w - 16, 52);
@@ -16320,9 +16471,9 @@ class BoardScreen {
       ui.text(NPCS[t.npc].name + ': "' + t.text + '"', x + 40, cy + 6, UI_COL.ink);
       ui.icon(SPR.matIcon(t.mat), x + 40, cy + 16);
       const have = S.mats[t.mat] || 0;
-      ui.text(t.n + ' ' + MATS[t.mat].name + ' (you have ' + have + ')', x + 58, cy + 20, have >= t.n ? '#3a7a2a' : UI_COL.inkSoft);
+      ui.text(t.n + ' ' + MATS[t.mat].name + ' (you have ' + have + ')', x + 58, cy + 20, have >= t.n ? UI_COL.ok : UI_COL.inkSoft);
       ui.text('Reward: ' + (15 + t.n * 6) + ' coins · friendship', x + 40, cy + 32, UI_COL.muted);
-      if (t.done) ui.text('Done by ' + t.done + ' ✓', x + w - 20, cy + 32, '#3a7a2a', { align: 'right' });
+      if (t.done) ui.text('Done by ' + t.done + ' ✓', x + w - 20, cy + 32, UI_COL.ok, { align: 'right' });
       else if (ui.button('nb:' + i, 'Hand in', x + w - 74, cy + 30, 58, 14, { disabled: have < t.n })) G.send({ t: 'act', a: 'board', i });
     });
     foot.forEach((l, i) => ui.text(l, x + w / 2, y + h - 3 - (foot.length - i) * LINE_H, '#e8d8b8', { align: 'center' }));
@@ -16351,10 +16502,9 @@ class MailScreen {
   constructor() { this.pause = true; this.sel = null; this.page = 0; }
   draw(ui) {
     const S = G.state;
-    const [x, y, w, h] = centered(ui.view, 400, 236);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Letters', x + 10, y + 8, UI_COL.ink);
-    if (ui.closeX('ml:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const fr = windowFrame(ui, 'ml', 400, 236, { title: 'Letters', titleLeft: true });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     const letters = S.mail.slice().reverse();
     if (this.sel == null && letters.length) this.open(letters.find((l) => !l.read) || letters[0]);
     const lw = 116;
@@ -16402,7 +16552,7 @@ class ClueScreen {
     const sp = SPECIES_BY_ID[this.sp];
     const [x, y, w, h] = centered(ui.view, 300, 150);
     ui.panel('note', x, y, w, h);
-    ui.text(this.src === 'obs' ? 'You observed a bird!' : this.src === 'quest' ? 'A tip from a friend!' : 'You found a Field Note!', x + w / 2, y + 10, '#3a6ab0', { align: 'center' });
+    ui.text(this.src === 'obs' ? 'You observed a bird!' : this.src === 'quest' ? 'A tip from a friend!' : 'You found a Field Note!', x + w / 2, y + 10, UI_COL.blue, { align: 'center' });
     ui.panel('slot', x + 10, y + 24, 36, 36);
     birdThumb(ui, sp.id, x + 12, y + 26, 32, false);
     ui.text(sp.name, x + 54, y + 26, UI_COL.ink);
@@ -16471,7 +16621,7 @@ class MapScreen {
     const pw = mw + 12 + (side ? SIDE : 0), ph = mh + (side ? 20 : 37);
     const x = Math.floor((v.w - pw) / 2) + 6, y = Math.floor((v.h - ph) / 2) + 16;
     ui.panel('wood', x - 6, y - 16, pw, ph);
-    ui.text(S.name + ' Valley', x, y - 12, '#fff4d8');
+    ui.text(S.name + ' Valley', x, y - 12, UI_COL.cream);
     if (ui.closeX('mp:x', x + pw - 23, y - 14) || wantClose('map')) { G.closeModal(); return; }
     ui.g.drawImage(this.cv, x, y, mw, mh);
     const P = (wx, wy) => [x + wx / TS * sc, y + wy / TS * sc];
@@ -16485,7 +16635,7 @@ class MapScreen {
     for (const o of S.objs.values()) {
       if (o.type !== 'nest' || o.st === 'old') continue;
       const [nx, ny] = nestCenter(S, o);
-      ui.rect(x + nx * sc + sc / 2 - 2, y + ny * sc + sc / 2 - 2, 4, 4, o.st === 'built' || o.st === 'cock' ? '#f6ecd2' : '#f6c83a');
+      ui.rect(x + nx * sc + sc / 2 - 2, y + ny * sc + sc / 2 - 2, 4, 4, o.st === 'built' || o.st === 'cock' ? UI_COL.paper : '#f6c83a');
     }
     // leads
     const t = performance.now();
@@ -16497,7 +16647,7 @@ class MapScreen {
       const r = 4 + (t / 200) % 4;
       ui.g.strokeStyle = '#ffffff'; ui.g.lineWidth = 1;
       ui.g.strokeRect(Math.round(cx - r), Math.round(cy - r), Math.round(r * 2), Math.round(r * 2));
-      ui.text('?', cx - 1, cy - 4, '#ffffff', { outline: '#3a6ab0' });
+      ui.text('?', cx - 1, cy - 4, '#ffffff', { outline: UI_COL.blue });
     }
     for (const k in NPCS) { const n = npcPos(k, S.clock()); if (!n.away) ui.rect(x + n.x * sc - 1, y + n.y * sc - 2, 3, 3, '#c070d8'); }
     for (const o of S.objs.values()) if (o.type === 'landmark' && S.found && S.found[o.kind] != null) ui.icon(SPR.ui('star'), x + o.x * sc - 4, y + o.y * sc - 4, 0.5);
@@ -16543,21 +16693,21 @@ class MapScreen {
     // legend, with the same colours as the marks on the map
     const keys = [['#e8485a', 'you'], ['#f6c83a', 'nest'], ['?', 'lead'], ['#c070d8', 'villager'], ['#6ab0e0', 'travel']];
     const swatch = (c, lx, ly) => {
-      if (c === '?') ui.text('?', lx, ly - 1, '#ffffff', { outline: '#3a6ab0' });
+      if (c === '?') ui.text('?', lx, ly - 1, '#ffffff', { outline: UI_COL.blue });
       else { ui.rect(lx, ly + 1, 5, 5, '#2a1a0e'); ui.rect(lx + 1, ly + 2, 3, 3, c); }
     };
     const hasGuide = G.pin || G.finder || G.guideQuest;
     if (side) {
       const lx = x + mw + 8;
       let ly = y + 2;
-      for (const [c, t] of keys) { swatch(c, lx, ly); ui.text(t, lx + 9, ly, '#fff4d8'); ly += 11; }
+      for (const [c, t] of keys) { swatch(c, lx, ly); ui.text(t, lx + 9, ly, UI_COL.cream); ly += 11; }
       ly += 6;
       ly += ui.wrap('Click the map to drop a pin.', lx, ly, SIDE - 10, '#e8d8b8') + 3;
       ly += ui.wrap('Click a blue point to travel there.', lx, ly, SIDE - 10, '#e8d8b8') + 6;
       if (hasGuide && ui.button('mp:clr', 'Clear guide', lx, ly, 70, 14)) { G.pin = null; G.finder = null; G.guideQuest = null; }
     } else {
       let lx = x;
-      for (const [c, t] of keys) { swatch(c, lx, y + mh + 1); ui.text(t, lx + 8, y + mh + 1, '#fff4d8'); lx += 14 + ui.font.measure(t); }
+      for (const [c, t] of keys) { swatch(c, lx, y + mh + 1); ui.text(t, lx + 8, y + mh + 1, UI_COL.cream); lx += 14 + ui.font.measure(t); }
       ui.text('Click: pin  ·  click a blue point: travel', x, y + mh + 11, '#e8d8b8');
       if (hasGuide && ui.button('mp:clr', 'Clear guide', x + mw - 62, y + mh + 2, 62, 14)) { G.pin = null; G.finder = null; G.guideQuest = null; }
     }
@@ -16593,7 +16743,7 @@ class SleepScreen {
     ui.rect(0, 0, v.w, v.h, 'rgba(10,10,30,0.7)');
     const [x, y, w, h] = centered(v, 220, 60);
     ui.panel('dark', x, y, w, h);
-    ui.text('Zzz… waiting for everyone to sleep', x + w / 2, y + 10, '#f6ecd2', { align: 'center' });
+    ui.text('Zzz… waiting for everyone to sleep', x + w / 2, y + 10, UI_COL.paper, { align: 'center' });
     ui.text((S.sleepN || 1) + ' of ' + (S.sleepTotal || 1) + ' asleep', x + w / 2, y + 22, '#c8c0e0', { align: 'center' });
     if (ui.button('slp:c', 'Get up', x + w / 2 - 35, y + h - 20, 70, 14) || wantClose()) { G.send({ t: 'act', a: 'sleep', v: false }); G.closeModal(); }
   }
@@ -16619,21 +16769,21 @@ const HUD = {
       ui.panel('wood', 3, 3, 96, 30);
       const seasonIcon = SPR.ui(SEASONS[S.time.season]);
       ui.icon(seasonIcon, 6, 5);
-      ui.text(SEASON_NAMES[S.time.season].slice(0, 3) + ' ' + S.time.day + ', Y' + S.time.year, 24, 7, '#fff4d8');
+      ui.text(SEASON_NAMES[S.time.season].slice(0, 3) + ' ' + S.time.day + ', Y' + S.time.year, 24, 7, UI_COL.cream);
       const wIcon = { sun: 'sun', rain: 'rain', cloud: 'cloud', snow: 'snow' }[S.weather] || 'sun';
       ui.icon(SPR.ui(t >= 20 * 60 || t < 6 * 60 ? 'moon' : wIcon), 6, 17);
-      ui.text(fmtClock(t), 24, 21, t >= 23 * 60 ? '#ffb0a0' : '#fff4d8');
+      ui.text(fmtClock(t), 24, 21, t >= 23 * 60 ? '#ffb0a0' : UI_COL.cream);
       ui.panel('wood', 3, 34, 60, 16);
       ui.icon(SPR.ui('coin'), 4, 34);
-      ui.text(String(S.coins), 21, 38, '#fff4d8');
+      ui.text(String(S.coins), 21, 38, UI_COL.cream);
       // ---------------- birder rank: always-visible progress toward the next rank
       const mine = S.prog || { xp: 0, lvl: 1 };
       const need = xpForLevel(mine.lvl), frac = mine.lvl >= MAX_LEVEL ? 1 : mine.xp / need;
       const rw = ui.widget('hud:rank', 3, 51, 96, 18);
       ui.panel('wood', 3, 51, 96, 18);
       ui.text('★' + mine.lvl, 7, 54, '#f6d860');
-      ui.text(RANKS[mine.lvl - 1], 22, 54, '#fff4d8');
-      ui.rect(7, 63, 88, 3, '#3a2614');
+      ui.text(RANKS[mine.lvl - 1], 22, 54, UI_COL.cream);
+      ui.rect(7, 63, 88, 3, UI_COL.ink);
       ui.rect(7, 63, Math.round(88 * clamp(frac, 0, 1)), 3, '#9ae07a');
       if (rw.over || rw.focused) ui.tip = mine.lvl >= MAX_LEVEL ? 'Top birder rank!' : 'Birder rank ' + mine.lvl + ': ' + mine.xp + '/' + need + ' XP to the next rank. Earn XP by watching birds, building nests, finding clues and helping villagers.';
       if (rw.clicked) game.openModal(new JournalScreen(4));
@@ -16681,7 +16831,7 @@ const HUD = {
         const x = Math.floor((v.w - w) / 2);
         ui.panel('dark', x, hy - 16, w, 14);
         ui.icon(SPR.itemIcon(held.k), x + 2, hy - 17);
-        ui.text(txt, x + 20, hy - 13, '#f6ecd2');
+        ui.text(txt, x + 20, hy - 13, UI_COL.paper);
       }
     });
     if (!game.modal) this.guide(ui, game, v);
@@ -16704,7 +16854,7 @@ const HUD = {
       ui.g.globalAlpha = a;
       ui.panel('dark', x, ty, w, h);
       if (tt.icon && tt.icon !== 'no') ui.icon(SPR.ui(tt.icon), x + 4, ty + h / 2 - 8);
-      lines.forEach((l, i) => ui.text(l, x + (tt.icon ? 22 : 6), ty + 4 + i * LINE_H, tt.icon === 'no' ? '#ffb0a0' : '#f6ecd2'));
+      lines.forEach((l, i) => ui.text(l, x + (tt.icon ? 22 : 6), ty + 4 + i * LINE_H, tt.icon === 'no' ? '#ffb0a0' : UI_COL.paper));
       ui.g.globalAlpha = 1;
       ty += h + 2;
     }
@@ -16773,52 +16923,59 @@ const HUD = {
     parts.forEach(([k, l], i) => {
       const key = '[' + Input.keyLabel(k) + ']';
       cx += ui.text(key, cx, y + 2, '#f6c83a');
-      cx += ui.text(' ' + l + (i < parts.length - 1 ? '   ' : ''), cx, y + 2, '#f6ecd2');
+      cx += ui.text(' ' + l + (i < parts.length - 1 ? '   ' : ''), cx, y + 2, UI_COL.paper);
     });
   },
 
-  tracker(ui, game, v) {
+  // What the tracker shows: the tutorial step, today's festival, the bird you're tracking, or your leads.
+  // {title, lines: [[text, colour, material icon?]…]}
+  trackerContent(game) {
     const S = game.state;
-    const lines = [];
-    let title = '';
-    this.trackerRect = null;
     if (S.quest < TUTORIAL.length) {
-      title = 'Getting started';
-      const step = TUTORIAL[S.quest];
-      lines.push([step.text, '#3a2614']);
-      if (step.id === 'gather') {
-        for (const [k, n] of [['twig', 2], ['grass', 3], ['mud', 2]]) lines.push(['  ' + MATS[k].name + ' ' + Math.min(n, S.mats[k] || 0) + '/' + n, (S.mats[k] || 0) >= n ? '#3a7a2a' : '#6e5232', k]);
-      }
-      if (step.id === 'build') lines.push(['  Look for: shrub + short lawn', '#6e5232']);
-    } else if (game.tracked && S.journal[game.tracked] && S.journal[game.tracked].n === 0) {
-      const sp = SPECIES_BY_ID[game.tracked];
-      const j = S.journal[sp.id];
-      title = 'Tracking: ' + sp.name;
-      if (j.h < 3) lines.push(['Clues ' + j.h + '/3 — look around ' + ZONES_LABEL[sp.zone], '#6e5232']);
-      else {
-        lines.push(['Site: ' + SITES[sp.site].label, '#3a2614']);
-        for (const k in sp.mats) lines.push(['  ' + MATS[k].name + ' ' + Math.min(sp.mats[k], S.mats[k] || 0) + '/' + sp.mats[k], (S.mats[k] || 0) >= sp.mats[k] ? '#3a7a2a' : '#6e5232', k]);
-        if (!sp.breed.includes(S.time.season)) lines.push(['Nests in ' + sp.breed.map((b) => SEASON_NAMES[b]).join('/'), '#b8382a']);
-      }
-    } else {
-      title = 'Leads';
-      for (const q of QUESTS) {
-        const st = S.side && S.side[q.id];
-        if (!st || st.st !== 'on' || lines.length >= 2) continue;
-        const ready = questReady(S, q);
-        const more = ready ? ' — back to ' + NPCS[q.npc].name : q.kind === 'deliver' ? ' → ' + NPCS[q.to].name
-          : q.n > 1 ? ' ' + questProgress(S, q) + '/' + q.n : q.night ? ' (after 9 pm)' : q.early ? ' (before 8 am)' : '';
-        lines.push(['★ ' + q.title + more, ready ? '#3a7a2a' : '#8a5a1a']);
-      }
-      for (const id of S.featured || []) {
-        const sp = SPECIES_BY_ID[id], j = S.journal[id];
-        if (!sp || j.h >= 3) continue;
-        lines.push([(j.h ? sp.name : '???') + ' ' + j.h + '/3 · ' + ZONES_LABEL[sp.zone], '#3a2614']);
-      }
-      const ready = SPECIES.filter((s) => S.journal[s.id].h >= 3 && S.journal[s.id].n === 0 && s.site !== 'parasite' && !S.hasActiveNest(s.id));
-      for (const s of ready.slice(0, 2)) lines.push(['Ready to build: ' + s.name, '#3a6ab0']);
-      if (!lines.length) lines.push(['Nest more species to attract new birds', '#6e5232']);
+      const step = TUTORIAL[S.quest], lines = [[step.text, UI_COL.ink]];
+      if (step.id === 'gather') lines.push(...this._matLines(S, { twig: 2, grass: 3, mud: 2 }));
+      if (step.id === 'build') lines.push(['  Look for: shrub + short lawn', UI_COL.inkSoft]);
+      return { title: 'Getting started', lines };
     }
+    const fest = FestivalView.trackerLines(S);
+    if (fest) return fest;
+    const tj = game.tracked && S.journal[game.tracked];
+    if (tj && tj.n === 0) {
+      const sp = SPECIES_BY_ID[game.tracked], lines = [];
+      if (tj.h < 3) lines.push(['Clues ' + tj.h + '/3 — look around ' + ZONES_LABEL[sp.zone], UI_COL.inkSoft]);
+      else {
+        lines.push(['Site: ' + SITES[sp.site].label, UI_COL.ink], ...this._matLines(S, sp.mats));
+        if (!sp.breed.includes(S.time.season)) lines.push(['Nests in ' + sp.breed.map((b) => SEASON_NAMES[b]).join('/'), UI_COL.bad]);
+      }
+      return { title: 'Tracking: ' + sp.name, lines };
+    }
+    const lines = [];
+    for (const q of QUESTS) {
+      const st = S.side && S.side[q.id];
+      if (!st || st.st !== 'on' || lines.length >= 2) continue;
+      const ready = questReady(S, q);
+      const more = ready ? ' — back to ' + NPCS[q.npc].name : q.kind === 'deliver' ? ' → ' + NPCS[q.to].name
+        : q.n > 1 ? ' ' + questProgress(S, q) + '/' + q.n : q.night ? ' (after 9 pm)' : q.early ? ' (before 8 am)' : '';
+      lines.push(['★ ' + q.title + more, ready ? UI_COL.ok : '#8a5a1a']);
+    }
+    for (const id of S.featured || []) {
+      const sp = SPECIES_BY_ID[id], j = S.journal[id];
+      if (!sp || j.h >= 3) continue;
+      lines.push([(j.h ? sp.name : '???') + ' ' + j.h + '/3 · ' + ZONES_LABEL[sp.zone], UI_COL.ink]);
+    }
+    const ready = SPECIES.filter((s) => S.journal[s.id].h >= 3 && S.journal[s.id].n === 0 && s.site !== 'parasite' && !S.hasActiveNest(s.id));
+    for (const s of ready.slice(0, 2)) lines.push(['Ready to build: ' + s.name, UI_COL.blue]);
+    if (!lines.length) lines.push(['Nest more species to attract new birds', UI_COL.inkSoft]);
+    return { title: 'Leads', lines };
+  },
+  // "Twigs 1/2" for each material, green once there's enough in the pouch
+  _matLines(S, mats) {
+    return Object.keys(mats).map((k) => ['  ' + MATS[k].name + ' ' + Math.min(mats[k], S.mats[k] || 0) + '/' + mats[k], (S.mats[k] || 0) >= mats[k] ? UI_COL.ok : UI_COL.inkSoft, k]);
+  },
+
+  tracker(ui, game, v) {
+    this.trackerRect = null;
+    const { title, lines } = this.trackerContent(game);
     if (!lines.length) return;
     const maxW = Math.min(200, Math.floor(v.w * 0.42));
     // wrap long lines
@@ -16834,7 +16991,7 @@ const HUD = {
     this.trackerRect = [x, y, w, h];
     if (game.modal) return; // windows show the same information; don't peek out around them
     ui.panel('paper', x, y, w, h);
-    ui.text(title.length > 32 ? title.slice(0, 31) + '…' : title, x + 6, y + 4, '#3a6ab0');
+    ui.text(title.length > 32 ? title.slice(0, 31) + '…' : title, x + 6, y + 4, UI_COL.blue);
     rows.forEach(([t, c, mk], i) => {
       if (mk) ui.icon(SPR.matIcon(mk), x + 8, y + 13 + i * 10, 0.5);
       ui.text(t, x + 6 + (mk ? 12 : 0), y + 14 + i * 10, c);
@@ -16856,7 +17013,7 @@ const HUD = {
     if (game.chatOpen) {
       ui.panel('dark', 3, v.h - 52, Math.min(240, v.w - 6), 13);
       const cur = Math.floor(now / 400) % 2 ? '_' : '';
-      ui.text('Say: ' + game.chatText + cur, 7, v.h - 50, '#f6ecd2');
+      ui.text('Say: ' + game.chatText + cur, 7, v.h - 50, UI_COL.paper);
     }
   },
 
@@ -16868,7 +17025,7 @@ const HUD = {
     g.globalAlpha = 0.35;
     g.fillStyle = '#1d1a2b';
     g.beginPath(); g.arc(jx, jy, 22, 0, 7); g.fill();
-    g.fillStyle = '#f6ecd2';
+    g.fillStyle = UI_COL.paper;
     const kx = st.active ? clamp(st.x - st.cx, -20, 20) : 0, ky = st.active ? clamp(st.y - st.cy, -20, 20) : 0;
     g.beginPath(); g.arc(jx + kx, jy + ky, 9, 0, 7); g.fill();
     g.globalAlpha = 1;
@@ -16877,7 +17034,7 @@ const HUD = {
     const btn = (id, x, y, label, act) => {
       const s = ui.widget(id, x - 14, y - 14, 28, 28);
       g.globalAlpha = s.clicked ? 0.9 : 0.55;
-      g.fillStyle = id.endsWith('a') ? '#4a8a3a' : '#3a6ab0';
+      g.fillStyle = id.endsWith('a') ? '#4a8a3a' : UI_COL.blue;
       g.beginPath(); g.arc(x, y, 13, 0, 7); g.fill();
       g.globalAlpha = 1;
       ui.text(label, x, y - 4, '#ffffff', { align: 'center' });
@@ -16902,6 +17059,12 @@ const Prefs = {
 const DAY_SPEEDS = [{ ms: 500, label: '10 min' }, { ms: 750, label: '15 min' }, { ms: 1000, label: '20 min' }];
 const ZOOMS = [{ v: -1, label: 'Wide' }, { v: 0, label: 'Normal' }, { v: 1, label: 'Close' }];
 const RUN_SPEED = 1.6;
+// Where tutorial steps happen: the building, and offsets (px) for the guide arrow (x, y) and the "!" marker (my)
+const TUTORIAL_SPOTS = {
+  mail: { kind: 'mailbox', x: 8, y: 8, my: -14, label: 'Mailbox' },
+  craft: { kind: 'bench', x: 16, y: 8, my: -14, label: 'Workbench' },
+  sleep: { kind: 'cottage', x: 40, y: 48, my: 28, label: 'Your bed' },
+};
 // The game client: main loop, player control, interaction targeting and reacting to host events.
 
 class Game {
@@ -17314,13 +17477,18 @@ class Game {
       if (!st || st.st !== 'on') this.guideQuest = null;
       else { const t = questTarget(S, q); if (t) return t; }
     }
-    const step = TUTORIAL[S.quest] ? TUTORIAL[S.quest].id : '';
-    const b = (kind) => S.first('building', kind);
-    if (step === 'mail') { const o = b('mailbox'); if (o) return { x: o.x * TS + 8, y: o.y * TS + 8, label: 'Mailbox', kind: 'tut' }; }
-    if (step === 'ada') { const n = npcPos('ada', S.clock()); if (!n.away) return { x: n.x * TS, y: n.y * TS, label: 'Prof. Ada', kind: 'tut' }; }
-    if (step === 'craft') { const o = b('bench'); if (o) return { x: o.x * TS + 16, y: o.y * TS + 8, label: 'Workbench', kind: 'tut' }; }
-    if (step === 'sleep') { const o = b('cottage'); if (o) return { x: (o.x + 2) * TS + 8, y: (o.y + 3) * TS, label: 'Your bed', kind: 'tut' }; }
-    return null;
+    const fg = FestivalView.guide(S, me);
+    if (fg) return fg;
+    const ts = this.tutorialSpot(tutorialStep(S));
+    return ts ? { x: ts.x, y: ts.y, label: ts.label, kind: 'tut' } : null;
+  }
+
+  // Where a tutorial step happens: {x, y (for the guide arrow), my (for the "!" marker), label}, or null
+  tutorialSpot(step) {
+    const S = this.state;
+    if (step === 'ada') { const n = npcPos('ada', S.clock()); return n.away ? null : { x: n.x * TS, y: n.y * TS, my: n.y * TS - 30, label: 'Prof. Ada' }; }
+    const t = TUTORIAL_SPOTS[step], o = t && S.first('building', t.kind);
+    return o ? { x: o.x * TS + t.x, y: o.y * TS + t.y, my: o.y * TS + t.my, label: t.label } : null;
   }
 
   // Nest-spot finder: every place where this species would settle right now (season aside), or
@@ -17369,12 +17537,11 @@ class Game {
   // World positions that deserve a bouncing "!" marker
   questMarkers() {
     const S = this.state, out = [];
-    const step = TUTORIAL[S.quest] ? TUTORIAL[S.quest].id : '';
-    const b2 = (type, kind) => S.first(type, kind);
-    const b = (kind) => b2('building', kind);
-    const mb = b('mailbox');
-    if (mb && (step === 'mail' || S.mail.some((m) => !m.read))) out.push([mb.x * TS + 8, mb.y * TS - 14]);
-    if (step === 'ada') { const n = npcPos('ada', S.clock()); out.push([n.x * TS, n.y * TS - 30]); }
+    const step = tutorialStep(S), ts = this.tutorialSpot(step);
+    if (ts) out.push([ts.x, ts.my]);
+    // unread letters
+    const mb = S.first('building', 'mailbox');
+    if (mb && step !== 'mail' && S.mail.some((m) => !m.read)) out.push([mb.x * TS + 8, mb.y * TS - 14]);
     // villagers with a request ('!') or waiting for you to come back ('?')
     for (const k in NPCS) {
       const nq = npcQuest(S, k);
@@ -17387,10 +17554,8 @@ class Game {
       const st = S.side && S.side[q.id];
       if (!st || st.st !== 'on') continue;
       if (q.kind === 'deliver') { const n = npcPos(q.to, S.clock()); if (!n.away) out.push([n.x * TS, n.y * TS - (NPCS[q.to].kid ? 24 : 30), '?']); }
-      if (q.kind === 'trip' && !st.n) { const l = b2('landmark', q.lm); if (l) out.push([l.x * TS + (LANDMARKS[q.lm].w || 1) * 8, l.y * TS - 26, '!']); }
+      if (q.kind === 'trip' && !st.n) { const l = S.first('landmark', q.lm); if (l) out.push([l.x * TS + (LANDMARKS[q.lm].w || 1) * 8, l.y * TS - 26, '!']); }
     }
-    if (step === 'craft') { const be = b('bench'); if (be) out.push([be.x * TS + 16, be.y * TS - 14]); }
-    if (step === 'sleep') { const c = b('cottage'); if (c) out.push([(c.x + 2) * TS + 8, (c.y + 2) * TS - 4]); }
     return out;
   }
 
@@ -17409,7 +17574,7 @@ class Game {
       this.loading.t += dt;
       const done = this.renderer.loadStep(this.state, this.cam, v, 22) || this.loading.t > 5000;
       g.fillStyle = '#1d1a2b'; g.fillRect(0, 0, v.w, v.h);
-      this.ui.text('Painting the valley…', v.w / 2, v.h / 2 - 12, '#f6ecd2', { align: 'center' });
+      this.ui.text('Painting the valley…', v.w / 2, v.h / 2 - 12, UI_COL.paper, { align: 'center' });
       this.ui.bar(Math.floor(v.w / 2) - 60, Math.floor(v.h / 2) + 2, 120, 6, this.renderer.loadProgress || 0, '#7ac05a');
       if (done) this.loading = null;
     } else if (this.mode === 'play' && this.state && this.me) {
@@ -17421,7 +17586,7 @@ class Game {
       this.ui.lock = false;
     } else if (this.mode === 'play') {
       g.fillStyle = '#1d1a2b'; g.fillRect(0, 0, v.w, v.h);
-      this.ui.text('Loading the valley…', v.w / 2, v.h / 2, '#f6ecd2', { align: 'center' });
+      this.ui.text('Loading the valley…', v.w / 2, v.h / 2, UI_COL.paper, { align: 'center' });
     } else {
       this.ui.lock = !!this.modal;
       this.title.draw(this.ui, dt);
@@ -17439,7 +17604,7 @@ class Game {
       const msg = 'Paused — click the game to keep playing';
       const w = this.ui.font.measure(msg) + 16;
       this.ui.panel('dark', Math.floor((v.w - w) / 2), Math.floor(v.h / 2) - 9, w, 18);
-      this.ui.text(msg, v.w / 2, Math.floor(v.h / 2) - 4, '#f6ecd2', { align: 'center' });
+      this.ui.text(msg, v.w / 2, Math.floor(v.h / 2) - 4, UI_COL.paper, { align: 'center' });
     }
     // toasts also on the title screen
     if (this.mode !== 'play' && this.toasts.length) {
@@ -17449,7 +17614,7 @@ class Game {
       for (const tt of this.toasts) {
         const w = this.ui.font.measure(tt.text) + 12;
         this.ui.panel('dark', Math.floor((v.w - w) / 2), ty, w, 13);
-        this.ui.text(tt.text, Math.floor((v.w - w) / 2) + 6, ty + 2, '#f6ecd2');
+        this.ui.text(tt.text, Math.floor((v.w - w) / 2) + 6, ty + 2, UI_COL.paper);
         ty += 15;
       }
     }
@@ -17675,6 +17840,9 @@ class Game {
         return t;
       }
     }
+    // 2b. a migrating flock overhead to count (Migration Watch)
+    const fl = FestivalView.countable(S, me);
+    if (fl) return { label: 'Count the flock: ' + fl.fl.kind.name, anchor: [me.x, me.y - 30], exec: () => this.send({ t: 'act', a: 'flock', id: fl.fl.id }) };
     // 3. farm animals
     for (const a of S.animals.values()) {
       if (dist2(a.x, a.y - 4, ipx, ipy) < 16 * 16) {

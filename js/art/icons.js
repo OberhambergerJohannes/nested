@@ -96,6 +96,11 @@ function boxIcon(px, k) {
   px.rect(7, 14, 2, 2, '#8a5a34');
 }
 
+// A rosette: a round badge with two tails (festival ribbons)
+function ribbonIcon(px, c) {
+  px.poly([[5, 9], [8, 9], [6, 15], [4, 13]], darken(c, 0.25)); px.poly([[8, 9], [11, 9], [12, 13], [10, 15]], darken(c, 0.25));
+  px.disc(8, 7, 5.5, c); px.disc(8, 7, 3.6, lighten(c, 0.35)); px.disc(8, 7, 2, c);
+}
 const UI_ICON = {
   coin(px) { px.disc(8, 8, 6, '#e8b830'); px.disc(8, 8, 4.5, '#f6d860'); px.vline(8, 5, 11, '#c8961a'); px.set(6, 5, '#fff4b0'); },
   clock(px) { px.disc(8, 8, 6, '#f2e6c8'); px.vline(8, 4, 8, '#3a2a1e'); px.hline(8, 11, 8, '#3a2a1e'); },
@@ -133,6 +138,10 @@ const UI_ICON = {
   clue(px) { px.rect(3, 3, 10, 11, '#f6eed8'); px.hline(4, 11, 6, '#b0a080'); px.hline(4, 9, 8, '#b0a080'); px.hline(4, 10, 10, '#b0a080'); px.disc(11, 11, 2.5, '#5aa048'); px.set(11, 11, '#ffffff'); },
   sparkle(px) { px.line(8, 1, 8, 15, '#fff4b0'); px.line(1, 8, 15, 8, '#fff4b0'); px.disc(8, 8, 2, '#ffffff'); },
   no(px) { UI_ICON.cross(px); },
+  ribbon0(px) { ribbonIcon(px, '#c8bca4'); },
+  ribbon1(px) { ribbonIcon(px, '#c87a3a'); },
+  ribbon2(px) { ribbonIcon(px, '#b8c0cc'); },
+  ribbon3(px) { ribbonIcon(px, '#f0b830'); },
   note(px) { px.ellipse(5, 12, 2.5, 2, '#3a2614'); px.ellipse(11.5, 11, 2.5, 2, '#3a2614'); px.vline(7, 4, 12, '#3a2614'); px.vline(13, 3, 11, '#3a2614'); px.thick(7, 4, 13, 3, 2, '#3a2614'); px.set(4, 11, '#8a6a4a'); },
 };
 

@@ -149,19 +149,6 @@ function wallBoards(px, x0, y0, w, h, base, seed) {
     }
   }
 }
-function wallLogs(px, x0, y0, w, h, base, seed) {
-  const P = ramp(base);
-  for (let y = y0; y < y0 + h; y++) {
-    const row = Math.floor((y - y0) / 5), ry = (y - y0) % 5;
-    for (let x = x0; x < x0 + w; x++) {
-      let c = ry === 0 ? P.l : ry === 1 ? mix(P.l, P.m) : ry === 4 ? '#3a2a20' : ry === 3 ? P.d : P.m;
-      if (ry > 0 && ry < 4 && valueNoise(x * 0.35, row * 7 + ry * 0.3, seed) > 0.72) c = mix(c, P.d, 0.4);
-      px.set(x, y, c);
-    }
-    // log ends at the corners
-    if (ry === 2) for (const cx of [x0 + 1, x0 + w - 2]) { px.set(cx, y, P.h); px.set(cx, y - 1, P.l); px.set(cx, y + 1, P.d); }
-  }
-}
 // Exposed timber frame: beams [x0, y0, x1, y1] (straight or diagonal)
 function beams(px, list, col) {
   const B = ramp(col);

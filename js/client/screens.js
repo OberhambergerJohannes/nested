@@ -5,14 +5,25 @@ function centered(view, w, h) {
   w = Math.min(w, view.w - 6); h = Math.min(h, view.h - 6);
   return [Math.floor((view.w - w) / 2), Math.floor((view.h - h) / 2), w, h];
 }
-// Badge progress as the client sees it (mirrors World.statValue)
-function statValueClient(S, k) {
-  if (k === 'species') return nestedCount(S);
-  if (k === 'landmarks') return Object.keys(S.found || {}).length;
-  if (k === 'nightSpecies') return ((S.stats && S.stats.nightList) || []).length;
-  if (k === 'bestFriends') { const fr = (S.prog && S.prog.fr) || {}; return Object.values(fr).some((v) => v >= HEART * MAX_HEARTS) ? 1 : 0; }
-  return (S.stats && S.stats[k]) || 0;
+// A window: a centred panel with an optional title and the close button (or Esc).
+// Returns [x, y, w, h], or null when it was closed this frame.
+// opts: style ('paper'), title, titleLeft, titleCol, titleY, tabs (room above the panel for a row of tabs),
+//       key (another key that closes it), typing (Esc doesn't close while a text field is being edited), onClose
+function windowFrame(ui, id, w, h, opts) {
+  opts = opts || {};
+  const [x, y, ww, hh] = centered(ui.view, w, h), top = opts.tabs ? 12 : 0;
+  ui.panel(opts.style || 'paper', x, y + top, ww, hh - top);
+  if (opts.title && opts.titleLeft) ui.text(opts.title, x + 10, y + 8, opts.titleCol || UI_COL.ink);
+  else if (opts.title) ui.text(opts.title, x + ww / 2, y + (opts.titleY || 8), opts.titleCol || UI_COL.ink, { align: 'center' });
+  if (ui.closeX(id + ':x', x + ww - 15, y + top + (opts.tabs ? 4 : 5)) || (wantClose(opts.key) && !(opts.typing && ui.editing))) {
+    if (opts.onClose) opts.onClose();
+    G.closeModal();
+    return null;
+  }
+  return [x, y, ww, hh];
 }
+// Badge progress as this player sees it (the host's World.statValue counts everyone's friendships)
+function statValueClient(S, k) { return badgeStat(S, k, () => isBestFriend(S.prog && S.prog.fr)); }
 function wantClose(extra) { return Input.hit('cancel') || (extra && Input.hit(extra)); }
 
 function birdThumb(ui, spId, x, y, box, sil) {
@@ -33,7 +44,7 @@ function matsRow(ui, mats, x, y, maxW) {
     const w = 16 + ui.font.measure(t) + 4;
     if (cx + w > x + maxW) { cx = x; y += 17; }
     ui.icon(SPR.matIcon(k), cx, y);
-    ui.text(t, cx + 16, y + 4, have >= need ? '#3a7a2a' : '#b8382a');
+    ui.text(t, cx + 16, y + 4, have >= need ? UI_COL.ok : UI_COL.bad);
     const st = ui.widget('mat:' + k + ':' + x + ':' + y, cx, y, w, 16, {});
     if (st.over || st.focused) ui.tip = MATS[k].name + ' — ' + MATS[k].where;
     cx += w;
@@ -86,8 +97,8 @@ class TitleScreen {
     // logo
     const ly = Math.max(14, v.h * 0.12);
     ui.text('NESTED', v.w / 2 + 2, ly + 2, '#2a3a1a', { align: 'center', scale: 4 });
-    ui.text('NESTED', v.w / 2, ly, '#fff4d8', { align: 'center', scale: 4, outline: '#3a2614' });
-    ui.text('A cozy bird-haven life sim', v.w / 2, ly + 40, '#3a2614', { align: 'center' });
+    ui.text('NESTED', v.w / 2, ly, UI_COL.cream, { align: 'center', scale: 4, outline: UI_COL.ink });
+    ui.text('A cozy bird-haven life sim', v.w / 2, ly + 40, UI_COL.ink, { align: 'center' });
     // menu
     const bw = 132, bh = 16;
     let y = ly + 58;
@@ -101,7 +112,7 @@ class TitleScreen {
     y += bh + 4;
     if (ui.button('t:help', 'How to Play', bx, y, bw / 2 - 2, bh)) G.openModal(new HelpScreen());
     if (ui.button('t:set', 'Settings', bx + bw / 2 + 2, y, bw / 2 - 2, bh)) G.openModal(new SettingsScreen());
-    ui.text('v' + GAME_VERSION + ' · all art & sound made in code', v.w - 3, v.h - 10, '#3a2614', { align: 'right' });
+    ui.text('v' + GAME_VERSION + ' · all art & sound made in code', v.w - 3, v.h - 10, UI_COL.ink, { align: 'right' });
   }
 }
 
@@ -140,10 +151,9 @@ const Profile = {
 class SlotScreen {
   constructor(mode) { this.mode = mode; this.metas = [1, 2, 3].map((i) => Saves.meta(i)); this.defaultFocus = this.metas[0] ? 'sl:play0' : 'sl:new0'; }
   draw(ui) {
-    const [x, y, w, h] = centered(ui.view, 260, 170);
-    ui.panel('paper', x, y, w, h);
-    ui.text(this.mode === 'host' ? 'Host a valley' : 'Choose a valley', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
-    if (ui.closeX('sl:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const fr = windowFrame(ui, 'sl', 260, 170, { title: this.mode === 'host' ? 'Host a valley' : 'Choose a valley' });
+    if (!fr) return;
+    const [x, y, w] = fr;
     for (let i = 0; i < 3; i++) {
       const m = this.metas[i];
       const by = y + 24 + i * 46;
@@ -175,7 +185,7 @@ function lookEditor(ui, st, x, y, w) {
   const lk = st.look;
   let cy = y + 20;
   const lx = x + 2, fx = x + 62, fw = w - 64;
-  const sw = (col) => (sx, sy, swd) => { ui.rect(sx + swd / 2 - 12, sy + 2, 24, 10, '#3a2614'); ui.rect(sx + swd / 2 - 11, sy + 3, 22, 8, col); };
+  const sw = (col) => (sx, sy, swd) => { ui.rect(sx + swd / 2 - 12, sy + 2, 24, 10, UI_COL.ink); ui.rect(sx + swd / 2 - 11, sy + 3, 22, 8, col); };
   const row = (label) => { ui.text(label, lx, cy + 3, UI_COL.inkSoft); const yy = cy; cy += 18; return yy; };
   const opt = (label, key, list) => { const yy = row(label); lk[key] = ui.stepper('lk:' + key, LOOK_LABELS[list[lk[key]]] || '', fx, yy, fw, lk[key], list.length); };
   const colour = (label, key, cols, order) => {
@@ -227,6 +237,20 @@ function lookPreview(ui, look, x, y, t, scale) {
   ui.g.drawImage(spr.img, x, y, spr.w * k, spr.h * k);
 }
 
+// "Label  [text field]" in the character windows
+function labeledField(ui, label, id, value, x, y, maxLen, placeholder) {
+  ui.text(label, x + 12, y + 3, UI_COL.inkSoft);
+  return ui.textField(id, value, x + 82, y, 132, maxLen, placeholder ? { placeholder } : undefined);
+}
+// The look editor with a turning preview and "Surprise me" (character creation and the wardrobe)
+function lookSection(ui, id, st, t, x, y, w, cy) {
+  lookEditor(ui, st, x + 10, cy, 222);
+  const px = x + w - 82, py = y + 22;
+  ui.panel('note', px, py, 70, 104);
+  lookPreview(ui, st.look, px + 11, py + 10, t, 3);
+  if (ui.button(id + ':rnd', 'Surprise me', px, py + 108, 70, 15)) { st.look = randomLook(); Audio2.sfx('pop'); }
+}
+
 class CreateScreen {
   constructor(o) {
     this.o = o;
@@ -240,26 +264,14 @@ class CreateScreen {
   }
   draw(ui, dt) {
     this.t += dt;
-    const [x, y, w, h] = centered(ui.view, 330, this.o.newWorld ? 222 : 202);
-    ui.panel('paper', x, y, w, h);
-    ui.text(this.o.newWorld ? 'A new valley' : 'Your birder', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
-    if (ui.closeX('cr:x', x + w - 15, y + 5) || (wantClose() && !ui.editing)) { ui.stopEditing(); G.closeModal(); return; }
+    const fr = windowFrame(ui, 'cr', 330, this.o.newWorld ? 222 : 202, { title: this.o.newWorld ? 'A new valley' : 'Your birder', typing: true, onClose: () => ui.stopEditing() });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     let cy = y + 24;
-    const lx = x + 12, fx = x + 82, fw = 132;
-    ui.text('Your name', lx, cy + 3, UI_COL.inkSoft);
-    this.name = ui.textField('cr:name', this.name, fx, cy, fw, 14, { placeholder: 'type a name' });
+    this.name = labeledField(ui, 'Your name', 'cr:name', this.name, x, cy, 14, 'type a name');
     cy += 20;
-    if (this.o.newWorld) {
-      ui.text('Valley name', lx, cy + 3, UI_COL.inkSoft);
-      this.valley = ui.textField('cr:valley', this.valley, fx, cy, fw, 18);
-      cy += 20;
-    }
-    lookEditor(ui, this.st, lx - 2, cy, 222);
-    // preview
-    const px = x + w - 82, py = y + 22;
-    ui.panel('note', px, py, 70, 104);
-    lookPreview(ui, this.st.look, px + 11, py + 10, this.t, 3);
-    if (ui.button('cr:rnd', 'Surprise me', px, py + 108, 70, 15)) { this.st.look = randomLook(); Audio2.sfx('pop'); }
+    if (this.o.newWorld) { this.valley = labeledField(ui, 'Valley name', 'cr:valley', this.valley, x, cy, 18); cy += 20; }
+    lookSection(ui, 'cr', this.st, this.t, x, y, w, cy);
     const ok = this.name.trim().length > 0 && (!this.o.newWorld || this.valley.trim().length > 0);
     if (ui.button('cr:go', this.o.newWorld ? 'Create valley' : 'Let\'s go!', x + w / 2 - 60, y + h - 22, 120, 16, { disabled: !ok, tip: ok ? '' : 'Please enter a name.' })) {
       ui.stopEditing();
@@ -285,20 +297,11 @@ class LookScreen {
   }
   draw(ui, dt) {
     this.t += dt;
-    const [x, y, w, h] = centered(ui.view, 330, 196);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Wardrobe', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
-    if (ui.closeX('lk:x', x + w - 15, y + 5) || (wantClose() && !ui.editing)) { ui.stopEditing(); G.closeModal(); return; }
-    let cy = y + 24;
-    const lx = x + 12;
-    ui.text('Your name', lx, cy + 3, UI_COL.inkSoft);
-    this.name = ui.textField('lk:name', this.name, x + 82, cy, 132, 14, { placeholder: 'type a name' });
-    cy += 20;
-    lookEditor(ui, this.st, lx - 2, cy, 222);
-    const px = x + w - 82, py = y + 22;
-    ui.panel('note', px, py, 70, 104);
-    lookPreview(ui, this.st.look, px + 11, py + 10, this.t, 3);
-    if (ui.button('lk:rnd', 'Surprise me', px, py + 108, 70, 15)) { this.st.look = randomLook(); Audio2.sfx('pop'); }
+    const fr = windowFrame(ui, 'lk', 330, 196, { title: 'Wardrobe', typing: true, onClose: () => ui.stopEditing() });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
+    this.name = labeledField(ui, 'Your name', 'lk:name', this.name, x, y + 24, 14, 'type a name');
+    lookSection(ui, 'lk', this.st, this.t, x, y, w, y + 44);
     const ok = this.name.trim().length > 0;
     if (ui.button('lk:save', 'Looking good!', x + w / 2 - 60, y + h - 22, 120, 16, { disabled: !ok })) {
       ui.stopEditing();
@@ -317,10 +320,9 @@ class JoinScreen {
   draw(ui, dt) {
     this.t += dt;
     if (this.t > 3000) { this.t = 0; G.fetchRooms().then((r) => { this.rooms = r; }).catch(() => { this.rooms = []; }); }
-    const [x, y, w, h] = centered(ui.view, 280, 190);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Join a friend\'s valley', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
-    if (ui.closeX('jn:x', x + w - 15, y + 5) || (wantClose() && !ui.editing)) { ui.stopEditing(); G.closeModal(); return; }
+    const fr = windowFrame(ui, 'jn', 280, 190, { title: 'Join a friend\'s valley', typing: true, onClose: () => ui.stopEditing() });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     let cy = y + 24;
     if (!this.rooms) ui.text('Looking for valleys…', x + 12, cy, UI_COL.inkSoft);
     else if (!this.rooms.length) ui.wrap('No valleys are open on this server yet. Ask your friend to choose "Host Co-op".', x + 12, cy, w - 24, UI_COL.inkSoft);
@@ -335,15 +337,13 @@ class JoinScreen {
     if (ui.button('jn:go', 'Join', x + 140, by, 50, 14, { disabled: this.code.length !== 4 })) { this._join(this.code); return; }
     ui.text('Players on your network can open this page and join.', x + 12, y + h - 18, UI_COL.muted);
   }
+  // check name and look (prefilled from the profile), then join
   _join(code) {
-    ui_stop();
+    G.ui.stopEditing();
     G.closeModal();
-    const prof = Profile.get();
     G.openModal(new CreateScreen({ join: code }));
-    if (prof) { /* prefilled */ }
   }
 }
-function ui_stop() { if (G.ui) G.ui.stopEditing(); }
 
 // ===================================================================== confirm
 class ConfirmScreen {
@@ -373,13 +373,14 @@ const HELP_PAGES = [
     '2. Gather materials. Shake trees for twigs, cut long grass, scoop mud, scrape moss and lichen, brush sheep, collect dewy spider silk in the morning…',
     '3. Create habitat. Plant trees, shrubs, thistles, herbs and reeds; craft nest boxes, platforms and banks; dig ponds.',
     '4. Build the nest at the right site (press F there). If the habitat is right and it\'s the breeding season, a pair moves in.',
-    '5. Watch eggs hatch and chicks fledge — then the species is nested! Nest all ' + SPECIES.length + ' species.',
+    '5. Watch eggs hatch and chicks fledge on the nest cam (F at the nest) — then the species is nested! Nest all ' + SPECIES.length + ' species.',
   ]],
   ['Tips', [
     'Sleep in your cottage to end the day. Eggs, chicks and plants grow overnight.',
     'Each species has a season: most nest in spring & summer, some even in autumn or winter.',
     'Check a nest site with F before building: it shows exactly which habitat needs are met. Or press "Where can it nest?" in the journal and follow the arrow.',
     'Mud is easier to find after rain. Spider webs only sparkle until 11:00.',
+    'On day ' + FEST_DAY + ' of every season the village holds a festival on the green, with ribbons to win and a keepsake for gold. A letter arrives the day before.',
     'Sell mushrooms, berries and nuts to Basil for coins. Fledged species earn conservation grants.',
     'Co-op: everyone shares the valley, the coins and the nest-material pouch.',
   ]],
@@ -388,10 +389,10 @@ const HELP_PAGES = [
 class HelpScreen {
   constructor() { this.page = 0; this.pause = true; }
   draw(ui) {
-    const [x, y, w, h] = centered(ui.view, 340, 228);
-    ui.panel('paper', x, y + 10, w, h - 10);
+    const fr = windowFrame(ui, 'hp', 340, 228, { tabs: true });
+    if (!fr) return;
+    const [x, y, w] = fr;
     this.page = ui.tabs('hp', HELP_PAGES.map((p) => p[0]), x + 6, y, this.page);
-    if (ui.closeX('hp:x', x + w - 14, y + 13) || wantClose()) { G.closeModal(); return; }
     let cy = y + 26;
     for (const line of HELP_PAGES[this.page][1]) {
       cy += ui.wrap(line, x + 12, cy, w - 24, UI_COL.ink) + 4;
@@ -403,10 +404,9 @@ class HelpScreen {
 class SettingsScreen {
   constructor() { this.pause = true; }
   draw(ui) {
-    const [x, y, w, h] = centered(ui.view, 230, 216);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Settings', x + w / 2, y + 8, UI_COL.ink, { align: 'center' });
-    if (ui.closeX('st:x', x + w - 15, y + 5) || wantClose()) { Audio2.savePrefs(); G.closeModal(); return; }
+    const fr = windowFrame(ui, 'st', 230, 216, { title: 'Settings', onClose: () => Audio2.savePrefs() });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     let cy = y + 26;
     const row = (label, key) => {
       ui.text(label, x + 14, cy + 3, UI_COL.inkSoft);
@@ -478,7 +478,7 @@ class PauseScreen {
     if (b('ps:set', 'Settings')) { G.openModal(new SettingsScreen()); return; }
     if (b('ps:quit', G.isHost ? 'Save & quit to title' : 'Leave valley')) { G.quitToTitle(); return; }
     if (G.roomCode) {
-      ui.text('Room code: ' + G.roomCode, x + w / 2, cy + 2, '#3a6ab0', { align: 'center' });
+      ui.text('Room code: ' + G.roomCode, x + w / 2, cy + 2, UI_COL.blue, { align: 'center' });
       ui.text('Friends: open ' + location.host, x + w / 2, cy + 12, UI_COL.muted, { align: 'center' });
     }
   }
@@ -497,10 +497,10 @@ class JournalScreen {
   }
   draw(ui, dt) {
     const S = G.state;
-    const [x, y, w, h] = centered(ui.view, 460, 264);
-    ui.panel('paper', x, y + 12, w, h - 12);
+    const fr = windowFrame(ui, 'jt', 460, 264, { tabs: true, key: 'journal' });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     this.tab = ui.tabs('jt', ['Birds', 'Clues', 'Materials', 'Quests', 'Progress', 'Valley', 'Diary'], x + 6, y, this.tab);
-    if (ui.closeX('jt:x', x + w - 15, y + 16) || wantClose('journal')) { G.closeModal(); return; }
     const bx = x + 8, by = y + 20, bw = w - 16, bh = h - 28;
     if (this.tab === 0) this.drawBirds(ui, bx, by, bw, bh);
     else if (this.tab === 1) this.drawClues(ui, bx, by, bw, bh);
@@ -537,7 +537,7 @@ class JournalScreen {
     for (const r of per[this.diaryPage]) {
       ui.text(r.e.when, x + 4, cy, UI_COL.muted);
       if (r.e.icon && r.e.icon !== 'no' && SPR.ui(r.e.icon)) ui.icon(SPR.ui(r.e.icon), x + 4 + whenW, cy - 3, 0.75);
-      r.lines.forEach((l, i) => ui.text(l, x + 20 + whenW, cy + i * LINE_H, r.e.icon === 'no' ? '#b8382a' : UI_COL.ink));
+      r.lines.forEach((l, i) => ui.text(l, x + 20 + whenW, cy + i * LINE_H, r.e.icon === 'no' ? UI_COL.bad : UI_COL.ink));
       cy += r.lines.length * LINE_H + 3;
     }
     if (per.length > 1) {
@@ -584,7 +584,7 @@ class JournalScreen {
       birdThumb(ui, sp.id, cx + 1, cy + 1, cell - 2, j.h === 0);
       if (j.n > 0) ui.icon(SPR.ui('star'), cx + cell - 12, cy - 3, 0.75);
       else if (j.h >= 3) ui.icon(SPR.ui('nest'), cx + cell - 12, cy - 3, 0.75);
-      else if (j.h > 0) ui.text(j.h + '/3', cx + 2, cy + cell - 9, '#ffffff', { outline: '#3a2614' });
+      else if (j.h > 0) ui.text(j.h + '/3', cx + 2, cy + cell - 9, '#ffffff', { outline: UI_COL.ink });
       if (st.focused) ui.focusRing(cx, cy, cell, cell);
       if (st.clicked || (st.focused && this.sel !== sp.id)) { if (this.sel !== sp.id) { this.sel = sp.id; this.sub = -1; Audio2.sfx('tick'); } }
     });
@@ -622,7 +622,7 @@ class JournalScreen {
     ui.text(sp.name, ix + 44, iy, UI_COL.ink);
     ui.text(sp.latin, ix + 44, iy + 10, UI_COL.muted);
     const status = j.n > 0 ? 'Nested! (' + j.first + ')' + (j.n > 1 ? ' · ' + j.n + ' broods' : '') : j.h >= 3 ? 'Blueprint known — build its nest!' : 'Clues: ' + j.h + '/3';
-    ui.text(status, ix + 44, iy + 21, j.n > 0 ? '#3a7a2a' : j.h >= 3 ? '#3a6ab0' : UI_COL.inkSoft);
+    ui.text(status, ix + 44, iy + 21, j.n > 0 ? UI_COL.ok : j.h >= 3 ? UI_COL.blue : UI_COL.inkSoft);
     if (sp.id !== 'cuckoo') ui.text('Nests in: ' + sp.breed.map((b) => SEASON_NAMES[b]).join(', '), ix + 44, iy + 31, UI_COL.inkSoft);
     // eggs
     const egg = SPR.egg(sp.id);
@@ -661,11 +661,11 @@ class JournalScreen {
       ui.text('Materials:', cx, cy, UI_COL.inkSoft);
       cy += 9;
       if (Object.keys(sp.mats).length) cy = matsRow(ui, sp.mats, cx, cy, cw);
-      else { ui.text('None — it needs no nest material!', cx, cy + 2, '#3a7a2a'); cy += 12; }
+      else { ui.text('None — it needs no nest material!', cx, cy + 2, UI_COL.ok); cy += 12; }
       if (sp.lining) { ui.text('+ lining:', cx, cy + 4, UI_COL.inkSoft); cy = matsRow(ui, sp.lining, cx + 44, cy, cw - 44); }
       ui.text('Habitat:', cx, cy + 1, UI_COL.inkSoft);
       cy += 11;
-      const habs = sp.hab.map((hb) => ({ why: hb.why, t: '• ' + (hb.k === 'open' ? (hb.n === 0 ? 'Open: no trees within ' + hb.r : 'Open: max ' + hb.n + ' trees within ' + hb.r) : (hb.k === 'water' || hb.k === 'anvil' || hb.k === 'mud') ? (hb.k === 'anvil' ? 'Anvil stone' : hb.k === 'mud' ? 'Mud' : 'Water') + (hb.r <= 1 ? ' right next to it' : ' within ' + hb.r + ' tiles') : hb.n + '+ ' + HAB_KINDS[hb.k].unit + ' within ' + hb.r) }));
+      const habs = sp.hab.map((hb) => ({ why: hb.why, t: '• ' + habLabel(hb) }));
       if (sp.terr) habs.push({ t: '• Territorial: no other ' + sp.name.split(' ').pop() + ' nest within ' + sp.terr });
       // the reasons go under each need when there's room; otherwise they show when you point at it
       const bottom = y + h - (j.n === 0 && j.h > 0 ? 20 : 4);
@@ -681,11 +681,11 @@ class JournalScreen {
       }
       // the nest-spot finder's answer for this bird
       const f = G.finder && G.finder.sp === sp.id ? G.finder : null;
-      if (f && cy < y + h - 24) ui.wrap(finderText(sp, f), cx, cy + 3, cw, f.count ? '#3a7a2a' : '#8a5a1a', LINE_H, Math.max(1, Math.floor((y + h - 8 - cy) / LINE_H)));
+      if (f && cy < y + h - 24) ui.wrap(finderText(sp, f), cx, cy + 3, cw, f.count ? UI_COL.ok : '#8a5a1a', LINE_H, Math.max(1, Math.floor((y + h - 8 - cy) / LINE_H)));
     } else if (this.sub === 1) {
       for (let i = 0; i < 3; i++) {
         const known = i < j.h;
-        ui.text('Clue ' + (i + 1), cx, cy, known ? '#3a6ab0' : UI_COL.muted);
+        ui.text('Clue ' + (i + 1), cx, cy, known ? UI_COL.blue : UI_COL.muted);
         cy += 9;
         cy += ui.wrap(known ? sp.hints[i] : '???', cx, cy, cw, known ? UI_COL.ink : UI_COL.muted) + 4;
       }
@@ -714,7 +714,7 @@ class JournalScreen {
       ui.panel('note', x, cy, w, 28);
       birdThumb(ui, e.sp, x + 3, cy + 3, 22, false);
       const src = e.src === 'obs' ? 'observed' : e.src === 'note' ? 'Field Note' : e.src === 'quest' ? 'tip from a villager' : 'from Ada';
-      ui.text(sp.name + ' · clue ' + (e.i + 1) + '/3 · ' + src + (e.by ? ' by ' + e.by : '') + ' · ' + e.d, x + 28, cy + 3, '#3a6ab0');
+      ui.text(sp.name + ' · clue ' + (e.i + 1) + '/3 · ' + src + (e.by ? ' by ' + e.by : '') + ' · ' + e.d, x + 28, cy + 3, UI_COL.blue);
       ui.wrap(sp.hints[e.i], x + 28, cy + 12, w - 34, UI_COL.ink, LINE_H, 2);
       cy += 30;
     }
@@ -737,13 +737,13 @@ class JournalScreen {
       if (st.over || st.focused || this.matSel === k) ui.rect(cx, cy, colW - 4, 17, '#efe0bc');
       ui.icon(SPR.matIcon(k), cx + 1, cy);
       ui.text(MATS[k].name, cx + 20, cy + 4, UI_COL.ink);
-      ui.text(String(S.mats[k] || 0), cx + colW - 10, cy + 4, (S.mats[k] || 0) > 0 ? '#3a7a2a' : UI_COL.muted, { align: 'right' });
+      ui.text(String(S.mats[k] || 0), cx + colW - 10, cy + 4, (S.mats[k] || 0) > 0 ? UI_COL.ok : UI_COL.muted, { align: 'right' });
       if (st.over || st.focused || st.clicked) this.matSel = k;
     });
     const k = this.matSel || MAT_ORDER[0];
     const iy = y + 12 + rowsN * 18 + 2;
     ui.rect(x, iy - 2, w, 1, '#c8b48a');
-    ui.text(MATS[k].name + ': ' + MATS[k].where, x + 2, iy + 1, '#3a6ab0');
+    ui.text(MATS[k].name + ': ' + MATS[k].where, x + 2, iy + 1, UI_COL.blue);
     ui.wrap(MATS[k].info, x + 2, iy + 11, w - 4, UI_COL.ink, LINE_H, 2);
   }
 
@@ -765,12 +765,12 @@ class JournalScreen {
     for (const q of active.slice(this.qPage * per, this.qPage * per + per)) {
       const ready = questReady(S, q);
       ui.panel('note', x + 2, cy - 2, colW - 6, 48);
-      ui.text(q.title, x + 8, cy + 2, ready ? '#3a7a2a' : UI_COL.ink);
+      ui.text(q.title, x + 8, cy + 2, ready ? UI_COL.ok : UI_COL.ink);
       ui.text(NPCS[q.npc].name + (q.kind === 'deliver' ? ' → ' + NPCS[q.to].name : ''), x + colW - 10, cy + 2, UI_COL.muted, { align: 'right' });
       ui.wrap(q.hint, x + 8, cy + 13, colW - 20, UI_COL.inkSoft, LINE_H, 2);
       const p = questProgress(S, q);
       if (q.n > 1) { ui.bar(x + 8, cy + 35, 70, 5, p / q.n, ready ? '#5ac05a' : '#e8b830'); ui.text(p + '/' + q.n, x + 82, cy + 33, UI_COL.inkSoft); }
-      if (ready) ui.text('Ready! Go back to ' + NPCS[q.npc].name, x + (q.n > 1 ? 104 : 8), cy + 33, '#3a7a2a');
+      if (ready) ui.text('Ready! Go back to ' + NPCS[q.npc].name, x + (q.n > 1 ? 104 : 8), cy + 33, UI_COL.ok);
       // point the guide arrow at this request
       if (questTarget(S, q)) {
         const on = G.guideQuest === q.id;
@@ -826,7 +826,7 @@ class JournalScreen {
       ui.icon(SPR.ui(got ? 'star' : 'lock'), bx, by - 3, 0.75);
       ui.text(b.name, bx + 14, by, got ? UI_COL.ink : UI_COL.inkSoft);
       if (!got) { ui.bar(bx + 104, by + 1, 40, 5, have / goal, '#e8b830'); ui.text(have + '/' + goal, bx + 148, by - 1, UI_COL.muted); }
-      else ui.text('earned!', bx + 104, by, '#3a7a2a');
+      else ui.text('earned!', bx + 104, by, UI_COL.ok);
       const st = ui.widget('bd:' + b.id, bx, by - 2, colW - 4, 12);
       if (st.over || st.focused) ui.tip = b.desc;
       i++;
@@ -874,10 +874,24 @@ class JournalScreen {
       const got = seen[r.id];
       ui.text(got ? '★ ' + r.name : '? ??? (' + r.present.map((q) => SEASON_NAMES[q]).join('/') + ')', rx, ry + 18 + k * 10, got ? '#a8761a' : UI_COL.muted);
     });
+    // festivals: the best ribbon won at each, and when the next one is
+    const nx = festivalNext(S.time);
+    ui.text('Festivals', x + 4, y + 84, UI_COL.ink);
+    ui.text('· ' + nx.f.name + (nx.days === 0 ? ' is today!' : nx.days === 1 ? ' is tomorrow' : ' in ' + nx.days + ' days'), x + 8 + ui.font.measure('Festivals'), y + 84, UI_COL.muted);
+    let fx = x + 6;
+    for (const f of FESTIVALS) {
+      const log = (S.festLog || {})[f.id], best = log ? log.best : 0, short = f.name.replace(/ (Day|Fair|Watch)$/, '');
+      const fw = 16 + ui.font.measure(short);
+      ui.icon(SPR.ui('ribbon' + best), fx, y + 93, 0.75);
+      ui.text(short, fx + 13, y + 96, best ? UI_COL.ink : UI_COL.muted);
+      const st = ui.widget('jv:f:' + f.id, fx, y + 94, fw, 11);
+      if (st.over || st.focused) ui.tip = f.name + ' — ' + SEASON_NAMES[f.season] + ' ' + FEST_DAY + '. ' + f.task + '. ' + (best ? 'Best: ' + RIBBONS[best] + ' ribbon.' : 'No ribbon yet.') + (log && log.keep ? ' Keepsake: ' + ITEMS[f.keep].name + '.' : ' Gold ribbon keepsake: ' + ITEMS[f.keep].name + '.');
+      fx += fw + 4;
+    }
     const nests = S.activeNests();
-    ui.text('Active nests', x + 4, y + 86, UI_COL.ink);
-    if (nests.length) ui.text('· pick one to watch its nest cam', x + 8 + ui.font.measure('Active nests'), y + 86, UI_COL.muted);
-    let cy = y + 97;
+    ui.text('Active nests', x + 4, y + 112, UI_COL.ink);
+    if (nests.length) ui.text('· pick one to watch its nest cam', x + 8 + ui.font.measure('Active nests'), y + 112, UI_COL.muted);
+    let cy = y + 123;
     if (!nests.length) ui.text('None yet — build one at a nest site (press ' + Input.keyLabel('alt') + ').', x + 8, cy, UI_COL.muted);
     let i = 0;
     const rowW = x + w - 160 - (x + 6);
@@ -886,7 +900,7 @@ class JournalScreen {
       const sp = SPECIES_BY_ID[nn.kind];
       const st = ui.widget('jv:n' + nn.id, x + 6, cy - 1, rowW, 10);
       if (st.over || st.focused) ui.rect(x + 6, cy - 1, rowW, 10, '#efe0bc');
-      ui.text('• ' + sp.name + ': ' + NEST_STAGE_LABEL[nn.st] + (nn.st === 'eggs' ? ' (' + nn.eggs + ')' : nn.st === 'chicks' ? ' (' + nn.ch + ')' : ''), x + 8, cy, st.over || st.focused ? '#3a6ab0' : UI_COL.ink);
+      ui.text('• ' + sp.name + ': ' + NEST_STAGE_LABEL[nn.st] + (nn.st === 'eggs' ? ' (' + nn.eggs + ')' : nn.st === 'chicks' ? ' (' + nn.ch + ')' : ''), x + 8, cy, st.over || st.focused ? UI_COL.blue : UI_COL.ink);
       if (st.clicked) { Audio2.sfx('page'); G.openModal(new NestScreen(nn.id)); }
       cy += 10; i++;
     }
@@ -909,13 +923,12 @@ class BagScreen {
   constructor() { this.pause = true; this.sel = -1; this.hover = G.selSlot; }
   draw(ui) {
     const S = G.state;
-    const [x, y, w, h] = centered(ui.view, 8 * 22 + 24, 128);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Your bag', x + 10, y + 8, UI_COL.ink);
+    const fr = windowFrame(ui, 'bg', 8 * 22 + 24, 128, { title: 'Your bag', titleLeft: true, key: 'bag' });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     const cw = ui.font.measure(String(S.coins));
     ui.icon(SPR.ui('coin'), x + w - 58 - cw, y + 4);
     ui.text(String(S.coins), x + w - 40 - cw, y + 8, UI_COL.ink);
-    if (ui.closeX('bg:x', x + w - 15, y + 5) || wantClose('bag')) { G.closeModal(); return; }
     for (let i = 0; i < BAG_SIZE; i++) {
       const sx = x + 12 + (i % 8) * 22, sy = y + 22 + Math.floor(i / 8) * 22 + (i >= 8 ? 4 : 0);
       const it = S.inv[i];
@@ -948,12 +961,12 @@ class ShopScreen {
   constructor() { this.pause = true; this.tab = 0; this.sel = 0; }
   draw(ui) {
     const S = G.state;
-    const [x, y, w, h] = centered(ui.view, 360, 236);
-    ui.panel('paper', x, y + 12, w, h - 12);
+    const fr = windowFrame(ui, 'sh', 360, 236, { tabs: true });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     this.tab = ui.tabs('sh', ['Buy', 'Sell'], x + 6, y, this.tab);
     ui.icon(SPR.ui('coin'), x + w - 86, y + 16);
     ui.text(String(S.coins), x + w - 68, y + 20, UI_COL.ink);
-    if (ui.closeX('sh:x', x + w - 15, y + 16) || wantClose()) { G.closeModal(); return; }
     const lx = x + 8, ly = y + 32, colW = 108;
     if (this.tab === 0) {
       SHOP_STOCK.forEach((k, i) => {
@@ -964,7 +977,7 @@ class ShopScreen {
         ui.panel(this.sel === i ? 'slotsel' : (st.over || st.focused) ? 'slothot' : 'slot', cx, cy, colW, 20);
         ui.icon(wood ? SPR.matIcon('wood') : SPR.itemIcon(k), cx + 2, cy + 2);
         ui.text(name.length > 15 ? name.slice(0, 14) + '…' : name, cx + 20, cy + 3, UI_COL.ink);
-        ui.text(price + 'c', cx + 20, cy + 11, S.coins >= price ? '#8a6a1a' : '#b8382a');
+        ui.text(price + 'c', cx + 20, cy + 11, S.coins >= price ? '#8a6a1a' : UI_COL.bad);
         if (st.focused) ui.focusRing(cx, cy, colW, 20);
         if (st.clicked || st.focused) { if (this.sel !== i && st.clicked) Audio2.sfx('tick'); this.sel = i; }
       });
@@ -1019,10 +1032,9 @@ class CraftScreen {
   constructor() { this.pause = true; this.sel = 0; }
   draw(ui) {
     const S = G.state;
-    const [x, y, w, h] = centered(ui.view, 360, 222);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Workbench', x + 10, y + 8, UI_COL.ink);
-    if (ui.closeX('cf:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const fr = windowFrame(ui, 'cf', 360, 222, { title: 'Workbench', titleLeft: true });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     const lx = x + 8, ly = y + 22, colW = 108;
     RECIPES.forEach((r, i) => {
       const cx = lx + (i % 2) * (colW + 2), cy = ly + Math.floor(i / 2) * 22;
@@ -1033,7 +1045,7 @@ class CraftScreen {
       ui.icon(SPR.itemIcon(r.id), cx + 2, cy + 2);
       const nm = ITEMS[r.id].name;
       ui.text(nm.length > 15 ? nm.slice(0, 14) + '…' : nm, cx + 20, cy + 3, UI_COL.ink);
-      ui.text(locked ? 'birder rank ' + r.lvl : can ? 'ready' : 'need materials', cx + 20, cy + 11, locked ? '#a8761a' : can ? '#3a7a2a' : UI_COL.muted);
+      ui.text(locked ? 'birder rank ' + r.lvl : can ? 'ready' : 'need materials', cx + 20, cy + 11, locked ? '#a8761a' : can ? UI_COL.ok : UI_COL.muted);
       if (st.focused) ui.focusRing(cx, cy, colW, 20);
       if (st.clicked || st.focused) this.sel = i;
     });
@@ -1049,7 +1061,7 @@ class CraftScreen {
     const site = STRUCTS[r.id] && STRUCTS[r.id].site;
     if (site) {
       const users = SPECIES.filter((s) => s.site === site && S.journal[s.id].h >= 2);
-      if (users.length) cy += ui.wrap('Used by: ' + users.map((s) => s.name).join(', '), dx + 6, cy, dw - 12, '#3a6ab0');
+      if (users.length) cy += ui.wrap('Used by: ' + users.map((s) => s.name).join(', '), dx + 6, cy, dw - 12, UI_COL.blue);
     }
     const locked = r.lvl && (S.prog.lvl || 1) < r.lvl;
     if (locked) cy += ui.wrap('Unlocks at birder rank ' + r.lvl + ' (' + RANKS[r.lvl - 1] + ').', dx + 6, cy, dw - 12, '#a8761a');
@@ -1067,11 +1079,9 @@ class SiteScreen {
     const h0 = this.hostObj();
     if (!this.host.tile && !h0) { G.closeModal(); return; }
     const target = this.host.tile ? { tile: this.host.tile } : h0;
-    const [x, y, w, h] = centered(ui.view, 380, 232);
-    ui.panel('paper', x, y, w, h);
-    if (ui.closeX('si:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
-    const title = this.host.tile ? 'Long grass by the water' : hostName(h0);
-    ui.text(title, x + 10, y + 8, UI_COL.ink);
+    const fr = windowFrame(ui, 'si', 380, 232, { title: this.host.tile ? 'Long grass by the water' : hostName(h0), titleLeft: true });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     const sites = sitesOf(S, target);
     let cy = y + 20;
     // existing nests on this host
@@ -1119,13 +1129,13 @@ class SiteScreen {
         ui.wrap('You know it nests here, but not what its nest is made of. Find its third clue!', dx + 6, dy, dw - 12, UI_COL.inkSoft);
       } else {
         if (Object.keys(sp.mats).length) dy = matsRow(ui, sp.mats, dx + 6, dy, dw - 12);
-        else { ui.text('No materials needed!', dx + 6, dy + 2, '#3a7a2a'); dy += 13; }
+        else { ui.text('No materials needed!', dx + 6, dy + 2, UI_COL.ok); dy += 13; }
         const c = this.host.tile ? this.host.tile : hostCenter(h0);
         const ev = evalNest(S, sp, c[0], c[1], 0);
         for (const ch of ev.checks) {
           ui.icon(SPR.ui(ch.ok ? 'check' : 'cross'), dx + 4, dy - 3, 0.75);
           const lbl = ch.label + (ch.have != null && ch.k !== 'open' ? ' (' + ch.have + ')' : ch.have != null ? ' (' + ch.have + ')' : '');
-          ui.text(lbl, dx + 18, dy, ch.ok ? '#3a7a2a' : '#b8382a');
+          ui.text(lbl, dx + 18, dy, ch.ok ? UI_COL.ok : UI_COL.bad);
           dy += 9;
           if (ch.why && !ch.ok) { ui.text(ch.why, dx + 18, dy, UI_COL.muted); dy += 9; }
           dy += 1;
@@ -1179,18 +1189,18 @@ class NestScreen {
     if (!n) { G.closeModal(); return; }
     const sp = SPECIES_BY_ID[n.kind];
     const j = S.journal[sp.id];
-    const [x, y, w, h] = centered(ui.view, 336, 212);
-    ui.panel('paper', x, y, w, h);
-    if (ui.closeX('ns:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const fr = windowFrame(ui, 'ns', 336, 212);
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     ui.panel('slot', x + 10, y + 8, 36, 36);
     birdThumb(ui, n.cu && (n.st === 'chicks' || n.st === 'fledged') ? 'cuckoo' : sp.id, x + 12, y + 10, 32, false);
     ui.text(sp.name + ' nest', x + 54, y + 9, UI_COL.ink);
-    ui.text(NEST_STAGE_LABEL[n.st], x + 54, y + 20, '#3a6ab0');
+    ui.text(NEST_STAGE_LABEL[n.st], x + 54, y + 20, UI_COL.blue);
     ui.text('Built by ' + (n.by || '?'), x + 54, y + 31, UI_COL.muted);
     if (j.h > 0 && ui.button('ns:song', 'Listen', x + w - 72, y + 27, 60, 15, { icon: SPR.ui('note'), tip: 'Play the song of the ' + sp.name })) Audio2.song(sp.id);
     // the nest cam
     const camX = x + 10, camY = y + 49;
-    ui.rect(camX - 2, camY - 2, CAM_W * 2 + 4, CAM_H * 2 + 4, '#3a2614');
+    ui.rect(camX - 2, camY - 2, CAM_W * 2 + 4, CAM_H * 2 + 4, UI_COL.ink);
     this.cam.draw(ui, camX, camY, dt);
     // what's happening, to the right of the cam
     const rx = camX + CAM_W * 2 + 10, rw = x + w - 10 - rx, bottom = y + h - 24;
@@ -1216,7 +1226,7 @@ class NestScreen {
     } else if (n.st === 'built') {
       const c = nestCenter(S, n);
       const ev = evalNest(S, sp, c[0], c[1], n.id);
-      say(ev.ok ? 'Everything is ready — a pair should arrive soon!' : 'Not quite right yet:', ev.ok ? '#3a7a2a' : '#b8382a');
+      say(ev.ok ? 'Everything is ready — a pair should arrive soon!' : 'Not quite right yet:', ev.ok ? UI_COL.ok : UI_COL.bad);
       cy -= 2;
       const rows = ev.checks.map((ch) => ({ ch, t: ch.label + (ch.have != null ? ' (' + ch.have + ')' : '') }));
       const full = rows.reduce((a, r) => a + ui.wrapHeight(r.t, rw - 12, 9) + (!r.ch.ok && r.ch.why ? ui.wrapHeight(r.ch.why, rw - 12, 9) : 0) + 1, 0);
@@ -1224,7 +1234,7 @@ class NestScreen {
       for (const r of rows) {
         if (cy > bottom - 9) break;
         ui.icon(SPR.ui(r.ch.ok ? 'check' : 'cross'), rx - 2, cy - 3, 0.75);
-        cy += ui.wrap(r.t, rx + 12, cy, rw - 12, r.ch.ok ? '#3a7a2a' : '#b8382a', 9);
+        cy += ui.wrap(r.t, rx + 12, cy, rw - 12, r.ch.ok ? UI_COL.ok : UI_COL.bad, 9);
         if (!r.ch.ok && r.ch.why && why) cy += ui.wrap(r.ch.why, rx + 12, cy, rw - 12, UI_COL.muted, 9);
         cy += 1;
       }
@@ -1330,12 +1340,11 @@ class BoardScreen {
   draw(ui) {
     const S = G.state;
     const foot = ui.font.wrap('New notices every morning. They\'re optional — help when you like!', 284);
-    const [x, y, w, h] = centered(ui.view, 300, 140 + foot.length * LINE_H);
-    ui.panel('wood', x, y, w, h);
-    ui.text('Notice Board', x + w / 2, y + 6, '#fff4d8', { align: 'center' });
-    if (ui.closeX('nb:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const fr = windowFrame(ui, 'nb', 300, 140 + foot.length * LINE_H, { style: 'wood', title: 'Notice Board', titleCol: UI_COL.cream, titleY: 6 });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     const tasks = S.board || [];
-    if (!tasks.length) ui.wrap('No notices today. Check back tomorrow morning!', x + 12, y + 30, w - 24, '#fff4d8');
+    if (!tasks.length) ui.wrap('No notices today. Check back tomorrow morning!', x + 12, y + 30, w - 24, UI_COL.cream);
     tasks.forEach((t, i) => {
       const cy = y + 22 + i * 58;
       ui.panel('note', x + 8, cy, w - 16, 52);
@@ -1343,9 +1352,9 @@ class BoardScreen {
       ui.text(NPCS[t.npc].name + ': "' + t.text + '"', x + 40, cy + 6, UI_COL.ink);
       ui.icon(SPR.matIcon(t.mat), x + 40, cy + 16);
       const have = S.mats[t.mat] || 0;
-      ui.text(t.n + ' ' + MATS[t.mat].name + ' (you have ' + have + ')', x + 58, cy + 20, have >= t.n ? '#3a7a2a' : UI_COL.inkSoft);
+      ui.text(t.n + ' ' + MATS[t.mat].name + ' (you have ' + have + ')', x + 58, cy + 20, have >= t.n ? UI_COL.ok : UI_COL.inkSoft);
       ui.text('Reward: ' + (15 + t.n * 6) + ' coins · friendship', x + 40, cy + 32, UI_COL.muted);
-      if (t.done) ui.text('Done by ' + t.done + ' ✓', x + w - 20, cy + 32, '#3a7a2a', { align: 'right' });
+      if (t.done) ui.text('Done by ' + t.done + ' ✓', x + w - 20, cy + 32, UI_COL.ok, { align: 'right' });
       else if (ui.button('nb:' + i, 'Hand in', x + w - 74, cy + 30, 58, 14, { disabled: have < t.n })) G.send({ t: 'act', a: 'board', i });
     });
     foot.forEach((l, i) => ui.text(l, x + w / 2, y + h - 3 - (foot.length - i) * LINE_H, '#e8d8b8', { align: 'center' }));
@@ -1374,10 +1383,9 @@ class MailScreen {
   constructor() { this.pause = true; this.sel = null; this.page = 0; }
   draw(ui) {
     const S = G.state;
-    const [x, y, w, h] = centered(ui.view, 400, 236);
-    ui.panel('paper', x, y, w, h);
-    ui.text('Letters', x + 10, y + 8, UI_COL.ink);
-    if (ui.closeX('ml:x', x + w - 15, y + 5) || wantClose()) { G.closeModal(); return; }
+    const fr = windowFrame(ui, 'ml', 400, 236, { title: 'Letters', titleLeft: true });
+    if (!fr) return;
+    const [x, y, w, h] = fr;
     const letters = S.mail.slice().reverse();
     if (this.sel == null && letters.length) this.open(letters.find((l) => !l.read) || letters[0]);
     const lw = 116;
@@ -1425,7 +1433,7 @@ class ClueScreen {
     const sp = SPECIES_BY_ID[this.sp];
     const [x, y, w, h] = centered(ui.view, 300, 150);
     ui.panel('note', x, y, w, h);
-    ui.text(this.src === 'obs' ? 'You observed a bird!' : this.src === 'quest' ? 'A tip from a friend!' : 'You found a Field Note!', x + w / 2, y + 10, '#3a6ab0', { align: 'center' });
+    ui.text(this.src === 'obs' ? 'You observed a bird!' : this.src === 'quest' ? 'A tip from a friend!' : 'You found a Field Note!', x + w / 2, y + 10, UI_COL.blue, { align: 'center' });
     ui.panel('slot', x + 10, y + 24, 36, 36);
     birdThumb(ui, sp.id, x + 12, y + 26, 32, false);
     ui.text(sp.name, x + 54, y + 26, UI_COL.ink);
@@ -1494,7 +1502,7 @@ class MapScreen {
     const pw = mw + 12 + (side ? SIDE : 0), ph = mh + (side ? 20 : 37);
     const x = Math.floor((v.w - pw) / 2) + 6, y = Math.floor((v.h - ph) / 2) + 16;
     ui.panel('wood', x - 6, y - 16, pw, ph);
-    ui.text(S.name + ' Valley', x, y - 12, '#fff4d8');
+    ui.text(S.name + ' Valley', x, y - 12, UI_COL.cream);
     if (ui.closeX('mp:x', x + pw - 23, y - 14) || wantClose('map')) { G.closeModal(); return; }
     ui.g.drawImage(this.cv, x, y, mw, mh);
     const P = (wx, wy) => [x + wx / TS * sc, y + wy / TS * sc];
@@ -1508,7 +1516,7 @@ class MapScreen {
     for (const o of S.objs.values()) {
       if (o.type !== 'nest' || o.st === 'old') continue;
       const [nx, ny] = nestCenter(S, o);
-      ui.rect(x + nx * sc + sc / 2 - 2, y + ny * sc + sc / 2 - 2, 4, 4, o.st === 'built' || o.st === 'cock' ? '#f6ecd2' : '#f6c83a');
+      ui.rect(x + nx * sc + sc / 2 - 2, y + ny * sc + sc / 2 - 2, 4, 4, o.st === 'built' || o.st === 'cock' ? UI_COL.paper : '#f6c83a');
     }
     // leads
     const t = performance.now();
@@ -1520,7 +1528,7 @@ class MapScreen {
       const r = 4 + (t / 200) % 4;
       ui.g.strokeStyle = '#ffffff'; ui.g.lineWidth = 1;
       ui.g.strokeRect(Math.round(cx - r), Math.round(cy - r), Math.round(r * 2), Math.round(r * 2));
-      ui.text('?', cx - 1, cy - 4, '#ffffff', { outline: '#3a6ab0' });
+      ui.text('?', cx - 1, cy - 4, '#ffffff', { outline: UI_COL.blue });
     }
     for (const k in NPCS) { const n = npcPos(k, S.clock()); if (!n.away) ui.rect(x + n.x * sc - 1, y + n.y * sc - 2, 3, 3, '#c070d8'); }
     for (const o of S.objs.values()) if (o.type === 'landmark' && S.found && S.found[o.kind] != null) ui.icon(SPR.ui('star'), x + o.x * sc - 4, y + o.y * sc - 4, 0.5);
@@ -1566,21 +1574,21 @@ class MapScreen {
     // legend, with the same colours as the marks on the map
     const keys = [['#e8485a', 'you'], ['#f6c83a', 'nest'], ['?', 'lead'], ['#c070d8', 'villager'], ['#6ab0e0', 'travel']];
     const swatch = (c, lx, ly) => {
-      if (c === '?') ui.text('?', lx, ly - 1, '#ffffff', { outline: '#3a6ab0' });
+      if (c === '?') ui.text('?', lx, ly - 1, '#ffffff', { outline: UI_COL.blue });
       else { ui.rect(lx, ly + 1, 5, 5, '#2a1a0e'); ui.rect(lx + 1, ly + 2, 3, 3, c); }
     };
     const hasGuide = G.pin || G.finder || G.guideQuest;
     if (side) {
       const lx = x + mw + 8;
       let ly = y + 2;
-      for (const [c, t] of keys) { swatch(c, lx, ly); ui.text(t, lx + 9, ly, '#fff4d8'); ly += 11; }
+      for (const [c, t] of keys) { swatch(c, lx, ly); ui.text(t, lx + 9, ly, UI_COL.cream); ly += 11; }
       ly += 6;
       ly += ui.wrap('Click the map to drop a pin.', lx, ly, SIDE - 10, '#e8d8b8') + 3;
       ly += ui.wrap('Click a blue point to travel there.', lx, ly, SIDE - 10, '#e8d8b8') + 6;
       if (hasGuide && ui.button('mp:clr', 'Clear guide', lx, ly, 70, 14)) { G.pin = null; G.finder = null; G.guideQuest = null; }
     } else {
       let lx = x;
-      for (const [c, t] of keys) { swatch(c, lx, y + mh + 1); ui.text(t, lx + 8, y + mh + 1, '#fff4d8'); lx += 14 + ui.font.measure(t); }
+      for (const [c, t] of keys) { swatch(c, lx, y + mh + 1); ui.text(t, lx + 8, y + mh + 1, UI_COL.cream); lx += 14 + ui.font.measure(t); }
       ui.text('Click: pin  ·  click a blue point: travel', x, y + mh + 11, '#e8d8b8');
       if (hasGuide && ui.button('mp:clr', 'Clear guide', x + mw - 62, y + mh + 2, 62, 14)) { G.pin = null; G.finder = null; G.guideQuest = null; }
     }
@@ -1616,7 +1624,7 @@ class SleepScreen {
     ui.rect(0, 0, v.w, v.h, 'rgba(10,10,30,0.7)');
     const [x, y, w, h] = centered(v, 220, 60);
     ui.panel('dark', x, y, w, h);
-    ui.text('Zzz… waiting for everyone to sleep', x + w / 2, y + 10, '#f6ecd2', { align: 'center' });
+    ui.text('Zzz… waiting for everyone to sleep', x + w / 2, y + 10, UI_COL.paper, { align: 'center' });
     ui.text((S.sleepN || 1) + ' of ' + (S.sleepTotal || 1) + ' asleep', x + w / 2, y + 22, '#c8c0e0', { align: 'center' });
     if (ui.button('slp:c', 'Get up', x + w / 2 - 35, y + h - 20, 70, 14) || wantClose()) { G.send({ t: 'act', a: 'sleep', v: false }); G.closeModal(); }
   }

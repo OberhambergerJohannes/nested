@@ -416,13 +416,6 @@ class TileArt {
   }
 
   // Render a chunk of tiles into a Pix (all at once).
-  renderChunk(tiles, cx, cy, size, season) {
-    const job = this.chunkJob(tiles, cx, cy, size, season);
-    let r;
-    while (!(r = job.next()).done) { /* keep going */ }
-    return r.value;
-  }
-
   // A resumable chunk render: each next() renders one row of tiles.
   *chunkJob(tiles, cx, cy, size, season) {
     if (!this.depth) this.depth = computeWaterDepth(tiles);

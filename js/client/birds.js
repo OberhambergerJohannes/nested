@@ -398,135 +398,137 @@ class Birds {
     const S = this.S;
     if (!S || !S.time) return;
     const night = this.isNight();
-    const me = this.game.me;
     const m = S.clock();
     const chorus = m < 9 * 60 ? 2.5 : m > 18 * 60 ? 1.4 : 0.6;
     this.candT += dt;
     if (this.candT > 30000) { this.candT = 0; this.cands.clear(); }
     for (const a of this.agents) {
-      const sp = SPECIES_BY_ID[a.sp];
-      const nocturnal = !!sp.night;
-      const asleep = nocturnal ? !this.isDusk() && !night : night;
+      const asleep = SPECIES_BY_ID[a.sp].night ? !this.isDusk() && !night : night;
       a.anim += dt;
       // ---- night: diurnal visitors roost (hidden); owls only come out at dusk
       if (!a.nest) {
         if (asleep && a.state !== 'fly') { a.hidden = true; continue; }
         if (!asleep && a.hidden && a.state !== 'sit') a.hidden = false;
       }
-      // ---- flee from people moving close by
-      if (a.state === 'idle' || a.state === 'swim') {
-        for (const p of S.players.values()) {
-          if (p.sleep) continue;
-          const r = p.m ? (p.pid === S.me && this.game.perk('quiet') ? 15 : 26) : 12;
-          const close = dist2(p.x, p.y, a.x, a.y) < r * r;
-          if (close && !a.observed && a.job !== 'sit') {
-            const np = a.nest ? this._nearPerch(S.objs.get(a.nest) || { kind: a.sp }, a.anchor, 0) : this.pickPerch(a.sp, a.zone);
-            this.flyTo(a, np, 95);
-            Audio2.sfx('rustle', a.x, a.y);
-            // the rest of the flock follows
-            if (a.flockId && np) for (const b of this.agents) {
-              if (b === a || b.flockId !== a.flockId || b.state === 'fly' || b.observed) continue;
-              if (dist2(b.x, b.y, a.x, a.y) > 60 * 60) continue;
-              const q = Object.assign({}, np, { x: np.x + (Math.random() - 0.5) * 24, y: np.y + (np.kind === 'ground' ? (Math.random() - 0.5) * 16 : 0) });
-              q.sortY = np.kind === 'ground' ? q.y : np.sortY;
-              this.flyTo(b, q, 90 + Math.random() * 20);
-            }
-            break;
-          }
-        }
-      }
-      // ---- songs
-      if (!asleep && (a.state === 'idle' || a.state === 'circle' || a.state === 'swim' || a.job === 'sing')) {
-        a.songT -= dt * (a.job === 'sing' || a.job === 'court' ? 2 : chorus) * (S.weather === 'rain' ? 0.4 : 1);
-        if (a.songT <= 0) {
-          a.songT = 9000 + Math.random() * 16000;
-          if (me && dist2(me.x, me.y, a.x, a.y) < 280 * 280) {
-            Audio2.song(a.sp, a.x, a.y - a.z);
-            this.game.fx.burst('note', a.x + a.face * 4, a.y - a.z - 10, 1);
-          }
-        }
-      }
+      if (a.state === 'idle' || a.state === 'swim') this._flee(a);
+      if (!asleep) this._sing(a, dt, chorus);
       switch (a.state) {
-        case 'fly': {
-          const f = a.flight;
-          f.t += dt;
-          const k = clamp(f.t / f.dur, 0, 1);
-          const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-          a.x = lerp(f.x0, f.p.x, e); a.y = lerp(f.y0, f.p.y, e);
-          a.z = lerp(f.z0, f.p.z, e) + Math.sin(k * Math.PI) * f.arc;
-          a.sortY = a.y;
-          if (k >= 1) {
-            a.perch = f.p; a.flight = null;
-            a.sortY = f.p.sortY;
-            a.state = f.p.kind === 'water' ? 'swim' : f.p.kind === 'air' ? 'circle' : 'idle';
-            if (a.state === 'circle') { a.ang = Math.random() * 6.3; a.cx = f.p.x; a.cy = f.p.y; a.rx = f.p.rx; a.ry = f.p.ry; a.circleT = 8000 + Math.random() * 10000; }
-            a.timer = 3000 + Math.random() * 8000;
-            if (a.onLand) { const fn = a.onLand; a.onLand = null; fn(); }
-          }
-          break;
-        }
-        case 'circle': {
-          const spd = a.sp === 'barnowl' ? 0.35 : 0.9;
-          a.ang += dt / 1000 * spd;
-          a.x = a.cx + Math.cos(a.ang) * a.rx; a.y = a.cy + Math.sin(a.ang) * a.ry;
-          a.z = 34 + Math.sin(a.ang * 3) * 8;
-          a.face = -Math.sin(a.ang) >= 0 ? 1 : -1;
-          a.sortY = a.y;
-          a.circleT -= dt;
-          if (a.circleT <= 0) {
-            const p = this.pickPerch(a.sp, a.zone);
-            if (p && p.kind !== 'air') this.flyTo(a, p, 110); else a.circleT = 6000;
-          }
-          break;
-        }
-        case 'swim': {
-          if (a.follow && a.mother) {
-            const idx = this.agents.filter((b) => b.mother === a.mother).indexOf(a);
-            const tx = a.mother.x - a.mother.face * (8 + idx * 6), ty = a.mother.y + 1;
-            a.x = lerp(a.x, tx, 0.04); a.y = lerp(a.y, ty, 0.04); a.face = a.mother.face; a.sortY = a.y;
-            break;
-          }
-          a.timer -= dt;
-          if (!a.swimTo || a.timer < 0) {
-            const S2 = this.S;
-            const nx = a.x + (Math.random() - 0.5) * 40, ny = a.y + (Math.random() - 0.5) * 30;
-            if (isWaterT(tileAt(S2, Math.floor(nx / TS), Math.floor(ny / TS)))) a.swimTo = { x: nx, y: ny };
-            a.timer = 2000 + Math.random() * 4000;
-          }
-          if (a.swimTo) {
-            const dx = a.swimTo.x - a.x, dy = a.swimTo.y - a.y, d = Math.hypot(dx, dy);
-            if (d > 1) { a.x += dx / d * 0.012 * dt; a.y += dy / d * 0.012 * dt; a.face = dx >= 0 ? 1 : -1; }
-            a.sortY = a.y;
-          }
-          a.frame = (a.anim % 4000) < 600 ? 'peck' : 'perch';
-          break;
-        }
-        case 'sit': {
-          a.timer -= dt;
-          break;
-        }
-        case 'idle': {
-          a.timer -= dt;
-          const ground = a.perch && a.perch.kind === 'ground';
-          // idle animation: pecking on the ground, occasional turn
-          if (ground) a.frame = (a.anim % 1800) < 350 ? 'peck' : 'perch';
-          else a.frame = (a.anim % 5000) < 200 ? 'peck' : 'perch';
-          if (a.perch && a.perch.cling) a.frame = (a.anim % 900) < 120 ? 'peck' : 'perch';
-          if (Math.random() < dt / 6000) a.face = -a.face;
-          if (a.perch && a.perch.kind === 'bath' && Math.random() < dt / 2200) { a.frame = 'peck'; this.game.fx.burst('splash', a.x, a.y - a.z, 3); }
-          if (a.perch && a.perch.kind === 'feeder') a.frame = (a.anim % 1200) < 300 ? 'peck' : 'perch';
-          if (ground && Math.random() < dt / 2500) {
-            // hop
-            const nx = a.x + a.face * (3 + Math.random() * 6);
-            const t2 = tileAt(S, Math.floor(nx / TS), Math.floor(a.y / TS));
-            if (TINFO[t2].land) { a.x = nx; a.hopT = 160; }
-          }
-          if (a.hopT > 0) a.hopT -= dt;
-          if (a.timer <= 0 && !a.observed) this._nextMove(a);
-          break;
-        }
+        case 'fly': this._fly(a, dt); break;
+        case 'circle': this._circle(a, dt); break;
+        case 'swim': this._swim(a, dt); break;
+        case 'sit': a.timer -= dt; break;
+        case 'idle': this._idle(a, dt); break;
       }
     }
+  }
+
+  // People moving close by scare a bird off (and the rest of its flock with it)
+  _flee(a) {
+    const S = this.S;
+    for (const p of S.players.values()) {
+      if (p.sleep) continue;
+      const r = p.m ? (p.pid === S.me && this.game.perk('quiet') ? 15 : 26) : 12;
+      const close = dist2(p.x, p.y, a.x, a.y) < r * r;
+      if (!close || a.observed || a.job === 'sit') continue;
+      const np = a.nest ? this._nearPerch(S.objs.get(a.nest) || { kind: a.sp }, a.anchor, 0) : this.pickPerch(a.sp, a.zone);
+      this.flyTo(a, np, 95);
+      Audio2.sfx('rustle', a.x, a.y);
+      if (a.flockId && np) for (const b of this.agents) {
+        if (b === a || b.flockId !== a.flockId || b.state === 'fly' || b.observed) continue;
+        if (dist2(b.x, b.y, a.x, a.y) > 60 * 60) continue;
+        const q = Object.assign({}, np, { x: np.x + (Math.random() - 0.5) * 24, y: np.y + (np.kind === 'ground' ? (Math.random() - 0.5) * 16 : 0) });
+        q.sortY = np.kind === 'ground' ? q.y : np.sortY;
+        this.flyTo(b, q, 90 + Math.random() * 20);
+      }
+      return;
+    }
+  }
+
+  // Songs: more at dawn and dusk, less in the rain, often while courting; heard when you're near
+  _sing(a, dt, chorus) {
+    if (!(a.state === 'idle' || a.state === 'circle' || a.state === 'swim' || a.job === 'sing')) return;
+    a.songT -= dt * (a.job === 'sing' || a.job === 'court' ? 2 : chorus) * (this.S.weather === 'rain' ? 0.4 : 1);
+    if (a.songT > 0) return;
+    a.songT = 9000 + Math.random() * 16000;
+    const me = this.game.me;
+    if (me && dist2(me.x, me.y, a.x, a.y) < 280 * 280) {
+      Audio2.song(a.sp, a.x, a.y - a.z);
+      this.game.fx.burst('note', a.x + a.face * 4, a.y - a.z - 10, 1);
+    }
+  }
+
+  _fly(a, dt) {
+    const f = a.flight;
+    f.t += dt;
+    const k = clamp(f.t / f.dur, 0, 1);
+    const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    a.x = lerp(f.x0, f.p.x, e); a.y = lerp(f.y0, f.p.y, e);
+    a.z = lerp(f.z0, f.p.z, e) + Math.sin(k * Math.PI) * f.arc;
+    a.sortY = a.y;
+    if (k < 1) return;
+    a.perch = f.p; a.flight = null;
+    a.sortY = f.p.sortY;
+    a.state = f.p.kind === 'water' ? 'swim' : f.p.kind === 'air' ? 'circle' : 'idle';
+    if (a.state === 'circle') { a.ang = Math.random() * 6.3; a.cx = f.p.x; a.cy = f.p.y; a.rx = f.p.rx; a.ry = f.p.ry; a.circleT = 8000 + Math.random() * 10000; }
+    a.timer = 3000 + Math.random() * 8000;
+    if (a.onLand) { const fn = a.onLand; a.onLand = null; fn(); }
+  }
+
+  // Swifts, swallows and owls circle in the air for a while
+  _circle(a, dt) {
+    const spd = a.sp === 'barnowl' ? 0.35 : 0.9;
+    a.ang += dt / 1000 * spd;
+    a.x = a.cx + Math.cos(a.ang) * a.rx; a.y = a.cy + Math.sin(a.ang) * a.ry;
+    a.z = 34 + Math.sin(a.ang * 3) * 8;
+    a.face = -Math.sin(a.ang) >= 0 ? 1 : -1;
+    a.sortY = a.y;
+    a.circleT -= dt;
+    if (a.circleT <= 0) {
+      const p = this.pickPerch(a.sp, a.zone);
+      if (p && p.kind !== 'air') this.flyTo(a, p, 110); else a.circleT = 6000;
+    }
+  }
+
+  // Ducks and grebes paddle about; ducklings follow their mother in a line
+  _swim(a, dt) {
+    if (a.follow && a.mother) {
+      const idx = this.agents.filter((b) => b.mother === a.mother).indexOf(a);
+      const tx = a.mother.x - a.mother.face * (8 + idx * 6), ty = a.mother.y + 1;
+      a.x = lerp(a.x, tx, 0.04); a.y = lerp(a.y, ty, 0.04); a.face = a.mother.face; a.sortY = a.y;
+      return;
+    }
+    a.timer -= dt;
+    if (!a.swimTo || a.timer < 0) {
+      const nx = a.x + (Math.random() - 0.5) * 40, ny = a.y + (Math.random() - 0.5) * 30;
+      if (isWaterT(tileAt(this.S, Math.floor(nx / TS), Math.floor(ny / TS)))) a.swimTo = { x: nx, y: ny };
+      a.timer = 2000 + Math.random() * 4000;
+    }
+    if (a.swimTo) {
+      const dx = a.swimTo.x - a.x, dy = a.swimTo.y - a.y, d = Math.hypot(dx, dy);
+      if (d > 1) { a.x += dx / d * 0.012 * dt; a.y += dy / d * 0.012 * dt; a.face = dx >= 0 ? 1 : -1; }
+      a.sortY = a.y;
+    }
+    a.frame = (a.anim % 4000) < 600 ? 'peck' : 'perch';
+  }
+
+  // Perched or on the ground: pecking, turning, hopping, bathing — then on to the next spot
+  _idle(a, dt) {
+    a.timer -= dt;
+    const ground = a.perch && a.perch.kind === 'ground';
+    if (ground) a.frame = (a.anim % 1800) < 350 ? 'peck' : 'perch';
+    else a.frame = (a.anim % 5000) < 200 ? 'peck' : 'perch';
+    if (a.perch && a.perch.cling) a.frame = (a.anim % 900) < 120 ? 'peck' : 'perch';
+    if (Math.random() < dt / 6000) a.face = -a.face;
+    if (a.perch && a.perch.kind === 'bath' && Math.random() < dt / 2200) { a.frame = 'peck'; this.game.fx.burst('splash', a.x, a.y - a.z, 3); }
+    if (a.perch && a.perch.kind === 'feeder') a.frame = (a.anim % 1200) < 300 ? 'peck' : 'perch';
+    if (ground && Math.random() < dt / 2500) {
+      // hop
+      const nx = a.x + a.face * (3 + Math.random() * 6);
+      const t2 = tileAt(this.S, Math.floor(nx / TS), Math.floor(a.y / TS));
+      if (TINFO[t2].land) { a.x = nx; a.hopT = 160; }
+    }
+    if (a.hopT > 0) a.hopT -= dt;
+    if (a.timer <= 0 && !a.observed) this._nextMove(a);
   }
 
   _nextMove(a) {

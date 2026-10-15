@@ -51,7 +51,6 @@ function solidBox(o) {
       if (o.kind === 'bank' || o.kind === 'brushpile') return [1, 5, 15, 15];
       if (o.kind === 'birdbath') return [3, 8, 13, 15];
       if (o.kind === 'gardenbench') return [1, 9, 15, 15];
-      if (o.kind === 'feeder' || o.kind === 'lamppost') return [6, 11, 10, 15];
       return [6, 11, 10, 15];
     default: return null;
   }
@@ -105,6 +104,12 @@ function objsOnTile(S, x, y) {
 }
 
 function tileAt(S, x, y) { return inBounds(x, y) ? S.tiles[tIdx(x, y)] : T.CLIFF; }
+
+// The first object of a type and kind (the cottage, the notice board…), or null
+function firstObj(S, type, kind) {
+  for (const o of S.objs.values()) if (o.type === type && o.kind === kind) return o;
+  return null;
+}
 
 // ---------- collision ----------
 function boxBlocked(S, x0, y0, x1, y1) {
@@ -275,11 +280,6 @@ function nestsOfHost(S, hostId) {
   return out;
 }
 
-function groundNestAt(S, x, y) {
-  const o = objAt(S, x, y);
-  return o && o.type === 'nest' ? o : null;
-}
-
 // Evaluate whether a species would settle at a host. Returns {ok, checks:[{label, ok, have, need, why}]}
 function evalNest(S, sp, cx, cy, ignoreId) {
   const checks = [];
@@ -287,11 +287,7 @@ function evalNest(S, sp, cx, cy, ignoreId) {
   checks.push({ label: 'Nesting season: ' + sp.breed.map((s) => SEASON_NAMES[s]).join(', '), ok: inSeason, why: inSeason ? 'Now is the time!' : 'Wait for the right season' });
   for (const h of sp.hab) {
     const have = countHab(S, h.k, cx, cy, h.r);
-    let ok, label;
-    if (h.k === 'open') { ok = have <= h.n; label = h.n === 0 ? 'No trees within ' + h.r + ' tiles' : 'At most ' + h.n + ' trees within ' + h.r; }
-    else if (h.k === 'water' || h.k === 'anvil' || h.k === 'mud') { ok = have >= h.n; label = (h.k === 'anvil' ? 'Anvil stone' : h.k === 'mud' ? 'Mud source' : 'Water') + (h.r <= 1 ? ' right next to it' : ' within ' + h.r + ' tiles'); }
-    else { ok = have >= h.n; label = h.n + '+ ' + HAB_KINDS[h.k].unit + ' within ' + h.r; }
-    checks.push({ label, ok, have, need: h.n, why: h.why, k: h.k });
+    checks.push({ label: habLabel(h), ok: h.k === 'open' ? have <= h.n : have >= h.n, have, need: h.n, why: h.why, k: h.k });
   }
   if (sp.terr > 0) {
     let rival = 0;
@@ -305,12 +301,17 @@ function evalNest(S, sp, cx, cy, ignoreId) {
   return { ok: checks.every((c) => c.ok), checks };
 }
 
+// A habitat need in words, e.g. "8+ lawn tiles within 5" (journal and nest-site panel alike)
+function habLabel(h) {
+  if (h.k === 'open') return h.n === 0 ? 'No trees within ' + h.r + ' tiles' : 'At most ' + h.n + ' trees within ' + h.r;
+  if (h.k === 'water' || h.k === 'anvil' || h.k === 'mud') return (h.k === 'anvil' ? 'Anvil stone' : h.k === 'mud' ? 'Mud source' : 'Water') + (h.r <= 1 ? ' right next to it' : ' within ' + h.r + ' tiles');
+  return h.n + '+ ' + HAB_KINDS[h.k].unit + ' within ' + h.r;
+}
+
 function nestCenter(S, n) {
   if (n.host) { const h = S.objs.get(n.host); if (h) return hostCenter(h); }
   return [n.x, n.y];
 }
-
-function speciesForSite(site) { return SPECIES.filter((s) => s.site === site); }
 
 // Where a quest sends you (for the guide arrow), or null when it isn't about one place
 function questTarget(S, q) {
@@ -318,7 +319,8 @@ function questTarget(S, q) {
   if (questReady(S, q)) return npcAt(q.npc, NPCS[q.npc].name);
   if (q.kind === 'deliver') return npcAt(q.to, NPCS[q.to].name);
   if (q.kind === 'trip') {
-    for (const o of S.objs.values()) if (o.type === 'landmark' && o.kind === q.lm) return { x: o.x * TS + 8, y: o.y * TS + 8, label: LANDMARKS[q.lm].name, kind: 'quest' };
+    const o = firstObj(S, 'landmark', q.lm);
+    if (o) return { x: o.x * TS + 8, y: o.y * TS + 8, label: LANDMARKS[q.lm].name, kind: 'quest' };
   }
   if (q.kind === 'find' && q.area) return { x: (q.area[0] + q.area[2]) / 2 * TS, y: (q.area[1] + q.area[3]) / 2 * TS, label: 'Search here', kind: 'quest' };
   return null;
@@ -337,9 +339,8 @@ function staticShadow(o) {
 // (x, y) is a spot in front of each, in pixels.
 function travelPoints(S) {
   const out = [];
-  const find = (type, kind) => { for (const o of S.objs.values()) if (o.type === type && o.kind === kind) return o; return null; };
   for (const [kind, label] of [['cottage', 'Home'], ['station', 'Field Station'], ['farmhouse', 'Mabel\'s farm']]) {
-    const o = find('building', kind);
+    const o = firstObj(S, 'building', kind);
     if (!o) continue;
     const b = BUILDINGS[o.kind], dx = b.door ? b.door[0] : Math.floor(b.w / 2);
     out.push({ key: kind, label, x: (o.x + dx) * TS + 8, y: (o.y + b.h) * TS + 10 });
@@ -459,17 +460,22 @@ function quickOp(S, o, pid) {
   }
 }
 
+// Ground you can dig or scoop once a day: what it gives and how it looks
+const DIG_TILES = {
+  [T.MUD]: { op: 'mud', label: 'Scoop mud', mat: 'mud', fx: 'mud' },
+  [T.SAND]: { op: 'sand', label: 'Dig sand', mat: 'sand', fx: 'dig' },
+  [T.CLAY]: { op: 'clay', label: 'Dig clay', mat: 'clay', fx: 'dig' },
+  [T.GRAVEL]: { op: 'gravel', label: 'Pick up stones', mat: 'stone', fx: 'dig' },
+};
+
 function tileOp(S, x, y) {
   if (!inBounds(x, y)) return null;
   const i = tIdx(x, y), t = S.tiles[i];
   if (S.occ[i]) return null;
   if ((t === T.GRASS || t === T.MARSH) && S.grass[i] === 2) return { op: 'cut', label: 'Cut long grass' };
-  const dug = S.dug && S.dug[i] === dayIdx(S.time);
-  if (t === T.MUD) return dug ? null : { op: 'mud', label: 'Scoop mud' };
-  if (t === T.SAND) return dug ? null : { op: 'sand', label: 'Dig sand' };
-  if (t === T.CLAY) return dug ? null : { op: 'clay', label: 'Dig clay' };
-  if (t === T.GRAVEL) return dug ? null : { op: 'gravel', label: 'Pick up stones' };
-  return null;
+  const dig = DIG_TILES[t];
+  if (!dig || (S.dug && S.dug[i] === dayIdx(S.time))) return null;
+  return { op: dig.op, label: dig.label };
 }
 
 // ---------- villagers & side quests ----------
@@ -539,6 +545,8 @@ function festActive(time, min) {
   return f && min >= f.from && min < f.until ? f : null;
 }
 function festTier(f, n) { let t = 0; for (let i = 0; i < 3; i++) if (n >= f.goal[i]) t = i + 1; return t; }
+// How many festivals have been won with a gold ribbon (for the Village Champion badge)
+function festGoldCount(log) { return FESTIVALS.filter((f) => log && log[f.id] && log[f.id].best >= 3).length; }
 
 // Villager positions are shared by host and players, so the festival of the day is kept here.
 // Both the world and the client state call this whenever the date may have changed.
@@ -627,6 +635,20 @@ function flockPos(fl, min) {
   return { x: (fl.x0 + Math.sin(ty * 0.08 + fl.ph) * 2.5) * TS, y: ty * TS };
 }
 
+// The id of the tutorial step in progress ('' once the tutorial is over)
+function tutorialStep(S) { const s = TUTORIAL[S.quest]; return s ? s.id : ''; }
+
+// Progress toward a badge (BADGES[].s); bestFriend() says whether someone is best friends with a villager
+function badgeStat(S, k, bestFriend) {
+  if (k === 'species') return nestedCount(S);
+  if (k === 'landmarks') return Object.keys(S.found || {}).length;
+  if (k === 'nightSpecies') return ((S.stats && S.stats.nightList) || []).length;
+  if (k === 'festGold') return festGoldCount(S.festLog);
+  if (k === 'bestFriends') return bestFriend() ? 1 : 0;
+  return (S.stats && S.stats[k]) || 0;
+}
+const isBestFriend = (fr) => Object.values(fr || {}).some((v) => v >= HEART * MAX_HEARTS);
+
 // Side quests: state is S.side[id] = {st: 'on'|'done', n, seen}
 function questGateOpen(S) { return S.quest >= TUTORIAL.findIndex((t) => t.id === 'arrive'); }
 function questProgress(S, q) {
@@ -650,11 +672,6 @@ function npcQuest(S, npc) {
     return { q, state: 'offer' };
   }
   return null;
-}
-
-function speciesName(S, id) {
-  const j = S.journal[id];
-  return j && j.h > 0 ? SPECIES_BY_ID[id].name : 'unknown bird';
 }
 
 function nestedCount(S) {

@@ -12,6 +12,12 @@ const Prefs = {
 const DAY_SPEEDS = [{ ms: 500, label: '10 min' }, { ms: 750, label: '15 min' }, { ms: 1000, label: '20 min' }];
 const ZOOMS = [{ v: -1, label: 'Wide' }, { v: 0, label: 'Normal' }, { v: 1, label: 'Close' }];
 const RUN_SPEED = 1.6;
+// Where tutorial steps happen: the building, and offsets (px) for the guide arrow (x, y) and the "!" marker (my)
+const TUTORIAL_SPOTS = {
+  mail: { kind: 'mailbox', x: 8, y: 8, my: -14, label: 'Mailbox' },
+  craft: { kind: 'bench', x: 16, y: 8, my: -14, label: 'Workbench' },
+  sleep: { kind: 'cottage', x: 40, y: 48, my: 28, label: 'Your bed' },
+};
 // The game client: main loop, player control, interaction targeting and reacting to host events.
 
 class Game {
@@ -424,13 +430,18 @@ class Game {
       if (!st || st.st !== 'on') this.guideQuest = null;
       else { const t = questTarget(S, q); if (t) return t; }
     }
-    const step = TUTORIAL[S.quest] ? TUTORIAL[S.quest].id : '';
-    const b = (kind) => S.first('building', kind);
-    if (step === 'mail') { const o = b('mailbox'); if (o) return { x: o.x * TS + 8, y: o.y * TS + 8, label: 'Mailbox', kind: 'tut' }; }
-    if (step === 'ada') { const n = npcPos('ada', S.clock()); if (!n.away) return { x: n.x * TS, y: n.y * TS, label: 'Prof. Ada', kind: 'tut' }; }
-    if (step === 'craft') { const o = b('bench'); if (o) return { x: o.x * TS + 16, y: o.y * TS + 8, label: 'Workbench', kind: 'tut' }; }
-    if (step === 'sleep') { const o = b('cottage'); if (o) return { x: (o.x + 2) * TS + 8, y: (o.y + 3) * TS, label: 'Your bed', kind: 'tut' }; }
-    return null;
+    const fg = FestivalView.guide(S, me);
+    if (fg) return fg;
+    const ts = this.tutorialSpot(tutorialStep(S));
+    return ts ? { x: ts.x, y: ts.y, label: ts.label, kind: 'tut' } : null;
+  }
+
+  // Where a tutorial step happens: {x, y (for the guide arrow), my (for the "!" marker), label}, or null
+  tutorialSpot(step) {
+    const S = this.state;
+    if (step === 'ada') { const n = npcPos('ada', S.clock()); return n.away ? null : { x: n.x * TS, y: n.y * TS, my: n.y * TS - 30, label: 'Prof. Ada' }; }
+    const t = TUTORIAL_SPOTS[step], o = t && S.first('building', t.kind);
+    return o ? { x: o.x * TS + t.x, y: o.y * TS + t.y, my: o.y * TS + t.my, label: t.label } : null;
   }
 
   // Nest-spot finder: every place where this species would settle right now (season aside), or
@@ -479,12 +490,11 @@ class Game {
   // World positions that deserve a bouncing "!" marker
   questMarkers() {
     const S = this.state, out = [];
-    const step = TUTORIAL[S.quest] ? TUTORIAL[S.quest].id : '';
-    const b2 = (type, kind) => S.first(type, kind);
-    const b = (kind) => b2('building', kind);
-    const mb = b('mailbox');
-    if (mb && (step === 'mail' || S.mail.some((m) => !m.read))) out.push([mb.x * TS + 8, mb.y * TS - 14]);
-    if (step === 'ada') { const n = npcPos('ada', S.clock()); out.push([n.x * TS, n.y * TS - 30]); }
+    const step = tutorialStep(S), ts = this.tutorialSpot(step);
+    if (ts) out.push([ts.x, ts.my]);
+    // unread letters
+    const mb = S.first('building', 'mailbox');
+    if (mb && step !== 'mail' && S.mail.some((m) => !m.read)) out.push([mb.x * TS + 8, mb.y * TS - 14]);
     // villagers with a request ('!') or waiting for you to come back ('?')
     for (const k in NPCS) {
       const nq = npcQuest(S, k);
@@ -497,10 +507,8 @@ class Game {
       const st = S.side && S.side[q.id];
       if (!st || st.st !== 'on') continue;
       if (q.kind === 'deliver') { const n = npcPos(q.to, S.clock()); if (!n.away) out.push([n.x * TS, n.y * TS - (NPCS[q.to].kid ? 24 : 30), '?']); }
-      if (q.kind === 'trip' && !st.n) { const l = b2('landmark', q.lm); if (l) out.push([l.x * TS + (LANDMARKS[q.lm].w || 1) * 8, l.y * TS - 26, '!']); }
+      if (q.kind === 'trip' && !st.n) { const l = S.first('landmark', q.lm); if (l) out.push([l.x * TS + (LANDMARKS[q.lm].w || 1) * 8, l.y * TS - 26, '!']); }
     }
-    if (step === 'craft') { const be = b('bench'); if (be) out.push([be.x * TS + 16, be.y * TS - 14]); }
-    if (step === 'sleep') { const c = b('cottage'); if (c) out.push([(c.x + 2) * TS + 8, (c.y + 2) * TS - 4]); }
     return out;
   }
 
@@ -519,7 +527,7 @@ class Game {
       this.loading.t += dt;
       const done = this.renderer.loadStep(this.state, this.cam, v, 22) || this.loading.t > 5000;
       g.fillStyle = '#1d1a2b'; g.fillRect(0, 0, v.w, v.h);
-      this.ui.text('Painting the valley…', v.w / 2, v.h / 2 - 12, '#f6ecd2', { align: 'center' });
+      this.ui.text('Painting the valley…', v.w / 2, v.h / 2 - 12, UI_COL.paper, { align: 'center' });
       this.ui.bar(Math.floor(v.w / 2) - 60, Math.floor(v.h / 2) + 2, 120, 6, this.renderer.loadProgress || 0, '#7ac05a');
       if (done) this.loading = null;
     } else if (this.mode === 'play' && this.state && this.me) {
@@ -531,7 +539,7 @@ class Game {
       this.ui.lock = false;
     } else if (this.mode === 'play') {
       g.fillStyle = '#1d1a2b'; g.fillRect(0, 0, v.w, v.h);
-      this.ui.text('Loading the valley…', v.w / 2, v.h / 2, '#f6ecd2', { align: 'center' });
+      this.ui.text('Loading the valley…', v.w / 2, v.h / 2, UI_COL.paper, { align: 'center' });
     } else {
       this.ui.lock = !!this.modal;
       this.title.draw(this.ui, dt);
@@ -549,7 +557,7 @@ class Game {
       const msg = 'Paused — click the game to keep playing';
       const w = this.ui.font.measure(msg) + 16;
       this.ui.panel('dark', Math.floor((v.w - w) / 2), Math.floor(v.h / 2) - 9, w, 18);
-      this.ui.text(msg, v.w / 2, Math.floor(v.h / 2) - 4, '#f6ecd2', { align: 'center' });
+      this.ui.text(msg, v.w / 2, Math.floor(v.h / 2) - 4, UI_COL.paper, { align: 'center' });
     }
     // toasts also on the title screen
     if (this.mode !== 'play' && this.toasts.length) {
@@ -559,7 +567,7 @@ class Game {
       for (const tt of this.toasts) {
         const w = this.ui.font.measure(tt.text) + 12;
         this.ui.panel('dark', Math.floor((v.w - w) / 2), ty, w, 13);
-        this.ui.text(tt.text, Math.floor((v.w - w) / 2) + 6, ty + 2, '#f6ecd2');
+        this.ui.text(tt.text, Math.floor((v.w - w) / 2) + 6, ty + 2, UI_COL.paper);
         ty += 15;
       }
     }
@@ -785,6 +793,9 @@ class Game {
         return t;
       }
     }
+    // 2b. a migrating flock overhead to count (Migration Watch)
+    const fl = FestivalView.countable(S, me);
+    if (fl) return { label: 'Count the flock: ' + fl.fl.kind.name, anchor: [me.x, me.y - 30], exec: () => this.send({ t: 'act', a: 'flock', id: fl.fl.id }) };
     // 3. farm animals
     for (const a of S.animals.values()) {
       if (dist2(a.x, a.y - 4, ipx, ipy) < 16 * 16) {

@@ -75,8 +75,6 @@ function b64decode(str) {
   return u8;
 }
 
-const deepClone = (o) => JSON.parse(JSON.stringify(o));
-
 function makeToken() {
   const chars = 'abcdefghijkmnopqrstuvwxyz23456789';
   let s = '';

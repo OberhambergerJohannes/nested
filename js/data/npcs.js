@@ -127,7 +127,24 @@ const NPC_LINES = {
     'Nightjars eat moths. No moths, no nightjars — so plant flowers that bloom and smell at night.',
   ],
 };
-const MABEL_LINES = NPC_LINES.mabel, BASIL_LINES = NPC_LINES.basil;
+// Prof. Ada: her welcome when you first visit, a tip for each tutorial step, and everyday greetings
+const ADA_WELCOME = [
+  'Ah, you must be my new neighbour! Welcome to Featherbrook.',
+  'Let\'s start with a familiar friend: the Eurasian Blackbird. I\'ve written its nest blueprint into your journal.',
+  'Blackbirds build a cup of twigs and dry grass, plastered inside with mud. Shake trees for twigs, cut long grass in the meadows, and scoop mud from the muddy shore of your garden pond.',
+  'Then find a shrub next to your lawn and press F (or right-click) on it to build the nest. The birds will do the rest!',
+  'Press TAB any time to open your journal.',
+];
+const ADA_TIPS = {
+  gather: 'Twigs from shaking trees, dry grass from long grass, and mud from the muddy pond shore by your cottage.',
+  build: 'Find a shrub next to your lawn and press F to build the Blackbird nest.',
+  arrive: 'Now we wait. Blackbirds move in quickly when a spot is right.',
+  sleep: 'A pair moved in? Wonderful! Get some rest — birds lay their eggs in the early morning.',
+  craft: 'Nest boxes next! Robins like an open-fronted box; Great Tits a box with a 28 mm hole. Your workbench is beside the cottage, and you have some wood.',
+  clues: 'Watch the birds you don\'t know yet: get close, stand still and press E to observe them. Field Notes with clues are scattered around too.',
+};
+const ADA_GREETINGS = ['Hello, neighbour! The valley sounds livelier every day.', 'Good to see you! Any new birds?', 'Ah, there you are. I was just updating the survey.'];
+const ADA_ALL_DONE = 'Listen to that chorus! You did it, neighbour.';
 
 const BIRD_FACTS = [
   'Most birds don\'t sleep in nests! Nests are nurseries for eggs and chicks — the rest of the year, songbirds roost on branches.',

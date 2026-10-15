@@ -87,6 +87,20 @@ at your cottage door or on a garden bench.
 
 ![A moonlit evening in the village](assets/screenshot-night.png)
 
+**Village festivals:** on day 4 of every season the whole village gathers on the green, under bunting, for a festival
+modelled on a real event. A letter arrives the day before, and each festival has one small activity with bronze, silver
+and gold ribbons (coins and XP) and a keepsake for gold:
+
+| Festival | Season | Activity | Gold keepsake |
+|---|---|---|---|
+| Dawn Chorus Day | spring | watch as many different birds as you can before 11:00 | a bird table (birds feed at it) |
+| Midsummer Fair | summer | find Rosie's twelve paper birds before the bonfire is lit at 9 pm | a bug hotel |
+| Migration Watch | autumn | count the flocks flying south along the river, 7:00–13:00 (stand under a flock, press **E**) | a spotting scope (watch birds twice as fast next to it) |
+| Feeder Day | winter | bring bird food (seed mix from Basil, apples, nuts, berries) to neighbours before 4:30 pm | a garden lantern |
+
+Migrating flocks also cross the valley on ordinary spring and autumn days. The journal's **Valley** page shows your best
+ribbon at each festival and when the next one is; two badges (*Festival Fan*, *Village Champion*) go with them.
+
 **Rare visitors:** about one day in five, a villager reports an unusual bird passing through — a Hoopoe, a Golden Oriole,
 Waxwings, an Osprey, a Bluethroat, a Hawfinch, a Red Kite, a Common Crane, a Wallcreeper, a Spoonbill, a White-tailed Eagle or a Rosy Starling, each in its own season. It stays for that day only; look for the sparkle.
 
@@ -107,7 +121,7 @@ give you a keepsake. The **Notice Board** by the well posts two small, optional 
 **Birder rank & badges:** everything you do for the birds — watching them, finding clues, building nests, seeing chicks
 fledge, helping neighbours, exploring — earns experience. Fifteen ranks (from *Fledgling* to *Legend of the Valley*) bring
 coins, saplings, better binoculars, quieter steps and new workbench recipes: a **bird feeder** (birds really visit it), a
-**lamp post** and a **garden bench**. Seventeen badges celebrate milestones; the journal's **Progress** page shows how
+**lamp post** and a **garden bench**. Nineteen badges celebrate milestones; the journal's **Progress** page shows how
 close you are to each.
 
 **Comfort features:**
@@ -243,7 +257,7 @@ js/data/            species, items, plants, villagers & their routes, side quest
                     ranks, badges, gift tastes and notice-board requests — easy to edit
 js/sim/             map generation, rules and the authoritative World (runs on the solo player / co-op host)
 js/art/             code that draws all pixel art: birds, terrain, trees, buildings, people, icons, font
-js/client/          rendering, input, audio synthesis, UI screens, nest cam, HUD, game loop
+js/client/          rendering, input, audio synthesis, UI screens, nest cam, festivals, HUD, game loop
 js/net/             solo / host / guest links
 assets/             PNG sprite sheets exported from the art code (for viewing/reuse)
 tools/              developer tools (headless-Chrome tests, art export)

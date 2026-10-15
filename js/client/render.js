@@ -484,6 +484,7 @@ class Renderer {
       const e = this._e(ny, spr.img, Math.round(nx) - spr.ax, Math.round(ny) - spr.ay);
       e.sh = NPCS[k].kid ? 5 : 6; e.sx = nx; e.sy = ny;
     }
+    FestivalView.collect(this, S, now);
     for (const a of S.animals.values()) {
       const left = a.d === 1 || (a.d !== 2 && a.lastLeft);
       if (a.d === 1) a.lastLeft = true; else if (a.d === 2) a.lastLeft = false;
@@ -536,6 +537,7 @@ class Renderer {
     // effects
     this._ambientFx(S, now, cx0, cy0, view);
     game.fx.draw(g, cx0, cy0);
+    FestivalView.drawSky(g, S, cx0, cy0, view, now, me);
     // quest markers ("!" over where to go next)
     for (const [mx, my, mk] of game.questMarkers()) {
       const bob = Math.round(Math.sin(now / 220) * 2);
@@ -624,14 +626,14 @@ class Renderer {
         const spr = SPR.forage(pb ? 'paperbird' + (o.c | 0) : o.kind, season);
         const bob = o.kind === 'note' || pb ? Math.round(Math.sin(now / 300 + o.id) * 1.5) - 2 : 0;
         g.drawImage(spr.img, bx - spr.ax - cx0, by - spr.ay - 2 + bob - cy0);
-        if ((o.kind === 'note' || pb) && (now / 250 + o.id) % 6 < 1) { g.fillStyle = '#fff4b0'; g.fillRect(bx + 4 - cx0, by - 14 + bob - cy0, 1, 3); g.fillRect(bx + 3 - cx0, by - 13 + bob - cy0, 3, 1); }
+        if ((o.kind === 'note' || pb) && (now / 250 + o.id) % 6 < 1) this._twinkle(g, bx + 4 - cx0, by - 14 + bob - cy0);
         break;
       }
       case 'qitem': {
         const spr = SPR.qitem(o.kind);
         const bob = Math.round(Math.sin(now / 300 + o.id) * 1);
         g.drawImage(spr.img, bx - spr.ax - cx0, by - spr.ay - 1 + bob - cy0);
-        if ((now / 230 + o.id) % 5 < 1) { g.fillStyle = '#fff4b0'; g.fillRect(bx + 3 - cx0, by - 13 + bob - cy0, 1, 3); g.fillRect(bx + 2 - cx0, by - 12 + bob - cy0, 3, 1); }
+        if ((now / 230 + o.id) % 5 < 1) this._twinkle(g, bx + 3 - cx0, by - 13 + bob - cy0);
         break;
       }
       case 'landmark': {
@@ -649,6 +651,9 @@ class Renderer {
       case 'nest': this._collectNest(o, now); break;
     }
   }
+
+  // a little sparkle (+) above something worth picking up; (x, y) is its top
+  _twinkle(g, x, y) { g.fillStyle = '#fff4b0'; g.fillRect(x, y, 1, 3); g.fillRect(x - 1, y + 1, 3, 1); }
 
   _collectNest(n, now) {
     const S = this.game.state;
@@ -852,6 +857,7 @@ class Renderer {
         if (!n.away) add(n.x * TS - cx0, n.y * TS - 12 - cy0, 30);
       }
       for (const p of S.players.values()) if (!p.sleep) add(p.x - cx0, p.y - 12 - cy0, 32);
+      FestivalView.lights(S, m, now, (x, y, r) => add(x - cx0, y - cy0, r));
     }
     if (lights.length) {
       lg.globalCompositeOperation = 'lighter';

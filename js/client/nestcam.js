@@ -465,7 +465,6 @@ class NestCam {
     const ease = (k) => k * k * (3 - 2 * k), lerp = (a, b, k) => a + (b - a) * k;
     const rimX = cx + hrx + 3;
     const cu = n.cu && (n.st === 'chicks' || n.st === 'fledged');
-    const parentId = sp.id; // in a cuckoo's nest, the foster parents
     const ctype = cu ? 'gape' : camChickType(sp);
     const after = []; // drawn over the front lip
     const visit = (P, arrive, stay, leave, sit) => {
@@ -489,8 +488,8 @@ class NestCam {
       case 'eggs': {
         const v = visit(11000, 4200, 5000, 10000, true);
         if (!(v.at)) eggsRow(Math.max(1, n.eggs || 1), sp.id, n.cu);
-        if (v.at) this.bird(parentId, cx, sitY + Math.round(Math.sin(t / 700)), (t % 3000) < 400 ? 'peck' : 'perch', Math.floor(t / 11000) % 2 ? 1 : -1);
-        else if (!v.away) after.push(() => this.bird(parentId, v.x, v.y, v.f, v.face));
+        if (v.at) this.bird(sp.id, cx, sitY + Math.round(Math.sin(t / 700)), (t % 3000) < 400 ? 'peck' : 'perch', Math.floor(t / 11000) % 2 ? 1 : -1);
+        else if (!v.away) after.push(() => this.bird(sp.id, v.x, v.y, v.f, v.face));
         break;
       }
       case 'chicks': {
@@ -498,7 +497,7 @@ class NestCam {
           // precocial chicks run about near the nest; a parent keeps watch
           const k = Math.min(5, n.ch || 3);
           after.push(() => {
-            this.bird(parentId, 18, CAM_H - 3, (t % 4000) < 600 ? 'peck' : 'perch', 1);
+            this.bird(sp.id, 18, CAM_H - 3, (t % 4000) < 600 ? 'peck' : 'perch', 1);
             for (let i = 0; i < k; i++) {
               const sx = Math.sin(t / 900 + i * 2.1), vx = Math.cos(t / 900 + i * 2.1);
               this.runner(sp, 44 + i * 6 + sx * 7, CAM_H - 2 - (i % 2) * 2, vx >= 0 ? 1 : -1, ((t / 300 + i) % 7) < 1);
@@ -528,7 +527,7 @@ class NestCam {
             }
           }
         }
-        if (!v.away) after.push(() => this.bird(parentId, v.x, v.y, v.at ? (Math.floor(v.ph / 260) % 2 ? 'peck' : 'perch') : v.f, v.face));
+        if (!v.away) after.push(() => this.bird(sp.id, v.x, v.y, v.at ? (Math.floor(v.ph / 260) % 2 ? 'peck' : 'perch') : v.f, v.face));
         break;
       }
       case 'pair': case 'lining': {

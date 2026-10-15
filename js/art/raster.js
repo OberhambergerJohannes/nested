@@ -150,12 +150,6 @@ class Pix {
     return this;
   }
   // Replace colours: map of hex -> hex
-  recolor(map) {
-    const m = new Map();
-    for (const k in map) m.set(C(k), C(map[k]));
-    for (let i = 0; i < this.p.length; i++) { const r = m.get(this.p[i]); if (r !== undefined) this.p[i] = r; }
-    return this;
-  }
   flipped() {
     const q = new Pix(this.w, this.h);
     for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) q.p[y * this.w + x] = this.p[y * this.w + this.w - 1 - x];
